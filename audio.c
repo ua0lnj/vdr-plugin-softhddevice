@@ -880,7 +880,7 @@ static int AlsaPlayRingbuffer(void)
 			snd_strerror(err));
 		    err = snd_pcm_recover(AlsaPCMHandle, err, 0);
 		    if (err >= 0) {
-			continue;
+			return 0;
 		    }
 		    Error(_("audio/alsa: snd_pcm_writei failed: %s\n"),
 			snd_strerror(err));

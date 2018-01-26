@@ -6552,18 +6552,24 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    // FIXME: this quicker sync step, did not work with new code!
 	    err = VaapiMessage(2, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-	    decoder->SyncCounter = 1;
-	    goto out;
+	    if (VideoSoftStartSync) {
+		decoder->SyncCounter = 1;
+		goto out;
+	    }
 	} else if (diff > 55 * 90) {
 	    err = VaapiMessage(2, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-	    decoder->SyncCounter = 1;
-	    goto out;
+	    if (VideoSoftStartSync) {
+		decoder->SyncCounter = 1;
+		goto out;
+	    }
 	} else if (diff < -25 * 90 && filled > 1 + 2 * decoder->Interlaced) {
 	    err = VaapiMessage(2, "video: speed up video, droping frame\n");
 	    ++decoder->FramesDropped;
 	    VaapiAdvanceDecoderFrame(decoder);
-	    decoder->SyncCounter = 1;
+	    if (VideoSoftStartSync) {
+		decoder->SyncCounter = 1;
+	    }
 	}
 #if defined(DEBUG) || defined(AV_INFO)
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
@@ -10573,18 +10579,24 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    // FIXME: this quicker sync step, did not work with new code!
 	    err = VdpauMessage(2, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-	    decoder->SyncCounter = 1;
-	    goto out;
+	    if (VideoSoftStartSync) {
+		decoder->SyncCounter = 1;
+		goto out;
+	    }
 	} else if (diff > 55 * 90) {
 	    err = VdpauMessage(2, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-	    decoder->SyncCounter = 1;
-	    goto out;
+	    if (VideoSoftStartSync) {
+		decoder->SyncCounter = 1;
+		goto out;
+	    }
 	} else if (diff < -25 * 90 && filled > 1 + 2 * decoder->Interlaced) {
 	    err = VdpauMessage(2, "video: speed up video, droping frame\n");
 	    ++decoder->FramesDropped;
 	    VdpauAdvanceDecoderFrame(decoder);
-	    decoder->SyncCounter = 1;
+	    if (VideoSoftStartSync) {
+		decoder->SyncCounter = 1;
+	    }
 	}
 #if defined(DEBUG) || defined(AV_INFO)
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
