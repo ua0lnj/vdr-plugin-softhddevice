@@ -148,6 +148,8 @@ static int AudioBufferTime = 336;	///< audio buffer time in ms
 #ifdef USE_AUDIO_THREAD
 static pthread_t AudioThread;		///< audio play thread
 static pthread_mutex_t AudioMutex;	///< audio condition mutex
+pthread_mutex_t PTS_mutex;		///< PTS mutex
+pthread_mutex_t ReadAdvance_mutex;	///< PTS mutex
 static pthread_cond_t AudioStartCond;	///< condition variable
 static char AudioThreadStop;		///< stop audio thread
 #else
@@ -860,6 +862,7 @@ static int AlsaPlayRingbuffer(void)
 #endif
 
 	for (;;) {
+	    pthread_mutex_lock(&ReadAdvance_mutex);
 	    if (AlsaUseMmap) {
 		err = snd_pcm_mmap_writei(AlsaPCMHandle, p, frames);
 	    } else {
@@ -868,6 +871,7 @@ static int AlsaPlayRingbuffer(void)
 	    //Debug(3, "audio/alsa: wrote %d/%d frames\n", err, frames);
 	    if (err != frames) {
 		if (err < 0) {
+		    pthread_mutex_unlock(&ReadAdvance_mutex);
 		    if (err == -EAGAIN) {
 			continue;
 		    }
@@ -893,6 +897,7 @@ static int AlsaPlayRingbuffer(void)
 	    break;
 	}
 	RingBufferReadAdvance(AudioRing[AudioRingRead].RingBuffer, avail);
+	pthread_mutex_unlock(&ReadAdvance_mutex);
 	first = 0;
     }
 
@@ -963,7 +968,7 @@ static int AlsaThread(void)
 	}
 	break;
     }
-    if (!err || AudioPaused) {		// timeout or some commands
+    if (AudioPaused) {		// timeout or some commands
 	return 1;
     }
 
@@ -2186,6 +2191,8 @@ static void AudioInitThread(void)
 {
     AudioThreadStop = 0;
     pthread_mutex_init(&AudioMutex, NULL);
+    pthread_mutex_init(&PTS_mutex, NULL);
+    pthread_mutex_init(&ReadAdvance_mutex, NULL);
     pthread_cond_init(&AudioStartCond, NULL);
     pthread_create(&AudioThread, NULL, AudioPlayHandlerThread, NULL);
     pthread_setname_np(AudioThread, "softhddev audio");
@@ -2209,6 +2216,8 @@ static void AudioExitThread(void)
 	}
 	pthread_cond_destroy(&AudioStartCond);
 	pthread_mutex_destroy(&AudioMutex);
+	pthread_mutex_destroy(&PTS_mutex);
+	pthread_mutex_destroy(&ReadAdvance_mutex);
 	AudioThread = 0;
     }
 }
@@ -2304,6 +2313,7 @@ void AudioEnqueue(const void *samples, int count)
 	}
     }
 
+    pthread_mutex_lock(&PTS_mutex);
     n = RingBufferWrite(AudioRing[AudioRingWrite].RingBuffer, buffer, count);
     if (n != (size_t) count) {
 	Error(_("audio: can't place %d samples in ring buffer\n"), count);
@@ -2355,6 +2365,7 @@ void AudioEnqueue(const void *samples, int count)
 	    / (AudioRing[AudioRingWrite].HwSampleRate *
 	    AudioRing[AudioRingWrite].HwChannels * AudioBytesProSample);
     }
+    pthread_mutex_unlock(&PTS_mutex);
 }
 
 /**

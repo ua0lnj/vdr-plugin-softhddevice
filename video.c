@@ -493,6 +493,8 @@ static pthread_t VideoThread;		///< video decode thread
 static pthread_cond_t VideoWakeupCond;	///< wakeup condition variable
 static pthread_mutex_t VideoMutex;	///< video condition mutex
 static pthread_mutex_t VideoLockMutex;	///< video lock mutex
+extern pthread_mutex_t PTS_mutex;	///< PTS mutex
+extern pthread_mutex_t ReadAdvance_mutex;	///< PTS mutex
 
 #endif
 
@@ -522,6 +524,10 @@ static int64_t VideoDeltaPTS;		///< FIXME: fix pts
 static char DPMSDisabled;		///< flag we have disabled dpms
 static char EnableDPMSatBlackScreen;	///< flag we should enable dpms at black screen
 #endif
+
+uint32_t mutex_start_time;
+int max_mutex_delay;
+max_mutex_delay = 1;
 
 //----------------------------------------------------------------------------
 //	Common Functions
@@ -6494,7 +6500,16 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
     int64_t video_clock;
 
     err = 0;
+    mutex_start_time = GetMsTicks();
+    pthread_mutex_lock(&PTS_mutex);
+    pthread_mutex_lock(&ReadAdvance_mutex);
     audio_clock = AudioGetClock();
+    pthread_mutex_unlock(&ReadAdvance_mutex);
+    pthread_mutex_unlock(&PTS_mutex);
+    if (GetMsTicks() - mutex_start_time > max_mutex_delay) {
+	max_mutex_delay = GetMsTicks() - mutex_start_time;
+	Debug(3, "video: mutex delay: %"PRIu32"ms\n", max_mutex_delay);
+    }
     video_clock = VaapiGetClock(decoder);
     filled = atomic_read(&decoder->SurfacesFilled);
 
@@ -10524,7 +10539,16 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	// FIXME: 60Hz Mode
 	goto skip_sync;
     }
+    mutex_start_time = GetMsTicks();
+    pthread_mutex_lock(&PTS_mutex);
+    pthread_mutex_lock(&ReadAdvance_mutex);
     audio_clock = AudioGetClock();
+    pthread_mutex_unlock(&ReadAdvance_mutex);
+    pthread_mutex_unlock(&PTS_mutex);
+    if (GetMsTicks() - mutex_start_time > max_mutex_delay) {
+	max_mutex_delay = GetMsTicks() - mutex_start_time;
+	Debug(3, "video: mutex delay: %"PRIu32"ms\n", max_mutex_delay);
+    }
 
     // 60Hz: repeat every 5th field
     if (Video60HzMode && !(decoder->FramesDisplayed % 6)) {
