@@ -3539,3 +3539,8 @@ int PipPlayVideo(const uint8_t * data, int size)
 }
 
 #endif
+
+int IsReplay(void)
+{
+    return !AudioSyncStream || AudioSyncStream->ClearClose;
+}
