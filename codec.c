@@ -612,8 +612,25 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
     *pkt = *avpkt;			// use copy
 
   next_part:
+#if 0
     // FIXME: this function can crash with bad packets
     used = avcodec_decode_video2(video_ctx, frame, &got_frame, pkt);
+#else
+         if (video_ctx->codec_type == AVMEDIA_TYPE_VIDEO ||
+             video_ctx->codec_type == AVMEDIA_TYPE_AUDIO) {
+             used = avcodec_send_packet(video_ctx, pkt);
+             if (used < 0 && used != AVERROR(EAGAIN) && used != AVERROR_EOF) {
+            } else {
+             if (used >= 0)
+                 pkt->size = 0;
+             used = avcodec_receive_frame(video_ctx, frame);
+             if (used >= 0)
+                 got_frame = 1;
+//             if (used == AVERROR(EAGAIN) || used == AVERROR_EOF)
+//                 used = 0;
+             }
+         }
+#endif
     Debug(4, "%s: %p %d -> %d %d\n", __FUNCTION__, pkt->data, pkt->size, used,
 	got_frame);
 
@@ -1497,7 +1514,32 @@ int myavcodec_decode_audio3(AVCodecContext *avctx, int16_t *samples, int *frame_
 
     if (!frame)
 	return AVERROR(ENOMEM);
+#if 0
     ret = avcodec_decode_audio4(avctx, frame, &got_frame, avpkt);
+#else
+//  SUGGESTION
+//  Now that avcodec_decode_audio4 is deprecated and replaced
+//  by 2 calls (receive frame and send packet), this could be optimized
+//  into separate routines or separate threads.
+//  Also now that it always consumes a whole buffer some code
+//  in the caller may be able to be optimized.
+    ret = avcodec_receive_frame(avctx,frame);
+    if (ret == 0)
+        got_frame = true;
+    if (ret == AVERROR(EAGAIN))
+        ret = 0;
+    if (ret == 0)
+        ret = avcodec_send_packet(avctx, avpkt);
+    if (ret == AVERROR(EAGAIN))
+        ret = 0;
+    else if (ret < 0)
+    {
+        Debug(3, "codec/audio: audio decode error: %1 (%2)\n",av_make_error_string(error, sizeof(error), ret),got_frame);
+        return ret;
+    }
+    else
+        ret = avpkt->size;
+#endif
     if (ret >= 0 && got_frame) {
 	int i, ch;
 	int planar = av_sample_fmt_is_planar(avctx->sample_fmt);
@@ -1870,7 +1912,7 @@ void CodecAudioDecode(AudioDecoder * audio_decoder, const AVPacket * avpkt)
     AVFrame *frame;
 #endif
     int got_frame;
-    int n;
+    int n, ret;
 
     audio_ctx = audio_decoder->AudioCtx;
 
@@ -1885,9 +1927,34 @@ void CodecAudioDecode(AudioDecoder * audio_decoder, const AVPacket * avpkt)
 #endif
 
     got_frame = 0;
+#if 0
     n = avcodec_decode_audio4(audio_ctx, frame, &got_frame,
-	(AVPacket *) avpkt);
-
+        (AVPacket *) avpkt);
+#else
+//  SUGGESTION
+//  Now that avcodec_decode_audio4 is deprecated and replaced
+//  by 2 calls (receive frame and send packet), this could be optimized
+//  into separate routines or separate threads.
+//  Also now that it always consumes a whole buffer some code
+//  in the caller may be able to be optimized.
+    ret = avcodec_receive_frame(audio_ctx,frame);
+    if (ret == 0)
+        got_frame = 1;
+    if (ret == AVERROR(EAGAIN))
+        ret = 0;
+    if (ret == 0)
+        ret = avcodec_send_packet(audio_ctx, avpkt);
+    if (ret == AVERROR(EAGAIN))
+        ret = 0;
+    else if (ret < 0)
+    {
+        Debug(3, "codec/audio: audio decode error: %1 (%2)\n",av_make_error_string(error, sizeof(error), ret),got_frame);
+        return;
+    }
+    else
+        ret = avpkt->size;
+    n = ret; //FIXME: why n and not ret??
+#endif
     if (n != avpkt->size) {
 	if (n == AVERROR(EAGAIN)) {
 	    Error(_("codec/audio: latm\n"));
