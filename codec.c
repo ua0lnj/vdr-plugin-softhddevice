@@ -612,10 +612,9 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
     if (video_ctx->codec_type == AVMEDIA_TYPE_VIDEO) {
     frame = decoder->Frame;
     *pkt = *avpkt;			// use copy
-//Error(_("codec: %p size %d\n"),pkt->data,pkt->size);
+
   next_part:
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,37,100)
-    // FIXME: this function can crash with bad packets
     used = avcodec_decode_video2(video_ctx, frame, &got_frame, pkt);
 #else
 
@@ -631,13 +630,11 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 //             if (used == AVERROR(EAGAIN) || used == AVERROR_EOF)
 //                 used = 0;
              }
-//         }
 #endif
     Debug(4, "%s: %p %d -> %d %d\n", __FUNCTION__, pkt->data, pkt->size, used,
 	got_frame);
 
     if (used < 0) {
-//Error(_("codec: bad frame %d %p size %d\n"),used,pkt->data,pkt->size);
 	Debug(3, "codec: bad video frame\n");
 	return;
     }
