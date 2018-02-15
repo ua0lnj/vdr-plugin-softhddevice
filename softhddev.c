@@ -509,7 +509,8 @@ void ResetChannelId(void)
 //////////////////////////////////////////////////////////////////////////////
 
 #define VIDEO_BUFFER_SIZE (512 * 1024)	///< video PES buffer default size
-#define VIDEO_PACKET_MAX 192		///< max number of video packets
+#define VIDEO_PACKET_MAX 256		///< max number of video packets
+#define VIDEO_PACKET_NORM 192		///< max number of video packets
 
 /**
 **	Video output stream device structure.	Parser, decoder, display.
@@ -598,7 +599,11 @@ static void VideoPacketExit(VideoStream * stream)
     atomic_set(&stream->PacketsFilled, 0);
 
     for (i = 0; i < VIDEO_PACKET_MAX; ++i) {
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(56,28,1)
 	av_free_packet(&stream->PacketRb[i]);
+#else
+	av_packet_unref(&stream->PacketRb[i]);
+#endif
     }
 }
 
@@ -702,7 +707,7 @@ static void VideoNextPacket(VideoStream * stream, int codec_id)
     //DumpH264(avpkt->data, avpkt->stream_index);
 
     // advance packet write
-    stream->PacketWrite = (stream->PacketWrite + 1) % VIDEO_PACKET_MAX;
+    stream->PacketWrite = (stream->PacketWrite + 1) % VIDEO_PACKET_NORM;
     atomic_inc(&stream->PacketsFilled);
 
     VideoDisplayWakeup();
@@ -1095,13 +1100,13 @@ int VideoDecodeInput(VideoStream * stream)
 
 	// flush buffers, if close is in the queue
 	for (f = 0; f < filled; ++f) {
-	    if (stream->CodecIDRb[(stream->PacketRead + f) % VIDEO_PACKET_MAX]
+	    if (stream->CodecIDRb[(stream->PacketRead + f) % VIDEO_PACKET_NORM]
 		== AV_CODEC_ID_NONE) {
 		if (f) {
 		    Debug(3, "video: cleared upto close\n");
 		    atomic_sub(f, &stream->PacketsFilled);
 		    stream->PacketRead =
-			(stream->PacketRead + f) % VIDEO_PACKET_MAX;
+			(stream->PacketRead + f) % VIDEO_PACKET_NORM;
 		    stream->ClearClose = 0;
 		}
 		break;
@@ -1182,7 +1187,7 @@ int VideoDecodeInput(VideoStream * stream)
 
   skip:
     // advance packet read
-    stream->PacketRead = (stream->PacketRead + 1) % VIDEO_PACKET_MAX;
+    stream->PacketRead = (stream->PacketRead + 1) % VIDEO_PACKET_NORM;
     atomic_dec(&stream->PacketsFilled);
 
     return 0;
@@ -1364,7 +1369,7 @@ enum
     PES_PROG_STREAM_DIR = 0xFF,
 };
 
-#ifndef NO_TS_AUDIO
+#ifdef USE_TS
 
 ///
 ///	PES parser state.
@@ -2266,7 +2271,7 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
     return size;
 }
 
-#ifndef NO_TS_AUDIO
+#ifdef USE_TS
 /**
 **	Play transport stream audio packet.
 **
@@ -2562,7 +2567,7 @@ int PlayVideo(const uint8_t * data, int size)
     return PlayVideo3(MyVideoStream, data, size);
 }
 
-#ifdef USE_TS_VIDEO
+#ifdef USE_TS
 
 /**
 **	Play transport stream video packet.
@@ -2601,7 +2606,10 @@ int PlayTsVideo(const uint8_t * data, int size)
 	PesReset(&PesDemuxer[TS_PES_VIDEO]);
     }
     // hard limit buffer full: needed for replay
+
+//Error(_("[softhddev] Filled %d\n"),MyVideoStream->PacketsFilled);
     if (atomic_read(&MyVideoStream->PacketsFilled) >= VIDEO_PACKET_MAX - 10) {
+Error(_("[softhddev] Filled %d\n"),MyVideoStream->PacketsFilled);
 	return 0;
     }
 #ifdef USE_SOFTLIMIT
@@ -3394,8 +3402,11 @@ void SoftHdDeviceExit(void)
 	MyAudioDecoder = NULL;
     }
     NewAudioStream = 0;
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(56,28,1)
     av_free_packet(AudioAvPkt);
-
+#else
+    av_packet_unref(AudioAvPkt);
+#endif
     StopVideo();
 
     CodecExit();
@@ -3478,10 +3489,8 @@ int Start(void)
 	MyVideoStream->SkipStream = 1;
 	SkipAudio = 1;
     }
-#ifdef USE_TS_VIDEO
+#ifdef USE_TS
     PesInit(&PesDemuxer[TS_PES_VIDEO]);
-#endif
-#ifndef NO_TS_AUDIO
     PesInit(&PesDemuxer[TS_PES_AUDIO]);
 #endif
     Info(_("[softhddev] ready%s\n"),
@@ -3590,7 +3599,11 @@ void Suspend(int video, int audio, int dox11)
 	    MyAudioDecoder = NULL;
 	}
 	NewAudioStream = 0;
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(56,28,1)
 	av_free_packet(AudioAvPkt);
+#else
+	av_packet_unref(AudioAvPkt);
+#endif
     }
     if (video) {
 	StopVideo();

@@ -2373,10 +2373,10 @@ class cSoftHdDevice:public cDevice
     virtual void GetOsdSize(int &, int &, double &);
     virtual int PlayVideo(const uchar *, int);
     virtual int PlayAudio(const uchar *, int, uchar);
-#ifdef USE_TS_VIDEO
+#ifdef USE_TS
     virtual int PlayTsVideo(const uchar *, int);
 #endif
-#if !defined(USE_AUDIO_THREAD) || !defined(NO_TS_AUDIO)
+#if !defined(USE_AUDIO_THREAD) || defined(USE_TS)
     virtual int PlayTsAudio(const uchar *, int);
 #endif
     virtual void SetAudioChannelDevice(int);
@@ -2780,7 +2780,7 @@ int cSoftHdDevice::PlayVideo(const uchar * data, int length)
     return::PlayVideo(data, length);
 }
 
-#ifdef USE_TS_VIDEO
+#ifdef USE_TS
 /**
 **	Play a TS video packet.
 **
@@ -2793,7 +2793,7 @@ int cSoftHdDevice::PlayTsVideo(const uchar * data, int length)
 }
 #endif
 
-#if !defined(USE_AUDIO_THREAD) || !defined(NO_TS_AUDIO)
+#if !defined(USE_AUDIO_THREAD) || defined(USE_TS)
 
 /**
 **	Play a TS audio packet.
@@ -2803,7 +2803,7 @@ int cSoftHdDevice::PlayTsVideo(const uchar * data, int length)
 */
 int cSoftHdDevice::PlayTsAudio(const uchar * data, int length)
 {
-#ifndef NO_TS_AUDIO
+#ifdef USE_TS
     if (SoftIsPlayingVideo != cDevice::IsPlayingVideo()) {
 	SoftIsPlayingVideo = cDevice::IsPlayingVideo();
 	Debug(3, "[softhddev]%s: SoftIsPlayingVideo: %d\n", __FUNCTION__, SoftIsPlayingVideo);
