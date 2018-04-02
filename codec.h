@@ -35,6 +35,10 @@
 
 #define AVCODEC_MAX_AUDIO_FRAME_SIZE 192000
 
+#ifndef FF_INPUT_BUFFER_PADDING_SIZE
+#define FF_INPUT_BUFFER_PADDING_SIZE AV_INPUT_BUFFER_PADDING_SIZE
+#endif
+
 enum HWAccelID {
      HWACCEL_NONE = 0,
      HWACCEL_AUTO,
@@ -47,7 +51,6 @@ enum HWAccelID {
      HWACCEL_CUVID,
 };
 
-AVBufferRef *hw_device_ctx;
 ///
 ///     Video decoder structure.
 ///

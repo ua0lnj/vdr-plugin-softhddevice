@@ -496,7 +496,7 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id)
     } else {
 	decoder->VideoCtx->get_format = Codec_get_format;
 	decoder->VideoCtx->get_buffer2 = Codec_get_buffer2;
-	decoder->VideoCtx->thread_count = 1;
+	decoder->VideoCtx->thread_count = 0;
 	decoder->VideoCtx->active_thread_type = 0;
 	decoder->VideoCtx->draw_horiz_band = NULL;
 	decoder->VideoCtx->hwaccel_context =
@@ -550,8 +550,12 @@ void CodecVideoClose(VideoDecoder * video_decoder)
 
     if (video_decoder->VideoCtx) {
 	pthread_mutex_lock(&CodecLockMutex);
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(55,63,100)
 	avcodec_close(video_decoder->VideoCtx);
 	av_freep(&video_decoder->VideoCtx);
+#else
+	avcodec_free_context(&video_decoder->VideoCtx);
+#endif
 	pthread_mutex_unlock(&CodecLockMutex);
     }
 }
@@ -603,43 +607,39 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 {
     AVCodecContext *video_ctx;
     AVFrame *frame;
-    int used;
-    int got_frame;
+    int used = 0;
+    int got_frame = 0;
     AVPacket pkt[1];
 
     video_ctx = decoder->VideoCtx;
 
     if (video_ctx->codec_type == AVMEDIA_TYPE_VIDEO) {
+
     frame = decoder->Frame;
+
     *pkt = *avpkt;			// use copy
 
   next_part:
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,37,100)
     used = avcodec_decode_video2(video_ctx, frame, &got_frame, pkt);
 #else
+    used = avcodec_send_packet(video_ctx, pkt);
+    if (used < 0)
+        return;
 
-             used = avcodec_send_packet(video_ctx, pkt);
-             if (used < 0 && used != AVERROR(EAGAIN) && used != AVERROR_EOF) {
-            } else {
-             if (used >= 0)
-                 pkt->size = 0;
+    pkt->size = 0;
 
-             used = avcodec_receive_frame(video_ctx, frame);
-             if (used > 0)
-                 got_frame = 1;
-//             if (used == AVERROR(EAGAIN) || used == AVERROR_EOF)
-//                 used = 0;
-             }
+    used = avcodec_receive_frame(video_ctx, frame);
+    if (used < 0 && used != AVERROR(EAGAIN) && used != AVERROR_EOF)
+        return;
+    if (used>=0)
+        got_frame = 1;
 #endif
     Debug(4, "%s: %p %d -> %d %d\n", __FUNCTION__, pkt->data, pkt->size, used,
 	got_frame);
 
-    if (used < 0) {
-	Debug(3, "codec: bad video frame\n");
-	return;
-    }
-
     if (got_frame) {			// frame completed
+
 #ifdef FFMPEG_WORKAROUND_ARTIFACTS
 	if (!CodecUsePossibleDefectFrames && decoder->FirstKeyFrame) {
 	    decoder->FirstKeyFrame++;
@@ -684,7 +684,7 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 	}
     }
 #endif
-    // new AVFrame API
+
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(56,28,1)
     av_frame_unref(frame);
 #endif
@@ -944,8 +944,12 @@ void CodecAudioClose(AudioDecoder * audio_decoder)
 #endif
     if (audio_decoder->AudioCtx) {
 	pthread_mutex_lock(&CodecLockMutex);
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(55,63,100)
 	avcodec_close(audio_decoder->AudioCtx);
 	av_freep(&audio_decoder->AudioCtx);
+#else
+	avcodec_free_context(&audio_decoder->AudioCtx);
+#endif
 	pthread_mutex_unlock(&CodecLockMutex);
     }
 }

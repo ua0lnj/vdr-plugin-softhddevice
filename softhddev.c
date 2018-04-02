@@ -509,8 +509,7 @@ void ResetChannelId(void)
 //////////////////////////////////////////////////////////////////////////////
 
 #define VIDEO_BUFFER_SIZE (512 * 1024)	///< video PES buffer default size
-#define VIDEO_PACKET_MAX 256		///< max number of video packets
-#define VIDEO_PACKET_NORM 192		///< max number of video packets
+#define VIDEO_PACKET_MAX 192		///< max number of video packets
 
 /**
 **	Video output stream device structure.	Parser, decoder, display.
@@ -707,7 +706,7 @@ static void VideoNextPacket(VideoStream * stream, int codec_id)
     //DumpH264(avpkt->data, avpkt->stream_index);
 
     // advance packet write
-    stream->PacketWrite = (stream->PacketWrite + 1) % VIDEO_PACKET_NORM;
+    stream->PacketWrite = (stream->PacketWrite + 1) % VIDEO_PACKET_MAX;
     atomic_inc(&stream->PacketsFilled);
 
     VideoDisplayWakeup();
@@ -1100,13 +1099,13 @@ int VideoDecodeInput(VideoStream * stream)
 
 	// flush buffers, if close is in the queue
 	for (f = 0; f < filled; ++f) {
-	    if (stream->CodecIDRb[(stream->PacketRead + f) % VIDEO_PACKET_NORM]
+	    if (stream->CodecIDRb[(stream->PacketRead + f) % VIDEO_PACKET_MAX]
 		== AV_CODEC_ID_NONE) {
 		if (f) {
 		    Debug(3, "video: cleared upto close\n");
 		    atomic_sub(f, &stream->PacketsFilled);
 		    stream->PacketRead =
-			(stream->PacketRead + f) % VIDEO_PACKET_NORM;
+			(stream->PacketRead + f) % VIDEO_PACKET_MAX;
 		    stream->ClearClose = 0;
 		}
 		break;
@@ -1187,7 +1186,7 @@ int VideoDecodeInput(VideoStream * stream)
 
   skip:
     // advance packet read
-    stream->PacketRead = (stream->PacketRead + 1) % VIDEO_PACKET_NORM;
+    stream->PacketRead = (stream->PacketRead + 1) % VIDEO_PACKET_MAX;
     atomic_dec(&stream->PacketsFilled);
 
     return 0;
@@ -1216,11 +1215,11 @@ static void StartVideo(void)
 	// FIXME: not good looking, mapped and then resized.
 	VideoSetFullscreen(1);
     }
-    VideoOsdInit();
     if (!MyVideoStream->Decoder) {
 	VideoStreamOpen(MyVideoStream);
 	AudioSyncStream = MyVideoStream;
     }
+    VideoOsdInit();
 }
 
 /**
@@ -2606,8 +2605,6 @@ int PlayTsVideo(const uint8_t * data, int size)
 	PesReset(&PesDemuxer[TS_PES_VIDEO]);
     }
     // hard limit buffer full: needed for replay
-
-//Error(_("[softhddev] Filled %d\n"),MyVideoStream->PacketsFilled);
     if (atomic_read(&MyVideoStream->PacketsFilled) >= VIDEO_PACKET_MAX - 10) {
 Error(_("[softhddev] Filled %d\n"),MyVideoStream->PacketsFilled);
 	return 0;

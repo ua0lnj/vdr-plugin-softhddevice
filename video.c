@@ -7051,7 +7051,7 @@ static void VaapiOsdInit(int width, int height)
     //
     format_n = vaMaxNumSubpictureFormats(VaDisplay);
     formats = alloca(format_n * sizeof(*formats));
-    flags = alloca(format_n * sizeof(*formats));
+    flags = alloca(format_n * sizeof(*flags));
     if (vaQuerySubpictureFormats(VaDisplay, formats, flags,
 	    &format_n) != VA_STATUS_SUCCESS) {
 	Error(_("video/vaapi: can't get subpicture formats"));
@@ -7176,7 +7176,9 @@ static const VideoModule VaapiModule = {
 	    int *))VaapiGetStats,
     .SetBackground = VaapiSetBackground,
     .SetVideoMode = VaapiSetVideoMode,
+#ifdef USE_AUTOCROP
     .ResetAutoCrop = VaapiResetAutoCrop,
+#endif
     .DisplayHandlerThread = VaapiDisplayHandlerThread,
     .OsdClear = VaapiOsdClear,
     .OsdDrawARGB = VaapiOsdDrawARGB,
@@ -7218,7 +7220,9 @@ static const VideoModule VaapiGlxModule = {
 	    int *))VaapiGetStats,
     .SetBackground = VaapiSetBackground,
     .SetVideoMode = VaapiSetVideoMode,
+#ifdef USE_AUTOCROP
     .ResetAutoCrop = VaapiResetAutoCrop,
+#endif
     .DisplayHandlerThread = VaapiDisplayHandlerThread,
     .OsdClear = GlxOsdClear,
     .OsdDrawARGB = GlxOsdDrawARGB,
@@ -8791,7 +8795,6 @@ static unsigned VdpauGetSurface(VdpauDecoder * decoder,
 	decoder->InputWidth = video_ctx->width;
 	decoder->InputHeight = video_ctx->height;
 	decoder->InputAspect = video_ctx->sample_aspect_ratio;
-
 	VdpauSetupOutput(decoder);
     }
 #else
@@ -8898,7 +8901,9 @@ static int vdpau_alloc(AVCodecContext *s)
     AVHWDeviceContext *device_ctx;
     AVVDPAUDeviceContext *device_hwctx;
     AVHWFramesContext *frames_ctx;
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,80,100)
     AVBufferRef *hw_device_ctx;
+#endif
     Debug(3, "vdpau_alloc\n");
 
     ctx = av_mallocz(sizeof(*ctx));
@@ -8917,24 +8922,40 @@ static int vdpau_alloc(AVCodecContext *s)
 	Debug(3, "VDPAU init failed for av_frame_alloc\n");
 	goto fail;
     }
-
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,80,100)
     hw_device_ctx = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_VDPAU);
     if (!hw_device_ctx) {
+#else
+    s->hw_device_ctx = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_VDPAU);
+    if (!s->hw_device_ctx) {
+#endif
 	Debug(3, "VDPAU init failed for av_hwdevice_ctx_alloc\n");
 	goto fail;
     }
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,80,100)
     device_ctx = (AVHWDeviceContext*)hw_device_ctx->data;
+#else
+    device_ctx = (AVHWDeviceContext*)s->hw_device_ctx->data;
+#endif
     device_hwctx = device_ctx->hwctx;
     device_hwctx->device  = VdpauDevice;
     device_hwctx->get_proc_address = VdpauGetProcAddress;
 
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,80,100)
     ret = av_hwdevice_ctx_init(hw_device_ctx);
+#else
+    ret = av_hwdevice_ctx_init(s->hw_device_ctx);
+#endif
     if (ret < 0) {
 	Debug(3, "VDPAU init failed for av_hwdevice_ctx_init\n");
 	goto fail;
     }
 
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,80,100)
     ctx->hw_frames_ctx = av_hwframe_ctx_alloc(hw_device_ctx);
+#else
+    ctx->hw_frames_ctx = s->hw_frames_ctx;
+#endif
     if (!ctx->hw_frames_ctx) {
 	Debug(3, "VDPAU init failed for av_hwframe_ctx_alloc\n");
 	goto fail;
@@ -9128,6 +9149,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
     decoder->PixFmt = *fmt_idx;
     decoder->InputWidth = 0;
     decoder->InputHeight = 0;
+
     if (*fmt_idx == AV_PIX_FMT_VDPAU) { // HWACCEL used
 	int ret;
 
@@ -9161,6 +9183,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	    decoder->InputWidth = video_ctx->width;
 	    decoder->InputHeight = video_ctx->height;
 	    decoder->InputAspect = video_ctx->sample_aspect_ratio;
+
 	    VdpauSetupOutput(decoder);
 	}
 
@@ -9168,6 +9191,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	return AV_PIX_FMT_VDPAU;
     }
     else {
+
 	VdpauChromaType = VDP_CHROMA_TYPE_420;
 	ist->hwaccel_pix_fmt = 0;
 	ist->hwaccel_get_buffer = NULL;
@@ -9194,6 +9218,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	decoder->InputAspect = video_ctx->sample_aspect_ratio;
 
 	VdpauSetupOutput(decoder);
+
     }
 #endif
     }
@@ -9840,6 +9865,7 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 
 	    VdpauCleanup(decoder);
 	    decoder->SurfacesNeeded = VIDEO_SURFACES_MAX + 2;
+
 	    VdpauSetupOutput(decoder);
 	}
 	//
@@ -10746,7 +10772,11 @@ static void VdpauSyncRenderFrame(VdpauDecoder * decoder,
     const AVCodecContext * video_ctx, const AVFrame * frame)
 {
     // FIXME: temp debug
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,61,100)
     if (0 && frame->pkt_pts != (int64_t) AV_NOPTS_VALUE) {
+#else
+    if (0 && frame->pts != (int64_t) AV_NOPTS_VALUE) {
+#endif
 	Debug(3, "video: render frame pts %s\n",
 	    Timestamp2String(frame->pkt_pts));
     }
@@ -11289,7 +11319,9 @@ static const VideoModule VdpauModule = {
 	    int *))VdpauGetStats,
     .SetBackground = VdpauSetBackground,
     .SetVideoMode = VdpauSetVideoMode,
+#ifdef USE_AUTOCROP
     .ResetAutoCrop = VdpauResetAutoCrop,
+#endif
     .DisplayHandlerThread = VdpauDisplayHandlerThread,
     .OsdClear = VdpauOsdClear,
     .OsdDrawARGB = VdpauOsdDrawARGB,
@@ -12104,7 +12136,6 @@ void VideoDrawRenderState(VideoHwDecoder * hw_decoder,
 		Error(_("video/vdpau: can't create decoder: %s\n"),
 		    VdpauGetErrorString(status));
 	    }
-
 	    VdpauSetupOutput(decoder);
 	    return;
 	}
