@@ -2057,8 +2057,9 @@ static int AudioNextRing(void)
     if (remain <= AUDIO_MIN_BUFFER_FREE) {
 	Debug(3, "audio: force start\n");
     }
-    if (remain <= AUDIO_MIN_BUFFER_FREE || ((AudioVideoIsReady || !SoftIsPlayingVideo)
-	    && AudioStartThreshold < used)) {
+    if (AudioStartThreshold * 4 < used || remain <= AUDIO_MIN_BUFFER_FREE ||
+	    ((AudioVideoIsReady || !SoftIsPlayingVideo) &&
+	    AudioStartThreshold < used)) {
 	return 0;
     }
     return 1;
@@ -2352,8 +2353,9 @@ void AudioEnqueue(const void *samples, int count)
 	if (remain <= AUDIO_MIN_BUFFER_FREE) {
 	    Debug(3, "audio: force start\n");
 	}
-	if (remain <= AUDIO_MIN_BUFFER_FREE || ((AudioVideoIsReady || !SoftIsPlayingVideo)
-		&& AudioStartThreshold < n)) {
+	if (AudioStartThreshold * 4 < n || remain <= AUDIO_MIN_BUFFER_FREE ||
+	      ((AudioVideoIsReady || !SoftIsPlayingVideo) &&
+		AudioStartThreshold < n)) {
 	    // restart play-back
 	    // no lock needed, can wakeup next time
 	    AudioRunning = 1;
