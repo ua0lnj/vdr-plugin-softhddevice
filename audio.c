@@ -2057,7 +2057,7 @@ static int AudioNextRing(void)
     if (remain <= AUDIO_MIN_BUFFER_FREE) {
 	Debug(3, "audio: force start\n");
     }
-    if (AudioStartThreshold * 4 < used || remain <= AUDIO_MIN_BUFFER_FREE ||
+    if (!used || AudioStartThreshold * 4 < used || remain <= AUDIO_MIN_BUFFER_FREE ||
 	    ((AudioVideoIsReady || !SoftIsPlayingVideo) &&
 	    AudioStartThreshold < used)) {
 	return 0;
