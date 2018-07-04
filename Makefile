@@ -31,8 +31,10 @@ SWRESAMPLE ?= $(shell pkg-config --exists libswresample && echo 1)
 ifneq ($(SWRESAMPLE),1)
 AVRESAMPLE ?= $(shell pkg-config --exists libavresample && echo 1)
 endif
+    # support NVdec
+CUVID ?= $(shell ffmpeg -loglevel quiet -decoders | grep -c hevc_cuvid)
 
-#CONFIG := -DDEBUG #-DOSD_DEBUG	# enable debug output+functions
+CONFIG := -DDEBUG #-DOSD_DEBUG	# enable debug output+functions
 #CONFIG += -DSTILL_DEBUG=2		# still picture debug verbose level
 
 CONFIG += -DAV_INFO -DAV_INFO_TIME=3000	# info/debug a/v sync
@@ -138,6 +140,9 @@ ifeq ($(AVRESAMPLE),1)
 CONFIG += -DUSE_AVRESAMPLE
 _CFLAGS += $(shell pkg-config --cflags libavresample)
 LIBS += $(shell pkg-config --libs libavresample)
+endif
+ifeq ($(CUVID),1)
+CONFIG += -DCUVID
 endif
 
 _CFLAGS += $(shell pkg-config --cflags libavcodec x11 x11-xcb xcb xcb-icccm)

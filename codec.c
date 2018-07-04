@@ -179,9 +179,9 @@ static int Codec_get_buffer2(AVCodecContext * video_ctx, AVFrame * frame, int fl
     VideoDecoder *decoder;
 
     decoder = video_ctx->opaque;
-    if (decoder->hwaccel_get_buffer && AV_PIX_FMT_VDPAU == decoder->hwaccel_pix_fmt) {
-	return decoder->hwaccel_get_buffer(video_ctx, frame, flags);
-    }
+//    if (decoder->hwaccel_get_buffer && AV_PIX_FMT_VDPAU == decoder->hwaccel_pix_fmt) {
+//	return decoder->hwaccel_get_buffer(video_ctx, frame, flags);
+//    }
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(54,86,100)
     // ffmpeg has this already fixed
@@ -195,6 +195,10 @@ static int Codec_get_buffer2(AVCodecContext * video_ctx, AVFrame * frame, int fl
 	fmts[0] = video_ctx->pix_fmt;
 	fmts[1] = AV_PIX_FMT_NONE;
 	Codec_get_format(video_ctx, fmts);
+    }
+    if (decoder->hwaccel_get_buffer && (AV_PIX_FMT_VDPAU == decoder->hwaccel_pix_fmt || AV_PIX_FMT_CUDA == decoder->hwaccel_pix_fmt)) {
+           //Debug(3,"hwaccel get_buffer\n");
+           return decoder->hwaccel_get_buffer(video_ctx, frame, flags);
     }
 #ifdef USE_VDPAU
     // VDPAU: AV_PIX_FMT_VDPAU_H264 .. AV_PIX_FMT_VDPAU_VC1 AV_PIX_FMT_VDPAU_MPEG4
@@ -406,11 +410,24 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id)
     if (!strcasecmp(VideoGetDriverName(), "vdpau")) {
 	switch (codec_id) {
 	    case AV_CODEC_ID_MPEG2VIDEO:
+#ifdef CUVID
+		name = VideoHardwareDecoder ? "mpeg2_cuvid" : NULL;
+#else
 		name = VideoHardwareDecoder < 0 ? "mpegvideo_vdpau" : NULL;
+#endif
 		break;
 	    case AV_CODEC_ID_H264:
+#ifdef CUVID
+		name = VideoHardwareDecoder ? "h264_cuvid" : NULL;
+#else
 		name = VideoHardwareDecoder ? "h264_vdpau" : NULL;
+#endif
 		break;
+#ifdef CUVID
+	    case AV_CODEC_ID_HEVC:
+		name = VideoHardwareDecoder ? "hevc_cuvid" : NULL;
+		break;
+#endif
 	}
     }
 
@@ -444,6 +461,13 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 	    SLICE_FLAG_CODED_ORDER | SLICE_FLAG_ALLOW_FIELD;
 	decoder->VideoCtx->thread_count = 1;
 	decoder->VideoCtx->active_thread_type = 0;
+    }
+
+    if (strcmp(name,"h264_cuvid") == 0) {
+	if (av_opt_set_int(decoder->VideoCtx->priv_data, "deint", 0 ,0) < 0) {
+	    pthread_mutex_unlock(&CodecLockMutex);
+	    Fatal(_("codec: can't set options to video codec!\n"));
+       }
     }
 
     if (avcodec_open2(decoder->VideoCtx, video_codec, NULL) < 0) {
@@ -624,7 +648,7 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
     used = avcodec_decode_video2(video_ctx, frame, &got_frame, pkt);
 #else
     used = avcodec_send_packet(video_ctx, pkt);
-    if (used < 0)
+    if (used < 0 && used != AVERROR(EAGAIN) && used != AVERROR_EOF)
         return;
 
     pkt->size = 0;
@@ -664,7 +688,7 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 	    video_ctx->frame_number, used);
     }
 
-#if 1
+#if 0
     // old code to support truncated or multi frame packets
     if (used != pkt->size) {
 	// ffmpeg 0.8.7 dislikes our seq_end_h264 and enters endless loop here
@@ -1953,7 +1977,7 @@ void CodecAudioDecode(AudioDecoder * audio_decoder, const AVPacket * avpkt)
         ret = 0;
     else if (ret < 0)
     {
-        Debug(3, "codec/audio: audio decode error: %1 (%2)\n",av_make_error_string(error, sizeof(error), ret),got_frame);
+//        Debug(3, "codec/audio: audio decode error: %1 (%2)\n",av_make_error_string(error, sizeof(error), ret),got_frame);
         return;
     }
     else

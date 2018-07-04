@@ -2606,7 +2606,7 @@ int PlayTsVideo(const uint8_t * data, int size)
     }
     // hard limit buffer full: needed for replay
     if (atomic_read(&MyVideoStream->PacketsFilled) >= VIDEO_PACKET_MAX - 10) {
-Error(_("[softhddev] Filled %d\n"),MyVideoStream->PacketsFilled);
+	Error(_("[softhddev] PlayTsVideo Filled %d\n"),MyVideoStream->PacketsFilled);
 	return 0;
     }
 #ifdef USE_SOFTLIMIT

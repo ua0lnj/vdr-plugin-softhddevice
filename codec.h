@@ -78,6 +78,12 @@ struct _video_decoder_
      enum AVPixelFormat hwaccel_pix_fmt;
      enum AVPixelFormat hwaccel_retrieved_pix_fmt;
      AVBufferRef *hw_frames_ctx;
+
+     void *hwdec_priv;
+     // For HDR side-data caching
+     double cached_hdr_peak;
+     // From VO
+     struct mp_hwdec_devices *hwdec_devs;
 };
 
 //----------------------------------------------------------------------------

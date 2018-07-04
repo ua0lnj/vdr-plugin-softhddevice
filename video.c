@@ -8892,6 +8892,83 @@ static int vdpau_retrieve_data(AVCodecContext *s, AVFrame *frame)
     return 0;
 }
 
+#ifdef CUVID
+
+static int cuvid_get_buffer(AVCodecContext *s, AVFrame *frame, int flags)
+{
+    VideoDecoder        *ist = s->opaque;
+    VDPAUContext        *ctx = ist->hwaccel_ctx;
+    int ret;
+
+    if (!ctx->hw_frames_ctx) {
+	Debug(3,"CUDA fail get buffer\n");
+        exit(0);
+    }
+
+    ret = av_hwframe_get_buffer(ctx->hw_frames_ctx, frame, 0);
+    //ret = avcodec_default_get_buffer2(s, frame, flags);
+
+    Debug(3,"CUDA hwframe got buffer %d\n",ret);
+    return ret;
+}
+
+
+static void cuvid_uninit(AVCodecContext *avctx)
+{
+    VideoDecoder *ist = avctx->opaque;
+    av_buffer_unref(&ist->hw_frames_ctx);
+}
+
+
+static int init_cuvid(AVCodecContext *avctx)
+{
+    VideoDecoder *ist = avctx->opaque;
+    AVHWFramesContext *frames_ctx;
+    int ret;
+
+    Debug(3, "Initializing cuvid hwaccel\n");
+
+    avctx->hw_device_ctx = NULL;
+
+    if (!avctx->hw_device_ctx) {
+        ret = av_hwdevice_ctx_create(&avctx->hw_device_ctx, AV_HWDEVICE_TYPE_CUDA,
+                                     ist->hwaccel_device, NULL, 0);
+        if (ret < 0) {
+            Debug(3, "Error creating a CUDA device\n");
+            return ret;
+        }
+    }
+
+    av_buffer_unref(&ist->hw_frames_ctx);
+    ist->hw_frames_ctx = av_hwframe_ctx_alloc(avctx->hw_device_ctx);
+    if (!ist->hw_frames_ctx) {
+        Debug(3, "Error creating a CUDA frames context\n");
+        return AVERROR(ENOMEM);
+    }
+
+    frames_ctx = (AVHWFramesContext*)ist->hw_frames_ctx->data;
+
+    frames_ctx->format = AV_PIX_FMT_CUDA;
+    frames_ctx->sw_format = avctx->sw_pix_fmt;
+    frames_ctx->width = avctx->width;
+    frames_ctx->height = avctx->height;
+
+    Debug(3, "Initializing CUDA frames context: sw_format = %s, width = %d, height = %d\n",
+           av_get_pix_fmt_name(frames_ctx->sw_format), frames_ctx->width, frames_ctx->height);
+
+    ret = av_hwframe_ctx_init(ist->hw_frames_ctx);
+    if (ret < 0) {
+        Debug(3, "Error initializing a CUDA frame pool\n");
+        return ret;
+    }
+
+    ist->hwaccel_uninit = cuvid_uninit;
+
+    return 0;
+}
+#endif
+
+
 static int vdpau_alloc(AVCodecContext *s)
 {
     VideoDecoder *ist = s->opaque;
@@ -9014,6 +9091,8 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
     int max_refs;
     VideoDecoder *ist = video_ctx->opaque;
 
+    Debug(3,"get format  %dx%d\n",video_ctx->width,video_ctx->height);
+
     if (!VideoHardwareDecoder || (video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO
 	    && VideoHardwareDecoder == 1)
 	) {				// hardware disabled by config
@@ -9040,6 +9119,9 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	    case AV_PIX_FMT_VDPAU_VC1:
 	    case AV_PIX_FMT_VDPAU_MPEG4:
 	    case AV_PIX_FMT_VDPAU:
+#ifdef CUVID
+	    case AV_PIX_FMT_CUDA:
+#endif
 		break;
 	    default:
 		continue;
@@ -9105,6 +9187,10 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	    break;
         case AV_CODEC_ID_HEVC:
             max_refs = 16;
+#ifdef CUVID
+	    if (*fmt_idx == AV_PIX_FMT_CUDA)
+	       break;
+#endif
             if (video_ctx->profile == FF_PROFILE_HEVC_MAIN_10) {
                 Debug(3,"HEVC Profile Main 10 detected\n");
                 profile =
@@ -9136,6 +9222,10 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	    goto slow_path;
     }
 
+#ifdef CUVID
+  if (*fmt_idx != AV_PIX_FMT_CUDA) {
+#endif
+
     if (profile == VDP_INVALID_HANDLE) {
 	Error(_("video/vdpau: no valid profile found\n"));
 	goto slow_path;
@@ -9145,10 +9235,35 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	profile, video_ctx->width, video_ctx->height, max_refs);
 
     decoder->Profile = profile;
+#ifdef CUVID
+  }
+#endif
     decoder->SurfacesNeeded = max_refs + VIDEO_SURFACES_MAX + 1;
     decoder->PixFmt = *fmt_idx;
     decoder->InputWidth = 0;
     decoder->InputHeight = 0;
+
+#ifdef CUVID
+    if (*fmt_idx == AV_PIX_FMT_CUDA  )  {       // HWACCEL used.
+        VdpauCleanup(decoder);
+        if (init_cuvid(video_ctx)) {
+	    Debug(3,"CUVID Init failed\n");
+	    goto slow_path;
+	}
+	Debug(3,"CUVID Init ok %dx%d\n",video_ctx->width,video_ctx->height);
+	decoder->PixFmt = AV_PIX_FMT_CUDA;
+	ist->active_hwaccel_id = HWACCEL_CUVID;
+	ist->hwaccel_pix_fmt   = AV_PIX_FMT_CUDA;
+	ist->hwaccel_output_format = AV_PIX_FMT_YUV420P;
+	ist->hwaccel_output_format = AV_PIX_FMT_NV12;
+	decoder->InputWidth = video_ctx->width;
+	decoder->InputHeight = video_ctx->height;
+	decoder->InputAspect = video_ctx->sample_aspect_ratio;
+	decoder->PixFmt = AV_PIX_FMT_NV12;
+	VdpauSetupOutput(decoder);
+	return AV_PIX_FMT_CUDA;
+    }
+#endif
 
     if (*fmt_idx == AV_PIX_FMT_VDPAU) { // HWACCEL used
 	int ret;
@@ -9159,7 +9274,6 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	ist->hwaccel_output_format = AV_PIX_FMT_VDPAU;
 
 	VdpauChromaType = VDP_CHROMA_TYPE_420;
-	ist->active_hwaccel_id = HWACCEL_VDPAU;
 
 	video_ctx->draw_horiz_band = NULL;
 	video_ctx->slice_flags = 0;
@@ -9765,6 +9879,8 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 {
     VdpStatus status;
     VdpVideoSurface surface;
+    VideoDecoder        *ist = video_ctx->opaque;
+    AVFrame *output;
     int interlaced;
 
     // FIXME: some tv-stations toggle interlace on/off
@@ -9849,8 +9965,10 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 	// PutBitsYCbCr render
 	//
     } else {
-	void const *data[3];
-	uint32_t pitches[3];
+//	void const *data[3];
+//	uint32_t pitches[3];
+	uint8_t  *data[4],*p;
+	uint32_t pitches[4];
 
 	//
 	//	Check image, format, size
@@ -9872,6 +9990,8 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 	//	Copy data from frame to image
 	//
 	switch (video_ctx->pix_fmt) {
+	    case AV_PIX_FMT_CUDA:
+	    case AV_PIX_FMT_NV12:
 	    case AV_PIX_FMT_YUV420P:
 	    case AV_PIX_FMT_YUVJ420P:	// some streams produce this
 	    case AV_PIX_FMT_YUV420P10LE:  // for softdecode of HEVC 10 Bit
@@ -9884,12 +10004,82 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 		// FIXME: no fatals!
 	}
 
+if (video_ctx->pix_fmt == AV_PIX_FMT_CUDA) { // JOJO
+
+      int err,pitch,j;
+      uint16_t d;
+      uint8_t *p1,*p2,*p3,*p4;
+      int w = video_ctx->width,i;
+      int h = video_ctx->height;
+      char *p ;
+
+      output = av_frame_alloc();
+//      output->format = AV_PIX_FMT_NV12;
+      err = av_hwframe_transfer_data(output, frame, 0);
+      err = av_frame_copy_props(output, frame);
+
+//Debug(3,"CUDA sw copy Format %s \n",av_get_pix_fmt_name(output->format));
+//Debug(3,"CUDA %p %p %p i pitches %d %d %d\n",output->data[0],output->data[1],output->data[2],output->linesize[0],output->linesize[1],output->linesize[2]);
+
+      pitch = output->linesize[0];
+
+      surface = VdpauGetSurface0(decoder);
+
+      if (output->format == AV_PIX_FMT_P010LE) {
+        data[0] = malloc(pitch*h);
+        data[1] = malloc(pitch*h);
+        data[2] = NULL;
+	pitches[0] = pitch/2;
+	pitches[1] = pitch/2;
+	pitches[2] = 0;
+        p1 = output->data[0];
+        p2 = output->data[1];
+        p3 = data[0];
+        p4 = data[1];
+	// we have to manualy copy the 10 Bit YUV planes to 8 Bit Planes
+	// the  10 Bit are left aligned in a 16 Bit int  and we take just the upper Byte.
+	for (j=0;j<h;j++) {
+           for (i=0;i<pitch/2;i++) {
+	      *(p3 +j*pitch/2+i) =  *(p1+j*pitch+1+i*2);
+	   }
+        }
+	for (j=0;j<h/2;j++) {
+           for (i=0;i<pitch/2;i++) {
+	      *(p4 +j*pitch/2+i) =  *(p2+j*pitch+1+i*2);
+	   }
+        }
+	status = VdpauVideoSurfacePutBitsYCbCr(surface, VDP_YCBCR_FORMAT_NV12, data,pitches);
+	if (status != VDP_STATUS_OK) {
+	    Error(_("video/vdpau: can't put video surface %d bits: %s\n"),surface, VdpauGetErrorString(status));
+	}
+        free(data[0]);
+	free(data[1]);
+      }
+      else {   //  hier ist NV12
+        data[0] = output->data[0];
+        data[1] = output->data[1];
+        data[2] = NULL;
+	pitches[0] = pitch;
+	pitches[1] = pitch; ;
+	pitches[2] = 0; ;
+
+	status = VdpauVideoSurfacePutBitsYCbCr(surface, VDP_YCBCR_FORMAT_NV12, data,pitches);
+	if (status != VDP_STATUS_OK) {
+	    Error(_("video/vdpau: can't put video surface %d bits: %s\n"),surface, VdpauGetErrorString(status));
+	}
+      }
+
+      VdpauQueueSurface(decoder, surface, 1);
+      av_frame_free(&output);
+      return;
+}
+
 	// convert ffmpeg order to vdpau
 	data[0] = frame->data[0];
 	data[1] = frame->data[2];
 	data[2] = frame->data[1];
 	pitches[0] = frame->linesize[0];
-	pitches[1] = frame->linesize[2];
+/*	pitches[1] = frame->linesize[2];
 	pitches[2] = frame->linesize[1];
 
 #ifdef USE_SWSCALE
@@ -9915,7 +10105,11 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 	    data[1] = frame->data[2];
 	    data[2] = frame->data[1];
 	}
-#endif
+#endif*/
+
+	pitches[1] = frame->linesize[1];
+	pitches[2] = frame->linesize[2];
+
 	surface = VdpauGetSurface0(decoder);
 	status =
 	    VdpauVideoSurfacePutBitsYCbCr(surface, VDP_YCBCR_FORMAT_YV12, data,
