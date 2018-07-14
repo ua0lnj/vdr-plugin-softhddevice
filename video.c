@@ -10005,7 +10005,6 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 	}
 
 if (video_ctx->pix_fmt == AV_PIX_FMT_CUDA) { // JOJO
-
       int err,pitch,j;
       uint16_t d;
       uint8_t *p1,*p2,*p3,*p4;
@@ -10070,6 +10069,11 @@ if (video_ctx->pix_fmt == AV_PIX_FMT_CUDA) { // JOJO
       }
 
       VdpauQueueSurface(decoder, surface, 1);
+
+    if (frame->interlaced_frame) {
+	++decoder->FrameCounter;
+    }
+
       av_frame_free(&output);
       return;
 }
@@ -10079,7 +10083,7 @@ if (video_ctx->pix_fmt == AV_PIX_FMT_CUDA) { // JOJO
 	data[1] = frame->data[2];
 	data[2] = frame->data[1];
 	pitches[0] = frame->linesize[0];
-/*	pitches[1] = frame->linesize[2];
+	pitches[1] = frame->linesize[2];
 	pitches[2] = frame->linesize[1];
 
 #ifdef USE_SWSCALE
@@ -10105,10 +10109,7 @@ if (video_ctx->pix_fmt == AV_PIX_FMT_CUDA) { // JOJO
 	    data[1] = frame->data[2];
 	    data[2] = frame->data[1];
 	}
-#endif*/
-
-	pitches[1] = frame->linesize[1];
-	pitches[2] = frame->linesize[2];
+#endif
 
 	surface = VdpauGetSurface0(decoder);
 	status =

@@ -462,14 +462,6 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 	decoder->VideoCtx->thread_count = 1;
 	decoder->VideoCtx->active_thread_type = 0;
     }
-
-    if (strcmp(name,"h264_cuvid") == 0) {
-	if (av_opt_set_int(decoder->VideoCtx->priv_data, "deint", 0 ,0) < 0) {
-	    pthread_mutex_unlock(&CodecLockMutex);
-	    Fatal(_("codec: can't set options to video codec!\n"));
-       }
-    }
-
     if (avcodec_open2(decoder->VideoCtx, video_codec, NULL) < 0) {
 	pthread_mutex_unlock(&CodecLockMutex);
 	Fatal(_("codec: can't open video codec!\n"));
