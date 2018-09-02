@@ -1133,19 +1133,22 @@ int VideoDecodeInput(VideoStream * stream)
 	case AV_CODEC_ID_MPEG2VIDEO:
 	    if (stream->LastCodecID != AV_CODEC_ID_MPEG2VIDEO) {
 		stream->LastCodecID = AV_CODEC_ID_MPEG2VIDEO;
-		CodecVideoOpen(stream->Decoder, AV_CODEC_ID_MPEG2VIDEO);
+		if (!CodecVideoOpen(stream->Decoder, AV_CODEC_ID_MPEG2VIDEO))
+		    goto skip;
 	    }
 	    break;
 	case AV_CODEC_ID_H264:
 	    if (stream->LastCodecID != AV_CODEC_ID_H264) {
 		stream->LastCodecID = AV_CODEC_ID_H264;
-		CodecVideoOpen(stream->Decoder, AV_CODEC_ID_H264);
+		if (!CodecVideoOpen(stream->Decoder, AV_CODEC_ID_H264))
+		    goto skip;
 	    }
 	    break;
         case AV_CODEC_ID_HEVC:
             if (stream->LastCodecID != AV_CODEC_ID_HEVC) {
                 stream->LastCodecID = AV_CODEC_ID_HEVC;
-                CodecVideoOpen(stream->Decoder, AV_CODEC_ID_HEVC);
+                if (!CodecVideoOpen(stream->Decoder, AV_CODEC_ID_HEVC))
+		    goto skip;
             }
             break;
 
@@ -2606,7 +2609,7 @@ int PlayTsVideo(const uint8_t * data, int size)
     }
     // hard limit buffer full: needed for replay
     if (atomic_read(&MyVideoStream->PacketsFilled) >= VIDEO_PACKET_MAX - 10) {
-	Error(_("[softhddev] PlayTsVideo Filled %d\n"),MyVideoStream->PacketsFilled);
+	Debug(3,"[softhddev] PlayTsVideo Filled %d\n",MyVideoStream->PacketsFilled);
 	return 0;
     }
 #ifdef USE_SOFTLIMIT
@@ -2909,8 +2912,9 @@ void StillPicture(const uint8_t * data, int size)
 	return;
     }
     // must be a PES start code
+
     if (size < 9 || !data || data[0] || data[1] || data[2] != 0x01) {
-	Error(_("[softhddev] invalid still video packet\n"));
+	Error(_("[softhddev] invalid still video packet size %d\n"),size);
 	return;
     }
 #ifdef STILL_DEBUG

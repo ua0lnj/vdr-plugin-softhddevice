@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: VDR \n"
 "Report-Msgid-Bugs-To: <see README>\n"
-"POT-Creation-Date: 2015-10-20 14:39+0200\n"
+"POT-Creation-Date: 2018-09-01 16:00+1000\n"
 "PO-Revision-Date: blabla\n"
 "Last-Translator: blabla\n"
 "Language-Team: blabla\n"
@@ -409,10 +409,18 @@ msgstr ""
 msgid "softhddev: %s called without hw decoder\n"
 msgstr ""
 
-msgid "[softhddev] invalid still video packet\n"
+#, c-format
+msgid "[softhddev] still video packet %d  %x %x %x\n"
+msgstr ""
+
+#, c-format
+msgid "[softhddev] invalid still video packet %d  %x %x %x\n"
 msgstr ""
 
 msgid "[softhddev] no codec known for still picture\n"
+msgstr ""
+
+msgid "[softhddev] invalid still video packet\n"
 msgstr ""
 
 #, c-format
@@ -1379,11 +1387,19 @@ msgstr ""
 msgid "video/vdpau: pixel format %d not supported\n"
 msgstr ""
 
+#, c-format
+msgid "NV12 10bit video/vdpau: can't put video surface %d bits: %s\n"
+msgstr ""
+
+#, c-format
+msgid "NV12 video/vdpau: can't put video surface %d bits: %s\n"
+msgstr ""
+
 msgid "Cannot initialize the conversion context!\n"
 msgstr ""
 
 #, c-format
-msgid "video/vdpau: can't put video surface bits: %s\n"
+msgid "YV12 video/vdpau: can't put video surface bits: %s\n"
 msgstr ""
 
 msgid "video: get hwaccel context, not supported\n"
@@ -1415,6 +1431,10 @@ msgstr ""
 
 #, c-format
 msgid "video/vdpau: can't queue display: %s\n"
+msgstr ""
+
+#, c-format
+msgid "video: decoder buffer empty, duping frame (%d/%d) %d v-buf closing %d\n"
 msgstr ""
 
 msgid "video/vdpau: osd too big: unsupported\n"

@@ -8906,7 +8906,6 @@ static int cuvid_get_buffer(AVCodecContext *s, AVFrame *frame, int flags)
     }
 
     ret = av_hwframe_get_buffer(ctx->hw_frames_ctx, frame, 0);
-    //ret = avcodec_default_get_buffer2(s, frame, flags);
 
     Debug(3,"CUDA hwframe got buffer %d\n",ret);
     return ret;
@@ -8931,15 +8930,13 @@ static int init_cuvid(AVCodecContext *avctx)
     avctx->hw_device_ctx = NULL;
 
     if (!avctx->hw_device_ctx) {
-        ret = av_hwdevice_ctx_create(&avctx->hw_device_ctx, AV_HWDEVICE_TYPE_CUDA,
-                                     ist->hwaccel_device, NULL, 0);
-        if (ret < 0) {
+        avctx->hw_device_ctx = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_CUDA);
+        if (!avctx->hw_device_ctx) {
             Debug(3, "Error creating a CUDA device\n");
             return ret;
         }
     }
 
-    av_buffer_unref(&ist->hw_frames_ctx);
     ist->hw_frames_ctx = av_hwframe_ctx_alloc(avctx->hw_device_ctx);
     if (!ist->hw_frames_ctx) {
         Debug(3, "Error creating a CUDA frames context\n");
@@ -9136,15 +9133,23 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 
     max_refs = CODEC_SURFACES_DEFAULT;
     // check profile
+
     switch (video_ctx->codec_id) {
 	case AV_CODEC_ID_MPEG1VIDEO:
 	    max_refs = CODEC_SURFACES_MPEG2;
+#ifdef CUVID
+            if (*fmt_idx != AV_PIX_FMT_CUDA)
+               break;
+#endif
 	    profile = VdpauCheckProfile(decoder, VDP_DECODER_PROFILE_MPEG1);
 	    break;
 	case AV_CODEC_ID_MPEG2VIDEO:
 	    max_refs = CODEC_SURFACES_MPEG2;
-	    profile =
-		VdpauCheckProfile(decoder, VDP_DECODER_PROFILE_MPEG2_MAIN);
+#ifdef CUVID
+            if (*fmt_idx != AV_PIX_FMT_CUDA)
+                break;
+#endif
+	    profile = VdpauCheckProfile(decoder, VDP_DECODER_PROFILE_MPEG2_MAIN);
 	    break;
 	case AV_CODEC_ID_MPEG4:
 	case AV_CODEC_ID_H263:
@@ -9157,6 +9162,10 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	    // FIXME: can calculate level 4.1 limits
 	    // vdpau supports only 16 references
 	    max_refs = 16;
+#ifdef CUVID
+            if (*fmt_idx != AV_PIX_FMT_CUDA)
+                break;
+#endif
 	    // try more simple formats, fallback to better
 	    if (video_ctx->profile == FF_PROFILE_H264_BASELINE) {
 		profile =
@@ -9188,8 +9197,8 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
         case AV_CODEC_ID_HEVC:
             max_refs = 16;
 #ifdef CUVID
-	    if (*fmt_idx == AV_PIX_FMT_CUDA)
-	       break;
+            if (*fmt_idx != AV_PIX_FMT_CUDA)
+               break;
 #endif
             if (video_ctx->profile == FF_PROFILE_HEVC_MAIN_10) {
                 Debug(3,"HEVC Profile Main 10 detected\n");
@@ -9245,22 +9254,26 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 
 #ifdef CUVID
     if (*fmt_idx == AV_PIX_FMT_CUDA  )  {       // HWACCEL used.
-        VdpauCleanup(decoder);
-        if (init_cuvid(video_ctx)) {
-	    Debug(3,"CUVID Init failed\n");
-	    goto slow_path;
-	}
-	Debug(3,"CUVID Init ok %dx%d\n",video_ctx->width,video_ctx->height);
 	decoder->PixFmt = AV_PIX_FMT_CUDA;
 	ist->active_hwaccel_id = HWACCEL_CUVID;
 	ist->hwaccel_pix_fmt   = AV_PIX_FMT_CUDA;
-	ist->hwaccel_output_format = AV_PIX_FMT_YUV420P;
 	ist->hwaccel_output_format = AV_PIX_FMT_NV12;
-	decoder->InputWidth = video_ctx->width;
-	decoder->InputHeight = video_ctx->height;
-	decoder->InputAspect = video_ctx->sample_aspect_ratio;
-	decoder->PixFmt = AV_PIX_FMT_NV12;
-	VdpauSetupOutput(decoder);
+
+	video_ctx->draw_horiz_band = NULL;
+	video_ctx->slice_flags = 0;
+        if (video_ctx->width && video_ctx->height) {
+            VdpauCleanup(decoder);
+            if (init_cuvid(video_ctx)) {
+	        Debug(3,"CUVID Init failed\n");
+	        goto slow_path;
+	    }
+	    Debug(3,"CUVID Init ok %dx%d\n",video_ctx->width,video_ctx->height);
+	    decoder->InputWidth = video_ctx->width;
+	    decoder->InputHeight = video_ctx->height;
+	    decoder->InputAspect = video_ctx->sample_aspect_ratio;
+	    decoder->PixFmt = AV_PIX_FMT_NV12;
+	    VdpauSetupOutput(decoder);
+        }
 	return AV_PIX_FMT_CUDA;
     }
 #endif
@@ -9965,10 +9978,10 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 	// PutBitsYCbCr render
 	//
     } else {
-//	void const *data[3];
-//	uint32_t pitches[3];
-	uint8_t  *data[4],*p;
-	uint32_t pitches[4];
+	void const *data[3];
+	uint32_t pitches[3];
+//	uint8_t  *data[4],*p;
+//	uint32_t pitches[4];
 
 	//
 	//	Check image, format, size
@@ -10049,7 +10062,7 @@ if (video_ctx->pix_fmt == AV_PIX_FMT_CUDA) { // JOJO
         }
 	status = VdpauVideoSurfacePutBitsYCbCr(surface, VDP_YCBCR_FORMAT_NV12, data,pitches);
 	if (status != VDP_STATUS_OK) {
-	    Error(_("video/vdpau: can't put video surface %d bits: %s\n"),surface, VdpauGetErrorString(status));
+	    Error(_("NV12 10bit video/vdpau: can't put video surface %d bits: %s\n"),surface, VdpauGetErrorString(status));
 	}
         free(data[0]);
 	free(data[1]);
@@ -10059,12 +10072,12 @@ if (video_ctx->pix_fmt == AV_PIX_FMT_CUDA) { // JOJO
         data[1] = output->data[1];
         data[2] = NULL;
 	pitches[0] = pitch;
-	pitches[1] = pitch; ;
-	pitches[2] = 0; ;
+	pitches[1] = pitch;
+	pitches[2] = 0;
 
 	status = VdpauVideoSurfacePutBitsYCbCr(surface, VDP_YCBCR_FORMAT_NV12, data,pitches);
 	if (status != VDP_STATUS_OK) {
-	    Error(_("video/vdpau: can't put video surface %d bits: %s\n"),surface, VdpauGetErrorString(status));
+	    Error(_("NV12 video/vdpau: can't put video surface %d bits: %s\n"),surface, VdpauGetErrorString(status));
 	}
       }
 
@@ -10116,7 +10129,7 @@ if (video_ctx->pix_fmt == AV_PIX_FMT_CUDA) { // JOJO
 	    VdpauVideoSurfacePutBitsYCbCr(surface, VDP_YCBCR_FORMAT_YV12, data,
 	    pitches);
 	if (status != VDP_STATUS_OK) {
-	    Error(_("video/vdpau: can't put video surface bits: %s\n"),
+	    Error(_("YV12 video/vdpau: can't put video surface bits: %s\n"),
 		VdpauGetErrorString(status));
 	}
 
@@ -10895,8 +10908,8 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    err =
 		VdpauMessage(1,
 		_("video: decoder buffer empty, "
-		    "duping frame (%d/%d) %d v-buf\n"), decoder->FramesDuped,
-		decoder->FrameCounter, VideoGetBuffers(decoder->Stream));
+		    "duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
+		decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
 	    // some time no new picture or black video configured
 	    if (decoder->Closing < -300 || (VideoShowBlackPicture
 		    && decoder->Closing)) {

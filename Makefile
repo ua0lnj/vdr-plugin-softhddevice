@@ -34,7 +34,8 @@ endif
     # support NVdec
 CUVID ?= $(shell ffmpeg -loglevel quiet -decoders | grep -c hevc_cuvid)
 
-#CONFIG := -DDEBUG #-DOSD_DEBUG	# enable debug output+functions
+#CONFIG := -DDEBUG 
+#-DOSD_DEBUG	# enable debug output+functions
 #CONFIG += -DSTILL_DEBUG=2		# still picture debug verbose level
 
 CONFIG += -DAV_INFO -DAV_INFO_TIME=3000	# info/debug a/v sync

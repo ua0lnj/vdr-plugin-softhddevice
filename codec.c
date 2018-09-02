@@ -393,7 +393,7 @@ void CodecVideoDelDecoder(VideoDecoder * decoder)
 **	@param decoder	private video decoder
 **	@param codec_id	video codec id
 */
-void CodecVideoOpen(VideoDecoder * decoder, int codec_id)
+int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 {
     AVCodec *video_codec;
     const char *name;
@@ -434,13 +434,14 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id)
     if (name && (video_codec = avcodec_find_decoder_by_name(name))) {
 	Debug(3, "codec: vdpau decoder found\n");
     } else if (!(video_codec = avcodec_find_decoder(codec_id))) {
-	Fatal(_("codec: codec ID %#06x not found\n"), codec_id);
-	// FIXME: none fatal
+	Error(_("codec: codec ID %#06x not found\n"), codec_id);
+	return 0;
     }
     decoder->VideoCodec = video_codec;
 
     if (!(decoder->VideoCtx = avcodec_alloc_context3(video_codec))) {
-	Fatal(_("codec: can't allocate video codec context\n"));
+	Error(_("codec: can't allocate video codec context\n"));
+	return 0;
     }
     // FIXME: for software decoder use all cpus, otherwise 1
     decoder->VideoCtx->thread_count = 1;
@@ -449,7 +450,8 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 #if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(53,5,0)
     if (avcodec_open(decoder->VideoCtx, video_codec) < 0) {
 	pthread_mutex_unlock(&CodecLockMutex);
-	Fatal(_("codec: can't open video codec!\n"));
+	Error(_("codec: can't open video codec!\n"));
+	return 0;
     }
 #else
     if (video_codec->capabilities & (CODEC_CAP_HWACCEL_VDPAU |
@@ -464,7 +466,8 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id)
     }
     if (avcodec_open2(decoder->VideoCtx, video_codec, NULL) < 0) {
 	pthread_mutex_unlock(&CodecLockMutex);
-	Fatal(_("codec: can't open video codec!\n"));
+	Error(_("codec: can't open video codec!\n"));
+	return 0;
     }
 #endif
     pthread_mutex_unlock(&CodecLockMutex);
@@ -472,11 +475,11 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id)
     decoder->VideoCtx->opaque = decoder;	// our structure
 
     Debug(3, "codec: video '%s'\n", decoder->VideoCodec->long_name);
-    if (codec_id == AV_CODEC_ID_H264) {
+//    if (codec_id == AV_CODEC_ID_H264) {
 	// 2.53 Ghz CPU is too slow for this codec at 1080i
 	//decoder->VideoCtx->skip_loop_filter = AVDISCARD_ALL;
 	//decoder->VideoCtx->skip_loop_filter = AVDISCARD_BIDIR;
-    }
+//    }
     if (video_codec->capabilities & CODEC_CAP_TRUNCATED) {
 	Debug(3, "codec: video can use truncated packets\n");
 #ifndef USE_MPEG_COMPLETE
@@ -536,11 +539,13 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id)
     //
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(56,28,1)
     if (!(decoder->Frame = av_frame_alloc())) {
-	Fatal(_("codec: can't allocate video decoder frame buffer\n"));
+	Error(_("codec: can't allocate video decoder frame buffer\n"));
+	return 0;
     }
 #else
     if (!(decoder->Frame = avcodec_alloc_frame())) {
-	Fatal(_("codec: can't allocate video decoder frame buffer\n"));
+	Error(_("codec: can't allocate video decoder frame buffer\n"));
+	return 0;
     }
 #endif
     // reset buggy ffmpeg/libav flag
@@ -548,6 +553,7 @@ void CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 #ifdef FFMPEG_WORKAROUND_ARTIFACTS
     decoder->FirstKeyFrame = 1;
 #endif
+    return 1;
 }
 
 /**

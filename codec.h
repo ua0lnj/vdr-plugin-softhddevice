@@ -114,7 +114,7 @@ extern VideoDecoder *CodecVideoNewDecoder(VideoHwDecoder *);
 extern void CodecVideoDelDecoder(VideoDecoder *);
 
     /// Open video codec.
-extern void CodecVideoOpen(VideoDecoder *, int);
+extern int CodecVideoOpen(VideoDecoder *, int);
 
     /// Close video codec.
 extern void CodecVideoClose(VideoDecoder *);
