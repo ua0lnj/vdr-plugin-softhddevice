@@ -8298,7 +8298,9 @@ static int VdpauInit(const char *display_name)
 
     Info(_("video/vdpau: VDPAU API version: %u\n"), api_version);
     Info(_("video/vdpau: VDPAU information: %s\n"), information_string);
-
+#ifdef CUVID
+    Info(_("video/vdpau: USE NVDEC (CUVID)\n"));
+#endif
     // FIXME: check if needed capabilities are available
 
     VdpauGetProc(VDP_FUNC_ID_GENERATE_CSC_MATRIX, &VdpauGenerateCSCMatrix,
@@ -8933,7 +8935,7 @@ static int init_cuvid(AVCodecContext *avctx)
         avctx->hw_device_ctx = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_CUDA);
         if (!avctx->hw_device_ctx) {
             Debug(3, "Error creating a CUDA device\n");
-            return ret;
+            return AVERROR(EINVAL);
         }
     }
 
@@ -9962,6 +9964,19 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 	    vrs = (struct vdpau_render_state *)frame->data[0];
 	    surface = vrs->surface;
 	    Debug(4, "video/vdpau: hw render hw surface from frame %#08x from buf%#08x\n", surface, vrs->surface);
+	}
+	uint32_t iwidth;
+	uint32_t iheight;
+	VdpChromaType chroma_type;
+	VdpauVideoSurfaceGetParameters(surface, &chroma_type, &iwidth, &iheight);
+
+	if(iheight != decoder->InputHeight){
+		VdpauCleanup(decoder);
+		decoder->PixFmt = video_ctx->pix_fmt;
+		decoder->InputWidth = video_ctx->width;
+		decoder->InputHeight = iheight;
+		decoder->SurfacesNeeded = VIDEO_SURFACES_MAX + 2;
+		VdpauSetupOutput(decoder);
 	}
 
 	if (interlaced
