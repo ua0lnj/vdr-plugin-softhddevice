@@ -2938,7 +2938,7 @@ void StillPicture(const uint8_t * data, int size)
 #ifdef STILL_DEBUG
     fprintf(stderr, "still-picture\n");
 #endif
-    for (i = 0; i < (MyVideoStream->CodecID == AV_CODEC_ID_HEVC ? 3 : 4);
+    for (i = 0; i < (MyVideoStream->CodecID == AV_CODEC_ID_HEVC ? 10 : 8);
 	++i) {
 	const uint8_t *split;
 	int n;
