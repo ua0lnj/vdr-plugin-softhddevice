@@ -8990,7 +8990,7 @@ static int vdpau_alloc(AVCodecContext *s)
 
     ist->hwaccel_ctx = ctx;
     ist->hwaccel_uninit = vdpau_uninit;
-    ist->hwaccel_get_buffer = vdpau_get_buffer;
+//    ist->hwaccel_get_buffer = vdpau_get_buffer;
     ist->hwaccel_retrieve_data = vdpau_retrieve_data;
 
     ctx->tmp_frame = av_frame_alloc();
@@ -9030,7 +9030,7 @@ static int vdpau_alloc(AVCodecContext *s)
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,80,100)
     ctx->hw_frames_ctx = av_hwframe_ctx_alloc(hw_device_ctx);
 #else
-    ctx->hw_frames_ctx = s->hw_frames_ctx;
+    ctx->hw_frames_ctx = av_hwframe_ctx_alloc(s->hw_device_ctx);
 #endif
     if (!ctx->hw_frames_ctx) {
 	Debug(3, "VDPAU init failed for av_hwframe_ctx_alloc\n");
@@ -9040,8 +9040,8 @@ static int vdpau_alloc(AVCodecContext *s)
     frames_ctx = (AVHWFramesContext*)ctx->hw_frames_ctx->data;
     frames_ctx->format = AV_PIX_FMT_VDPAU;
     frames_ctx->sw_format = s->sw_pix_fmt;
-    frames_ctx->width = s->coded_width;
-    frames_ctx->height = s->coded_height;
+    frames_ctx->width = s->width;
+    frames_ctx->height = s->height;
     frames_ctx->initial_pool_size = 16;
 
     ret = av_hwframe_ctx_init(ctx->hw_frames_ctx);
@@ -9297,8 +9297,8 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 
 	    VdpauCleanup(decoder);
 	    status =
-		VdpauDecoderCreate(VdpauDevice, profile, video_ctx->width,
-		video_ctx->height, max_refs, &decoder->VideoDecoder);
+		VdpauDecoderCreate(VdpauDevice, profile, video_ctx->coded_width,
+		video_ctx->coded_height, max_refs, &decoder->VideoDecoder);
 	    if (status != VDP_STATUS_OK) {
 		Error(_("video/vdpau: can't create decoder: %s\n"),
 		    VdpauGetErrorString(status));
@@ -9309,8 +9309,8 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 		Debug(3, "vdpu_init failed\n");
 		goto slow_path;
 	    }
-	    decoder->InputWidth = video_ctx->width;
-	    decoder->InputHeight = video_ctx->height;
+	    decoder->InputWidth = video_ctx->coded_width;
+	    decoder->InputHeight = video_ctx->coded_height;
 	    decoder->InputAspect = video_ctx->sample_aspect_ratio;
 
 	    VdpauSetupOutput(decoder);
@@ -9964,19 +9964,6 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 	    vrs = (struct vdpau_render_state *)frame->data[0];
 	    surface = vrs->surface;
 	    Debug(4, "video/vdpau: hw render hw surface from frame %#08x from buf%#08x\n", surface, vrs->surface);
-	}
-	uint32_t iwidth;
-	uint32_t iheight;
-	VdpChromaType chroma_type;
-	VdpauVideoSurfaceGetParameters(surface, &chroma_type, &iwidth, &iheight);
-
-	if(iheight != decoder->InputHeight){
-		VdpauCleanup(decoder);
-		decoder->PixFmt = video_ctx->pix_fmt;
-		decoder->InputWidth = video_ctx->width;
-		decoder->InputHeight = iheight;
-		decoder->SurfacesNeeded = VIDEO_SURFACES_MAX + 2;
-		VdpauSetupOutput(decoder);
 	}
 
 	if (interlaced

@@ -179,10 +179,6 @@ static int Codec_get_buffer2(AVCodecContext * video_ctx, AVFrame * frame, int fl
     VideoDecoder *decoder;
 
     decoder = video_ctx->opaque;
-//    if (decoder->hwaccel_get_buffer && AV_PIX_FMT_VDPAU == decoder->hwaccel_pix_fmt) {
-//	return decoder->hwaccel_get_buffer(video_ctx, frame, flags);
-//    }
-
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(54,86,100)
     // ffmpeg has this already fixed
     // libav 0.8.5 53.35.0 still needs this
@@ -420,7 +416,11 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 #ifdef CUVID
 		name = VideoHardwareDecoder ? "h264_cuvid" : NULL;
 #else
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,89,100)
 		name = VideoHardwareDecoder ? "h264_vdpau" : NULL;
+#else
+		name = VideoHardwareDecoder ? "h264" : NULL;
+#endif
 #endif
 		break;
 #ifdef CUVID
