@@ -31,10 +31,14 @@ SWRESAMPLE ?= $(shell pkg-config --exists libswresample && echo 1)
 ifneq ($(SWRESAMPLE),1)
 AVRESAMPLE ?= $(shell pkg-config --exists libavresample && echo 1)
 endif
-    # support NVdec
+    # support CUVID (NVdec)
+ifeq ($(shell lspci|grep VGA|grep -c NVIDIA),1)
+ifeq ($(VDPAU),1)
 CUVID ?= $(shell ffmpeg -loglevel quiet -decoders | grep -c hevc_cuvid)
+endif
+endif
 
-#CONFIG := -DDEBUG 
+CONFIG := -DDEBUG 
 #-DOSD_DEBUG	# enable debug output+functions
 #CONFIG += -DSTILL_DEBUG=2		# still picture debug verbose level
 
