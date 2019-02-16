@@ -38,7 +38,7 @@ CUVID ?= $(shell ffmpeg -loglevel quiet -decoders | grep -c hevc_cuvid)
 endif
 endif
 
-CONFIG := -DDEBUG 
+#CONFIG := -DDEBUG 
 #-DOSD_DEBUG	# enable debug output+functions
 #CONFIG += -DSTILL_DEBUG=2		# still picture debug verbose level
 

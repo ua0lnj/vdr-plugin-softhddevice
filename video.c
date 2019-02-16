@@ -8243,6 +8243,8 @@ static void VdpauPreemptionCallback(VdpDevice device, __attribute__ ((unused))
     VdpauPreemption = 1;		// set flag for video thread
 }
 
+static int VdpauPreemptionRecover(void);
+
 ///
 ///	VDPAU setup.
 ///
@@ -8668,7 +8670,11 @@ static int VdpauInit(const char *display_name)
     //
     //	Create presentation queue, only one queue pro window
     //
-    VdpauInitOutputQueue();
+   if (VdpauPreemption) {		// Restore if preempted
+	VdpauPreemptionRecover();
+    }
+    else
+	VdpauInitOutputQueue();
 
     return 1;
 }
@@ -11210,13 +11216,6 @@ static void VdpauDisplayHandlerThread(void)
 	// time for one frame over?
 	if ((nowtime.tv_sec - VdpauFrameTime.tv_sec) * 1000 * 1000 * 1000 +
 	    (nowtime.tv_nsec - VdpauFrameTime.tv_nsec) < 15 * 1000 * 1000) {
-	    return;
-	}
-    }
-
-    if (VdpauPreemption) {		// display preempted
-	if (VdpauPreemptionRecover()) {
-	    clock_gettime(CLOCK_MONOTONIC, &VdpauFrameTime);
 	    return;
 	}
     }
