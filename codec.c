@@ -80,6 +80,13 @@
 #include <libavutil/opt.h>
 #endif
 
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,7,100)
+#define CODEC_CAP_HWACCEL_VDPAU AV_CODEC_CAP_HWACCEL_VDPAU
+#define CODEC_CAP_TRUNCATED AV_CODEC_CAP_TRUNCATED
+#define CODEC_CAP_DR1 AV_CODEC_CAP_DR1
+#define CODEC_CAP_FRAME_THREADS AV_CODEC_CAP_FRAME_THREADS
+#endif
+
 #ifndef __USE_GNU
 #define __USE_GNU
 #endif
@@ -98,7 +105,7 @@
 
     // correct is AV_VERSION_INT(56,35,101) but some gentoo i* think
     // they must change it.
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(56,26,100)
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(56,26,100) && LIBAVCODEC_VERSION_INT < AV_VERSION_INT(56,60,100)
     /// ffmpeg 2.6 started to show artifacts after channel switch
     /// to SDTV channels
 #define FFMPEG_WORKAROUND_ARTIFACTS	1
@@ -197,6 +204,7 @@ static int Codec_get_buffer2(AVCodecContext * video_ctx, AVFrame * frame, int fl
            return decoder->hwaccel_get_buffer(video_ctx, frame, flags);
     }
 #ifdef USE_VDPAU
+#if LIBAVUTIL_VERSION_MAJOR < 56
     // VDPAU: AV_PIX_FMT_VDPAU_H264 .. AV_PIX_FMT_VDPAU_VC1 AV_PIX_FMT_VDPAU_MPEG4
     if ((AV_PIX_FMT_VDPAU_H264 <= video_ctx->pix_fmt
 	    && video_ctx->pix_fmt <= AV_PIX_FMT_VDPAU_VC1)
@@ -219,6 +227,7 @@ static int Codec_get_buffer2(AVCodecContext * video_ctx, AVFrame * frame, int fl
 
 	return 0;
     }
+#endif
 #endif
     // VA-API:
     if (video_ctx->hwaccel_context) {
@@ -264,6 +273,7 @@ static void Codec_free_buffer(void *opaque, uint8_t *data)
 {
     AVCodecContext *video_ctx = (AVCodecContext *)opaque;
 #ifdef USE_VDPAU
+#if LIBAVUTIL_VERSION_MAJOR < 56
     // VDPAU: AV_PIX_FMT_VDPAU_H264 .. AV_PIX_FMT_VDPAU_VC1 AV_PIX_FMT_VDPAU_MPEG4
     if ((AV_PIX_FMT_VDPAU_H264 <= video_ctx->pix_fmt
 	    && video_ctx->pix_fmt <= AV_PIX_FMT_VDPAU_VC1)
@@ -285,6 +295,7 @@ static void Codec_free_buffer(void *opaque, uint8_t *data)
 
 	return;
     }
+#endif
 #endif
     // VA-API
     if (video_ctx->hwaccel_context) {
@@ -325,6 +336,7 @@ static void Codec_draw_horiz_band(AVCodecContext * video_ctx,
     int height)
 {
 #ifdef USE_VDPAU
+#if LIBAVUTIL_VERSION_MAJOR < 56
     // VDPAU: AV_PIX_FMT_VDPAU_H264 .. AV_PIX_FMT_VDPAU_VC1 AV_PIX_FMT_VDPAU_MPEG4
     if ((AV_PIX_FMT_VDPAU_H264 <= video_ctx->pix_fmt
 	    && video_ctx->pix_fmt <= AV_PIX_FMT_VDPAU_VC1)
@@ -344,6 +356,7 @@ static void Codec_draw_horiz_band(AVCodecContext * video_ctx,
 	VideoDrawRenderState(decoder->HwDecoder, vrs);
 	return;
     }
+#endif
 #else
     (void)video_ctx;
     (void)frame;
@@ -461,7 +474,8 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 	return 0;
     }
 #else
-    if (video_codec->capabilities & (CODEC_CAP_HWACCEL_VDPAU |
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,00,100)
+    if (video_codec->capabilities & (AV_CODEC_CAP_HWACCEL_VDPAU |
 	    CODEC_CAP_HWACCEL)) {
 	Debug(3, "codec: video mpeg hack active\n");
 	// HACK around badly placed checks in mpeg_mc_decode_init
@@ -471,6 +485,7 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 	decoder->VideoCtx->thread_count = 1;
 	decoder->VideoCtx->active_thread_type = 0;
     }
+#endif
     if (avcodec_open2(decoder->VideoCtx, video_codec, NULL) < 0) {
 	pthread_mutex_unlock(&CodecLockMutex);
 	Error(_("codec: can't open video codec!\n"));
@@ -487,30 +502,35 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 	//decoder->VideoCtx->skip_loop_filter = AVDISCARD_ALL;
 	//decoder->VideoCtx->skip_loop_filter = AVDISCARD_BIDIR;
 //    }
-    if (video_codec->capabilities & CODEC_CAP_TRUNCATED) {
+    if (video_codec->capabilities & AV_CODEC_CAP_TRUNCATED) {
 	Debug(3, "codec: video can use truncated packets\n");
 #ifndef USE_MPEG_COMPLETE
 	// we send incomplete frames, for old PES recordings
 	// this breaks the decoder for some stations
-	decoder->VideoCtx->flags |= CODEC_FLAG_TRUNCATED;
+	decoder->VideoCtx->flags |= AV_CODEC_FLAG_TRUNCATED;
 #endif
     }
     // FIXME: own memory management for video frames.
-    if (video_codec->capabilities & CODEC_CAP_DR1) {
+    if (video_codec->capabilities & AV_CODEC_CAP_DR1) {
 	Debug(3, "codec: can use own buffer management\n");
     }
-    if (video_codec->capabilities & CODEC_CAP_HWACCEL_VDPAU) {
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,00,100)
+    if (video_codec->capabilities & AV_CODEC_CAP_HWACCEL_VDPAU) {
 	Debug(3, "codec: can export data for HW decoding (VDPAU)\n");
     }
+#endif
 #ifdef CODEC_CAP_FRAME_THREADS
-    if (video_codec->capabilities & CODEC_CAP_FRAME_THREADS) {
+    if (video_codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) {
 	Debug(3, "codec: codec supports frame threads\n");
     }
 #endif
     //decoder->VideoCtx->debug = FF_DEBUG_STARTCODE;
     //decoder->VideoCtx->err_recognition |= AV_EF_EXPLODE;
-
-    if (video_codec->capabilities & CODEC_CAP_HWACCEL_VDPAU) {
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,00,100)
+    if (video_codec->capabilities & AV_CODEC_CAP_HWACCEL_VDPAU) {
+#else
+    if (decoder->VideoCtx->hwaccel_context) {
+#endif
 	// FIXME: get_format never called.
 	decoder->VideoCtx->get_format = Codec_get_format;
 	decoder->VideoCtx->get_buffer2 = Codec_get_buffer2;
@@ -528,7 +548,6 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 	decoder->VideoCtx->hwaccel_context =
 	    VideoGetHwAccelContext(decoder->HwDecoder);
     }
-
 #if 0
     // our pixel format video hardware decoder hook
     if (decoder->VideoCtx->hwaccel_context) {
@@ -920,7 +939,7 @@ void CodecAudioOpen(AudioDecoder * audio_decoder, int codec_id)
     pthread_mutex_unlock(&CodecLockMutex);
     Debug(3, "codec: audio '%s'\n", audio_decoder->AudioCodec->long_name);
 
-    if (audio_codec->capabilities & CODEC_CAP_TRUNCATED) {
+    if (audio_codec->capabilities & AV_CODEC_CAP_TRUNCATED) {
 	Debug(3, "codec: audio can use truncated packets\n");
 	// we send only complete frames
 	// audio_decoder->AudioCtx->flags |= CODEC_FLAG_TRUNCATED;

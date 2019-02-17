@@ -9117,12 +9117,14 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	Debug(3, "\t%#010x %s\n", *fmt_idx, av_get_pix_fmt_name(*fmt_idx));
 	// check supported pixel format with entry point
 	switch (*fmt_idx) {
+#if LIBAVUTIL_VERSION_MAJOR < 56
 	    case AV_PIX_FMT_VDPAU_H264:
 	    case AV_PIX_FMT_VDPAU_MPEG1:
 	    case AV_PIX_FMT_VDPAU_MPEG2:
 	    case AV_PIX_FMT_VDPAU_WMV3:
 	    case AV_PIX_FMT_VDPAU_VC1:
 	    case AV_PIX_FMT_VDPAU_MPEG4:
+#endif
 	    case AV_PIX_FMT_VDPAU:
 #ifdef CUVID
 	    case AV_PIX_FMT_CUDA:
@@ -9957,21 +9959,23 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
     // Hardware render
     //
     // VDPAU: AV_PIX_FMT_VDPAU_H264 .. AV_PIX_FMT_VDPAU_VC1 AV_PIX_FMT_VDPAU_MPEG4
+#if LIBAVUTIL_VERSION_MAJOR < 56
     if ((AV_PIX_FMT_VDPAU_H264 <= video_ctx->pix_fmt
 	    && video_ctx->pix_fmt <= AV_PIX_FMT_VDPAU_VC1)
 	|| video_ctx->pix_fmt == AV_PIX_FMT_VDPAU
 	|| video_ctx->pix_fmt == AV_PIX_FMT_VDPAU_MPEG4) {
 	struct vdpau_render_state *vrs;
-
+#endif
 	if (video_ctx->pix_fmt == AV_PIX_FMT_VDPAU) {
 	    surface = (VdpVideoSurface *)frame->data[3];
 	    Debug(4, "video/vdpau: hw render VDPAU surface from frame %#08x\n", surface);
+#if LIBAVUTIL_VERSION_MAJOR < 56
 	} else {
 	    vrs = (struct vdpau_render_state *)frame->data[0];
 	    surface = vrs->surface;
 	    Debug(4, "video/vdpau: hw render hw surface from frame %#08x from buf%#08x\n", surface, vrs->surface);
 	}
-
+#endif
 	if (interlaced
 	    && VideoDeinterlace[decoder->Resolution] >=
 	    VideoDeinterlaceSoftBob) {
@@ -12312,7 +12316,7 @@ void *VideoGetHwAccelContext(VideoHwDecoder * hw_decoder)
 }
 
 #ifdef USE_VDPAU
-
+#if LIBAVUTIL_VERSION_MAJOR < 56
 ///
 ///	Draw ffmpeg vdpau render state.
 ///
@@ -12369,7 +12373,7 @@ void VideoDrawRenderState(VideoHwDecoder * hw_decoder,
     }
     Error(_("video/vdpau: draw render state, without vdpau enabled\n"));
 }
-
+#endif
 #endif
 
 ///

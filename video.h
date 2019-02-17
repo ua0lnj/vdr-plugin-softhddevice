@@ -70,10 +70,12 @@ extern void VideoRenderFrame(VideoHwDecoder *, const AVCodecContext *,
     /// Get hwaccel context for ffmpeg.
 extern void *VideoGetHwAccelContext(VideoHwDecoder *);
 
+#if LIBAVUTIL_VERSION_MAJOR < 56
 #ifdef AVCODEC_VDPAU_H
     /// Draw vdpau render state.
 extern void VideoDrawRenderState(VideoHwDecoder *,
     struct vdpau_render_state *);
+#endif
 #endif
 #endif
 
