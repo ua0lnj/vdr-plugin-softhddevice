@@ -401,7 +401,6 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 	Error(_("codec: missing close\n"));
     }
 
-    // FIXME: old vdpau API: should be updated to new API
     name = NULL;
     if (!strcasecmp(VideoGetDriverName(), "vdpau")) {
 	switch (codec_id) {
@@ -409,7 +408,11 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 #ifdef CUVID
 		name = VideoHardwareDecoder ? "mpeg2_cuvid" : NULL;
 #else
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,89,100)
 		name = VideoHardwareDecoder < 0 ? "mpegvideo_vdpau" : NULL;
+#else
+		name = VideoHardwareDecoder < 0 ? "mpeg2video" : NULL;
+#endif
 #endif
 		break;
 	    case AV_CODEC_ID_H264:
@@ -423,11 +426,15 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 #endif
 #endif
 		break;
-#ifdef CUVID
 	    case AV_CODEC_ID_HEVC:
+#ifdef CUVID
 		name = VideoHardwareDecoder ? "hevc_cuvid" : NULL;
-		break;
+#else
+#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(58,34,100)
+		name = VideoHardwareDecoder ? "hevc" : NULL;	//Nvidia fix vdpau hevc in 4xx driver
 #endif
+#endif
+		break;
 	}
     }
 
