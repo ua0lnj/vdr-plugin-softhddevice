@@ -200,7 +200,7 @@ static int Codec_get_buffer2(AVCodecContext * video_ctx, AVFrame * frame, int fl
 	Codec_get_format(video_ctx, fmts);
     }
     if (decoder->hwaccel_get_buffer && (AV_PIX_FMT_VDPAU == decoder->hwaccel_pix_fmt || AV_PIX_FMT_CUDA == decoder->hwaccel_pix_fmt)) {
-           //Debug(3,"hwaccel get_buffer\n");
+           Debug(3,"hwaccel get_buffer\n");
            return decoder->hwaccel_get_buffer(video_ctx, frame, flags);
     }
 #ifdef USE_VDPAU
@@ -418,34 +418,33 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
     if (!strcasecmp(VideoGetDriverName(), "vdpau")) {
 	switch (codec_id) {
 	    case AV_CODEC_ID_MPEG2VIDEO:
-#ifdef CUVID
-		name = VideoHardwareDecoder ? "mpeg2_cuvid" : NULL;
-#else
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,89,100)
-		name = VideoHardwareDecoder < 0 ? "mpegvideo_vdpau" : NULL;
+		name = VideoHardwareDecoder > HWmpeg2Off ? "mpegvideo_vdpau" : NULL;
 #else
-		name = VideoHardwareDecoder < 0 ? "mpeg2video" : NULL;
+		name = VideoHardwareDecoder > HWmpeg2Off ? "mpeg2video" : NULL;
 #endif
+#ifdef CUVID
+		name = VideoHardwareDecoder == HWcuvidOn ? "mpeg2_cuvid" : name;
 #endif
+
 		break;
 	    case AV_CODEC_ID_H264:
-#ifdef CUVID
-		name = VideoHardwareDecoder ? "h264_cuvid" : NULL;
-#else
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,89,100)
 		name = VideoHardwareDecoder ? "h264_vdpau" : NULL;
 #else
 		name = VideoHardwareDecoder ? "h264" : NULL;
 #endif
+#ifdef CUVID
+		name = VideoHardwareDecoder == HWcuvidOn ? "h264_cuvid" : name;
 #endif
+
 		break;
 	    case AV_CODEC_ID_HEVC:
-#ifdef CUVID
-		name = VideoHardwareDecoder ? "hevc_cuvid" : NULL;
-#else
 #if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(58,34,100)
 		name = VideoHardwareDecoder ? "hevc" : NULL;	//Nvidia fix vdpau hevc in 4xx driver
 #endif
+#ifdef CUVID
+		name = VideoHardwareDecoder == HWcuvidOn ? "hevc_cuvid" : name;
 #endif
 		break;
 	}

@@ -10,9 +10,6 @@
 PLUGIN = softhddevice
 
 ### Configuration (edit this for your needs)
-    # enable use cuvid if it is posible
-    # with ffmpeg < 5xx and Nvidia driver < 4xx vdpau can't decode hevc
-USE_CUVID ?= 0
 
     # support alsa audio output module
 ALSA ?= $(shell pkg-config --exists alsa && echo 1)
@@ -34,12 +31,10 @@ SWRESAMPLE ?= $(shell pkg-config --exists libswresample && echo 1)
 ifneq ($(SWRESAMPLE),1)
 AVRESAMPLE ?= $(shell pkg-config --exists libavresample && echo 1)
 endif
-    # test CUVID (NVdec)
-ifeq ($(USE_CUVID),1)
+    # support CUVID (NVdec) video decoder with vdpau render
 ifeq ($(shell lspci|grep VGA|grep -c NVIDIA),1)
 ifeq ($(VDPAU),1)
 CUVID ?= $(shell ffmpeg -loglevel quiet -decoders | grep -c hevc_cuvid)
-endif
 endif
 endif
 

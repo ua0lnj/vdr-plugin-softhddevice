@@ -86,7 +86,7 @@ char ConfigStartX11Server;		///< flag start the x11 server
 static signed char ConfigStartSuspended;	///< flag to start in suspend mode
 static char ConfigFullscreen;		///< fullscreen modus
 static const char *X11ServerArguments;	///< default command arguments
-static char ConfigStillDecoder;		///< hw/sw decoder for still picture
+static enum VideoHardwareDecoderMode ConfigStillDecoder;		///< hw/sw decoder for still picture
 
 static pthread_mutex_t SuspendLockMutex;	///< suspend lock mutex
 
@@ -649,7 +649,7 @@ static void VideoEnqueue(VideoStream * stream, int64_t pts, const void *data,
 #ifdef DEBUG
     if (avpkt->stream_index > VideoMaxPacketSize) {
 	VideoMaxPacketSize = avpkt->stream_index;
-	Debug(3, "video: max used PES packet size: %d\n", VideoMaxPacketSize);
+	Debug(4, "video: max used PES packet size: %d\n", VideoMaxPacketSize);
     }
 #endif
 }
@@ -3151,6 +3151,7 @@ const char *CommandLineHelp(void)
 	"  -x\t\tstart x11 server, with -xx try to connect, if this fails\n"
 	"  -X args\tX11 server arguments (f.e. -nocursor)\n"
 	"  -w workaround\tenable/disable workarounds\n"
+	"\tcuvid-hw-decoder\t\tenable cuvid hw decoder with vdpau render\n"
 	"\tno-hw-decoder\t\tdisable hw decoder, use software decoder only\n"
 	"\tno-mpeg-hw-decoder\tdisable hw decoder for mpeg only\n"
 	"\tstill-hw-decoder\tenable hardware decoder for still-pictures\n"
@@ -3228,16 +3229,18 @@ int ProcessArgs(int argc, char *const argv[])
 		continue;
 	    case 'w':			// workarounds
 		if (!strcasecmp("no-hw-decoder", optarg)) {
-		    VideoHardwareDecoder = 0;
+		    VideoHardwareDecoder = HWOff;
 		} else if (!strcasecmp("no-mpeg-hw-decoder", optarg)) {
-		    VideoHardwareDecoder = 1;
+		    VideoHardwareDecoder = HWmpeg2Off;
 		    if (ConfigStillDecoder) {
-			ConfigStillDecoder = 1;
+			ConfigStillDecoder = HWmpeg2Off;
 		    }
+		} else if (!strcasecmp("cuvid-hw-decoder", optarg)) {
+		    VideoHardwareDecoder = HWcuvidOn;
 		} else if (!strcasecmp("still-hw-decoder", optarg)) {
-		    ConfigStillDecoder = -1;
+		    ConfigStillDecoder = VideoHardwareDecoder ? VideoHardwareDecoder : HWOn;
 		} else if (!strcasecmp("still-h264-hw-decoder", optarg)) {
-		    ConfigStillDecoder = 1;
+		    ConfigStillDecoder = VideoHardwareDecoder ? VideoHardwareDecoder : HWmpeg2Off;
 		} else if (!strcasecmp("alsa-driver-broken", optarg)) {
 		    AudioAlsaDriverBroken = 1;
 		} else if (!strcasecmp("alsa-no-close-open", optarg)) {
@@ -3509,7 +3512,7 @@ int Start(void)
 void Stop(void)
 {
 #ifdef DEBUG
-    Debug(3, "video: max used PES packet size: %d\n", VideoMaxPacketSize);
+    Debug(4, "video: max used PES packet size: %d\n", VideoMaxPacketSize);
 #endif
 }
 

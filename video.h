@@ -36,8 +36,14 @@ typedef struct __video_stream__ VideoStream;
 //----------------------------------------------------------------------------
 //	Variables
 //----------------------------------------------------------------------------
+enum  VideoHardwareDecoderMode {
+    HWOff = 0,
+    HWmpeg2Off,
+    HWOn,
+    HWcuvidOn,
+};
 
-extern signed char VideoHardwareDecoder;	///< flag use hardware decoder
+extern enum VideoHardwareDecoderMode VideoHardwareDecoder;	///< flag use hardware decoder
 extern char VideoIgnoreRepeatPict;	///< disable repeat pict warning
 extern int VideoAudioDelay;		///< audio/video delay
 extern char ConfigStartX11Server;	///< flag start the x11 server

@@ -415,7 +415,7 @@ static const VideoModule NoopModule;	///< forward definition of noop module
     /// selected video module
 static const VideoModule *VideoUsedModule = &NoopModule;
 
-signed char VideoHardwareDecoder = -1;	///< flag use hardware decoder
+enum VideoHardwareDecoderMode VideoHardwareDecoder = HWOn;	///< flag use hardware decoder
 
 static char VideoSurfaceModesChanged;	///< flag surface modes changed
 
@@ -4131,7 +4131,7 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
     VAConfigAttrib attrib;
 
     if (!VideoHardwareDecoder || (video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO
-	    && VideoHardwareDecoder == 1)
+	    && VideoHardwareDecoder == HWmpeg2Off)
 	) {				// hardware disabled by config
 	Debug(3, "codec: hardware acceleration disabled\n");
 	goto slow_path;
@@ -8301,7 +8301,7 @@ static int VdpauInit(const char *display_name)
     Info(_("video/vdpau: VDPAU API version: %u\n"), api_version);
     Info(_("video/vdpau: VDPAU information: %s\n"), information_string);
 #ifdef CUVID
-    Info(_("video/vdpau: USE NVDEC (CUVID)\n"));
+    Info(_("video/vdpau: Can be use NVDEC (CUVID)\n"));
 #endif
     // FIXME: check if needed capabilities are available
 
@@ -9099,7 +9099,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
     Debug(3,"get format  %dx%d\n",video_ctx->width,video_ctx->height);
 
     if (!VideoHardwareDecoder || (video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO
-	    && VideoHardwareDecoder == 1)
+	    && VideoHardwareDecoder == HWmpeg2Off)
 	) {				// hardware disabled by config
 	Debug(3, "codec: hardware acceleration disabled\n");
 	goto slow_path;
@@ -9127,7 +9127,12 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 #endif
 	    case AV_PIX_FMT_VDPAU:
 #ifdef CUVID
+		if (VideoHardwareDecoder == HWcuvidOn)
+		    continue;
+		break;
 	    case AV_PIX_FMT_CUDA:
+		if (VideoHardwareDecoder != HWcuvidOn)
+		    continue;
 #endif
 		break;
 	    default:
@@ -9148,15 +9153,15 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	case AV_CODEC_ID_MPEG1VIDEO:
 	    max_refs = CODEC_SURFACES_MPEG2;
 #ifdef CUVID
-            if (*fmt_idx != AV_PIX_FMT_CUDA)
-               break;
+	    if (*fmt_idx != AV_PIX_FMT_CUDA && VideoHardwareDecoder == HWcuvidOn)
+	        break;
 #endif
 	    profile = VdpauCheckProfile(decoder, VDP_DECODER_PROFILE_MPEG1);
 	    break;
 	case AV_CODEC_ID_MPEG2VIDEO:
 	    max_refs = CODEC_SURFACES_MPEG2;
 #ifdef CUVID
-            if (*fmt_idx != AV_PIX_FMT_CUDA)
+            if (*fmt_idx != AV_PIX_FMT_CUDA && VideoHardwareDecoder == HWcuvidOn)
                 break;
 #endif
 	    profile = VdpauCheckProfile(decoder, VDP_DECODER_PROFILE_MPEG2_MAIN);
@@ -9173,7 +9178,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	    // vdpau supports only 16 references
 	    max_refs = 16;
 #ifdef CUVID
-            if (*fmt_idx != AV_PIX_FMT_CUDA)
+            if (*fmt_idx != AV_PIX_FMT_CUDA && VideoHardwareDecoder == HWcuvidOn)
                 break;
 #endif
 	    // try more simple formats, fallback to better
@@ -9207,7 +9212,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
         case AV_CODEC_ID_HEVC:
             max_refs = 16;
 #ifdef CUVID
-            if (*fmt_idx != AV_PIX_FMT_CUDA)
+            if (*fmt_idx != AV_PIX_FMT_CUDA && VideoHardwareDecoder == HWcuvidOn)
                break;
 #endif
             if (video_ctx->profile == FF_PROFILE_HEVC_MAIN_10) {
@@ -9263,7 +9268,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
     decoder->InputHeight = 0;
 
 #ifdef CUVID
-    if (*fmt_idx == AV_PIX_FMT_CUDA  )  {       // HWACCEL used.
+    if (*fmt_idx == AV_PIX_FMT_CUDA)  {       // HWACCEL used.
 	decoder->PixFmt = AV_PIX_FMT_CUDA;
 	ist->active_hwaccel_id = HWACCEL_CUVID;
 	ist->hwaccel_pix_fmt   = AV_PIX_FMT_CUDA;
@@ -9285,7 +9290,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	    VdpauSetupOutput(decoder);
         }
 	return AV_PIX_FMT_CUDA;
-    }
+    } else
 #endif
 
     if (*fmt_idx == AV_PIX_FMT_VDPAU) { // HWACCEL used
@@ -14070,10 +14075,10 @@ void VideoInit(const char *display_name)
   found:
     // FIXME: make it configurable from gui
     if (getenv("NO_MPEG_HW")) {
-	VideoHardwareDecoder = 1;
+	VideoHardwareDecoder = HWmpeg2Off;
     }
     if (getenv("NO_HW")) {
-	VideoHardwareDecoder = 0;
+	VideoHardwareDecoder = HWOff;
     }
     // disable x11 screensaver
     X11SuspendScreenSaver(Connection, 1);
