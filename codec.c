@@ -200,7 +200,7 @@ static int Codec_get_buffer2(AVCodecContext * video_ctx, AVFrame * frame, int fl
 	Codec_get_format(video_ctx, fmts);
     }
     if (decoder->hwaccel_get_buffer && (AV_PIX_FMT_VDPAU == decoder->hwaccel_pix_fmt || AV_PIX_FMT_CUDA == decoder->hwaccel_pix_fmt)) {
-           Debug(3,"hwaccel get_buffer\n");
+           //Debug(3,"hwaccel get_buffer\n");
            return decoder->hwaccel_get_buffer(video_ctx, frame, flags);
     }
 #ifdef USE_VDPAU
@@ -440,11 +440,11 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 
 		break;
 	    case AV_CODEC_ID_HEVC:
-#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(58,34,100)
-		name = VideoHardwareDecoder ? "hevc" : NULL;	//Nvidia fix vdpau hevc in 4xx driver
+#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(57,89,100)
+		name = VideoHardwareDecoder > HWhevcOff? "hevc" : NULL;	//Nvidia fix vdpau hevc in 4xx driver, Radeon can vdpau hevc
 #endif
 #ifdef CUVID
-		name = VideoHardwareDecoder == HWcuvidOn ? "hevc_cuvid" : name;
+		name = VideoHardwareDecoder > HWOn ? "hevc_cuvid" : name;
 #endif
 		break;
 	}

@@ -39,7 +39,9 @@ typedef struct __video_stream__ VideoStream;
 enum  VideoHardwareDecoderMode {
     HWOff = 0,
     HWmpeg2Off,
+    HWhevcOff,
     HWOn,
+    HWcuvidhevc,
     HWcuvidOn,
 };
 

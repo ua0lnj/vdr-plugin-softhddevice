@@ -3237,6 +3237,10 @@ int ProcessArgs(int argc, char *const argv[])
 		    }
 		} else if (!strcasecmp("cuvid-hw-decoder", optarg)) {
 		    VideoHardwareDecoder = HWcuvidOn;
+		} else if (!strcasecmp("cuvid-hevc-hw-decoder", optarg)) {
+		    VideoHardwareDecoder = HWcuvidhevc;
+		} else if (!strcasecmp("no-hevc-decoder", optarg)) {
+		    VideoHardwareDecoder = HWhevcOff;
 		} else if (!strcasecmp("still-hw-decoder", optarg)) {
 		    ConfigStillDecoder = VideoHardwareDecoder ? VideoHardwareDecoder : HWOn;
 		} else if (!strcasecmp("still-h264-hw-decoder", optarg)) {
