@@ -2465,7 +2465,7 @@ int PlayVideo3(VideoStream * stream, const uint8_t * data, int size)
 	return size;
     }
     // HEVC Codec
-    if ((data[6] & 0xC0) == 0x80 && z >= 2 && check[0] == 0x01 && check[1] == 0x46) {
+    if ((data[6] & 0xC0) == 0x80 && z >= 2 && check[0] == 0x01 && check[1] == 0x46 && VideoHardwareDecoder != HWhevcOff) {
 	// old PES HDTV recording z == 2 -> stronger check!
 	if (stream->CodecID == AV_CODEC_ID_HEVC) {
             VideoNextPacket(stream, AV_CODEC_ID_HEVC);
@@ -2474,8 +2474,7 @@ int PlayVideo3(VideoStream * stream, const uint8_t * data, int size)
             stream->CodecID = AV_CODEC_ID_HEVC;
 	}
 	// SKIP PES header (ffmpeg supports short start code)
-	if (VideoHardwareDecoder != HWhevcOff)
-	    VideoEnqueue(stream, pts, check - 2, l + 2);
+	VideoEnqueue(stream, pts, check - 2, l + 2);
 	return size;
     }
 
