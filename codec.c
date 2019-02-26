@@ -440,7 +440,7 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 
 		break;
 	    case AV_CODEC_ID_HEVC:
-#if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(57,89,100)
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57,89,100)
 		name = VideoHardwareDecoder > HWhevcOff? "hevc" : NULL;	//Nvidia fix vdpau hevc in 4xx driver, Radeon can vdpau hevc
 #endif
 #ifdef CUVID
