@@ -1415,6 +1415,8 @@ typedef struct _pes_demux_
     int Index;				///< buffer index
     int Skip;				///< buffer skip
     int Size;				///< size of payload buffer
+    uint8_t *videoBuffer;		///< video buffer, use for mpeg2 video
+    int videoIndex;			///< video buffer index
 
     uint8_t StartCode;			///< pes packet start code
 
@@ -1429,6 +1431,7 @@ static void PesReset(PesDemux * pesdx)
 {
     pesdx->State = PES_INIT;
     pesdx->Index = 0;
+    pesdx->videoIndex = 0;
     pesdx->Skip = 0;
     pesdx->StartCode = -1;
     pesdx->PTS = AV_NOPTS_VALUE;
@@ -1446,6 +1449,10 @@ static void PesInit(PesDemux * pesdx)
     pesdx->Size = PES_MAX_PAYLOAD;
     pesdx->Buffer = av_malloc(PES_MAX_PAYLOAD + FF_INPUT_BUFFER_PADDING_SIZE);
     if (!pesdx->Buffer) {
+	Fatal(_("pesdemux: out of memory\n"));
+    }
+    pesdx->videoBuffer = av_malloc(PES_MAX_PAYLOAD + FF_INPUT_BUFFER_PADDING_SIZE);
+    if (!pesdx->videoBuffer) {
 	Fatal(_("pesdemux: out of memory\n"));
     }
     PesReset(pesdx);
@@ -1688,6 +1695,8 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 			if (z > 1 && check[0] == 0x01 && (!check[1] || check[1] == 0xb3)) {
 			    if (MyVideoStream->CodecID == AV_CODEC_ID_MPEG2VIDEO) {
 				VideoNextPacket(MyVideoStream, AV_CODEC_ID_MPEG2VIDEO);
+				VideoMpegEnqueue(MyVideoStream, pesdx->PTS, pesdx->videoBuffer, pesdx->videoIndex);
+				pesdx->videoIndex=0;
 			    } else {
 				Debug(3, "video: mpeg2 detected ID %02x\n", check[3]);
 				MyVideoStream->CodecID = AV_CODEC_ID_MPEG2VIDEO;
@@ -1698,9 +1707,10 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 			    }
 #endif
 #ifdef USE_PIP
-			    VideoMpegEnqueue(MyVideoStream, pesdx->PTS, check - 2, l + 2);
+			    memcpy(pesdx->videoBuffer + pesdx->videoIndex, check - z, l + z);
+			    pesdx->videoIndex += l + z;
 #else
-			    VideoEnqueue(MyVideoStream, pesdx->PTS, check - 2, l + 2);
+			    VideoEnqueue(MyVideoStream, pesdx->PTS, check - z, l + z);
 #endif
 			    pesdx->Skip += n;
 			    pesdx->PTS = AV_NOPTS_VALUE;
@@ -1715,33 +1725,14 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 			}
 #ifdef USE_PIP
 			if (MyVideoStream->CodecID == AV_CODEC_ID_MPEG2VIDEO) {
-			    VideoMpegEnqueue(MyVideoStream, pesdx->PTS, q, n);
-#ifndef USE_MPEG_COMPLETE
-			    if (MyVideoStream->PacketRb[MyVideoStream->PacketWrite].stream_index < 65526) {
-				// mpeg codec supports incomplete packets
-				// waiting for a full complete packages, increases needed delays
-				// PES recordings sends incomplete packets
-				// incomplete packets  breaks the decoder for some stations
-				// for the new USE_PIP code, this is only a very little improvement
-				VideoNextPacket(MyVideoStream, MyVideoStream->CodecID);
-			    }
-#endif
+			    memcpy(pesdx->videoBuffer + pesdx->videoIndex, q, n);
+			    pesdx->videoIndex += n;
 			} else {
 			    VideoEnqueue(MyVideoStream, pesdx->PTS, q, n);
 			}
 #else
 			// SKIP PES header
 			VideoEnqueue(MyVideoStream, pesdx->PTS, q, n);
-#ifndef USE_MPEG_COMPLETE
-			// incomplete packets produce artefacts after channel switch
-			// packet < 65526 is the last split packet, detect it here for
-			// better latency
-			if ( MyVideoStream->PacketRb[MyVideoStream->PacketWrite].stream_index < 65526 && MyVideoStream->CodecID == AV_CODEC_ID_MPEG2VIDEO) {
-			    // mpeg codec supports incomplete packets
-			    // waiting for a full complete packages, increases needed delays
-			    VideoNextPacket(MyVideoStream, AV_CODEC_ID_MPEG2VIDEO);
-			}
-#endif
 #endif
 			pesdx->Skip += n;
 		}
