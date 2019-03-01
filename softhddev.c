@@ -1682,7 +1682,7 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 			    if (MyVideoStream->CodecID == AV_CODEC_ID_HEVC) {
 				VideoNextPacket(MyVideoStream, AV_CODEC_ID_HEVC);
 			    } else {
-				Debug(3, "video: hvec detected\n");
+				Debug(3, "video: hevc detected\n");
 				MyVideoStream->CodecID = AV_CODEC_ID_HEVC;
 			    }
 			    // (ffmpeg supports short start code)
@@ -2470,7 +2470,7 @@ int PlayVideo3(VideoStream * stream, const uint8_t * data, int size)
 	if (stream->CodecID == AV_CODEC_ID_HEVC) {
             VideoNextPacket(stream, AV_CODEC_ID_HEVC);
 	} else {
-            Debug(3, "video: hvec detected\n");
+            Debug(3, "video: hevc detected\n");
             stream->CodecID = AV_CODEC_ID_HEVC;
 	}
 	// SKIP PES header (ffmpeg supports short start code)

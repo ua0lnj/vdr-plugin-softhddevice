@@ -9127,11 +9127,11 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 #endif
 	    case AV_PIX_FMT_VDPAU:
 #ifdef CUVID
-		if (VideoHardwareDecoder == HWcuvidOn)
+		if (VideoHardwareDecoder == HWcuvidOn || (VideoHardwareDecoder == HWcuvidhevc && video_ctx->codec_id == AV_CODEC_ID_HEVC))
 		    continue;
 		break;
 	    case AV_PIX_FMT_CUDA:
-		if (VideoHardwareDecoder != HWcuvidOn)
+		if (VideoHardwareDecoder < HWcuvidhevc || (VideoHardwareDecoder == HWcuvidhevc && video_ctx->codec_id != AV_CODEC_ID_HEVC))
 		    continue;
 #endif
 		break;
@@ -9153,7 +9153,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	case AV_CODEC_ID_MPEG1VIDEO:
 	    max_refs = CODEC_SURFACES_MPEG2;
 #ifdef CUVID
-	    if (*fmt_idx != AV_PIX_FMT_CUDA && VideoHardwareDecoder == HWcuvidOn)
+	    if (*fmt_idx == AV_PIX_FMT_CUDA)
 	        break;
 #endif
 	    profile = VdpauCheckProfile(decoder, VDP_DECODER_PROFILE_MPEG1);
@@ -9161,7 +9161,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	case AV_CODEC_ID_MPEG2VIDEO:
 	    max_refs = CODEC_SURFACES_MPEG2;
 #ifdef CUVID
-            if (*fmt_idx != AV_PIX_FMT_CUDA && VideoHardwareDecoder == HWcuvidOn)
+            if (*fmt_idx == AV_PIX_FMT_CUDA)
                 break;
 #endif
 	    profile = VdpauCheckProfile(decoder, VDP_DECODER_PROFILE_MPEG2_MAIN);
@@ -9178,7 +9178,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	    // vdpau supports only 16 references
 	    max_refs = 16;
 #ifdef CUVID
-            if (*fmt_idx != AV_PIX_FMT_CUDA && VideoHardwareDecoder == HWcuvidOn)
+            if (*fmt_idx == AV_PIX_FMT_CUDA)
                 break;
 #endif
 	    // try more simple formats, fallback to better
@@ -9212,7 +9212,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
         case AV_CODEC_ID_HEVC:
             max_refs = 16;
 #ifdef CUVID
-            if (*fmt_idx != AV_PIX_FMT_CUDA && VideoHardwareDecoder == HWcuvidOn)
+            if (*fmt_idx == AV_PIX_FMT_CUDA)
                break;
 #endif
             if (video_ctx->profile == FF_PROFILE_HEVC_MAIN_10) {
