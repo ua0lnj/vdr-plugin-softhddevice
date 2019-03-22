@@ -28,8 +28,14 @@ SWSCALE ?= $(shell pkg-config --exists libswscale && echo 1)
     # use ffmpeg libswresample
 SWRESAMPLE ?= $(shell pkg-config --exists libswresample && echo 1)
     # use libav libavresample
-ifneq ($(SWRESAMPLE),1)
 AVRESAMPLE ?= $(shell pkg-config --exists libavresample && echo 1)
+ifeq ($(SWRESAMPLE),1)
+ifeq ($(AVRESAMPLE),1)
+$(info WARNING, you have libavresample and libswresample together!!!)
+    # if you got a segfault, try changing the comment in following lines
+SWRESAMPLE = 0
+#AVRESAMPLE = 0
+endif
 endif
     # support CUVID (NVdec) video decoder with vdpau render
 ifeq ($(shell lspci|grep VGA|grep -c NVIDIA),1)
