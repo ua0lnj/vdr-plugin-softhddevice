@@ -10641,7 +10641,7 @@ static void VdpauDisplayFrame(void)
 	if (filled < 1 + 2 * decoder->Interlaced) {
 	    // FIXME: rewrite MixVideo to support less surfaces
 	    if ((VideoShowBlackPicture && !decoder->TrickSpeed)
-		|| decoder->Closing < -300) {
+		|| (VideoShowBlackPicture && decoder->Closing < -300)) {
 		VdpauBlackSurface(decoder);
 		VdpauMessage(3, "video/vdpau: black surface displayed\n");
 #ifdef USE_SCREENSAVER
