@@ -2065,7 +2065,7 @@ static VASurfaceID VaapiGetSurface0(VaapiDecoder * decoder)
 	    status = VASurfaceReady;
 	}
 	// surface still in use, try next
-	if (status != VASurfaceReady) {
+	if (status != VASurfaceReady && !VaapiBuggyXvBA) {
 	    Debug(4, "video/vaapi: surface %#010x not ready: %d\n", surface,
 		status);
 	    if (!VaapiBuggyVdpau || i < 1) {
@@ -2811,6 +2811,9 @@ static int VaapiInit(const char *display_name)
     if (strstr(s, "XvBA")) {
 	VaapiBuggyXvBA = 1;
     }
+    if (strstr(s, "AMD")) {
+	VaapiBuggyXvBA = 1;
+    }
     if (strstr(s, "Intel i965")) {
 	VaapiBuggyIntel = 1;
     }
@@ -3057,7 +3060,8 @@ static VAStatus VaapiPostprocessSurface(VAContextID ctx,
             return va_status;
         }
         if (va_surf_status != VASurfaceReady) {
-            Info("Backward reference surface %d is not ready, surf_status = %d\n", i, va_surf_status);
+            if (!VaapiBuggyXvBA)
+                Info("Backward reference surface %d is not ready, surf_status = %d\n", i, va_surf_status);
             return VA_STATUS_ERROR_SURFACE_BUSY;
         }
     }
