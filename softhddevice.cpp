@@ -37,6 +37,10 @@
 #include "softhddevice.h"
 #include "softhddevice_service.h"
 
+#ifdef USE_OPENGLOSD
+#include "openglosd.h"
+#endif
+
 extern "C"
 {
 #include <stdint.h>
@@ -180,6 +184,10 @@ static int ConfigPipAltVideoHeight = 50;	///< config pip alt. video height in %
 
 #ifdef USE_SCREENSAVER
 static char ConfigEnableDPMSatBlackScreen;	///< Enable DPMS(Screensaver) while displaying black screen(radio)
+#endif
+
+#ifdef USE_OPENGLOSD
+static int ConfigMaxSizeGPUImageCache = 128;  ///< maximum size of GPU mem to be used for image caching
 #endif
 
 static volatile int DoMakePrimary;	///< switch primary device to this
@@ -690,6 +698,44 @@ void cSoftOsd::Flush(void)
     Dirty = 0;
 }
 
+#ifdef USE_OPENGLOSD
+//Dummy OSD for OpenGL OSD if no X Server is available.
+class cDummyOsd : public cOsd {
+  public:
+    cDummyOsd(int Left, int Top, uint Level) : cOsd(Left, Top, Level) {}
+    virtual ~cDummyOsd() {}
+    virtual cPixmap *CreatePixmap(int Layer, const cRect &ViewPort, const cRect &DrawPort = cRect::Null) {
+        (void)Layer; (void)ViewPort; (void)DrawPort;
+        return NULL;
+    }
+    virtual void DestroyPixmap(cPixmap *Pixmap) { (void)Pixmap; }
+    virtual void DrawImage(const cPoint &Point, const cImage &Image) { (void)Point; (void)Image; }
+    virtual void DrawImage(const cPoint &Point, int ImageHandle) { (void) Point; (void)ImageHandle; }
+    virtual eOsdError CanHandleAreas(const tArea *Areas, int NumAreas) { (void)Areas; (void)NumAreas; return oeOk; }
+    virtual eOsdError SetAreas(const tArea *Areas, int NumAreas) { (void)Areas; (void)NumAreas; return oeOk; }
+    virtual void SaveRegion(int x1, int y1, int x2, int y2) { (void)x1; (void)y1; (void)x2; (void)y2; }
+    virtual void RestoreRegion(void) {}
+    virtual eOsdError SetPalette(const cPalette &Palette, int Area) { (void)Palette; (void)Area; return oeOk; }
+    virtual void DrawPixel(int x, int y, tColor Color) { (void)x; (void)y; (void)Color; }
+    virtual void DrawBitmap(int x, int y, const cBitmap &Bitmap, tColor ColorFg = 0, tColor ColorBg = 0, bool ReplacePalette = false, bool Overlay = false) {
+        (void)x; (void)y; (void)Bitmap; (void)ColorFg; (void)ColorBg; (void)ReplacePalette; (void)Overlay;
+    }
+    virtual void DrawText(int x, int y, const char *s, tColor ColorFg, tColor ColorBg, const cFont *Font, int Width = 0, int Height = 0, int Alignment = taDefault) {
+        (void)x; (void)y; (void)s; (void)ColorFg; (void)ColorBg; (void)Font; (void)Width; (void)Height; (void)Alignment;
+    }
+    virtual void DrawRectangle(int x1, int y1, int x2, int y2, tColor Color) {
+        (void)x1; (void)y1; (void)x2; (void)y2; (void)Color;
+    }
+    virtual void DrawEllipse(int x1, int y1, int x2, int y2, tColor Color, int Quadrants = 0) {
+        (void)x1; (void)y1; (void)x2; (void)y2; (void)Color; (void)Quadrants;
+    }
+    virtual void DrawSlope(int x1, int y1, int x2, int y2, tColor Color, int Type) {
+        (void)x1; (void)y1; (void)x2; (void)y2; (void)Color; (void)Type;
+    }
+    virtual void Flush(void) {}
+};
+#endif
+
 //////////////////////////////////////////////////////////////////////////////
 //	OSD provider
 //////////////////////////////////////////////////////////////////////////////
@@ -701,14 +747,45 @@ class cSoftOsdProvider:public cOsdProvider
 {
   private:
     static cOsd *Osd;			///< single OSD
+#ifdef USE_OPENGLOSD
+    static std::shared_ptr<cOglThread> oglThread;
+    static bool StartOpenGlThread(void);
+protected:
+    virtual int StoreImageData(const cImage &Image);
+    virtual void DropImageData(int ImageHandle);
+#endif
   public:
     virtual cOsd * CreateOsd(int, int, uint);
     virtual bool ProvidesTrueColor(void);
+#ifdef USE_OPENGLOSD
+    static void StopOpenGlThread(void);
+    static const cImage *GetImageData(int ImageHandle);
+    static void OsdSizeChanged(void);
+#endif
     cSoftOsdProvider(void);		///< OSD provider constructor
-    //virtual ~cSoftOsdProvider();	///< OSD provider destructor
+    virtual ~cSoftOsdProvider();	///< OSD provider destructor
 };
 
 cOsd *cSoftOsdProvider::Osd;		///< single osd
+
+#ifdef USE_OPENGLOSD
+std::shared_ptr<cOglThread> cSoftOsdProvider::oglThread;    ///< openGL worker Thread
+
+int cSoftOsdProvider::StoreImageData(const cImage &Image)
+{
+    if (StartOpenGlThread()) {
+        int imgHandle = oglThread->StoreImage(Image);
+        return imgHandle;
+    }
+    return 0;
+}
+
+void cSoftOsdProvider::DropImageData(int ImageHandle)
+{
+    if (StartOpenGlThread())
+        oglThread->DropImageData(ImageHandle);
+}
+#endif
 
 /**
 **	Create a new OSD.
@@ -723,7 +800,15 @@ cOsd *cSoftOsdProvider::CreateOsd(int left, int top, uint level)
     Debug(3, "[softhddev]%s: %d, %d, %d\n", __FUNCTION__, left, top, level);
 #endif
 
+#ifdef USE_OPENGLOSD
+    if (StartOpenGlThread())
+        return Osd = new cOglOsd(left, top, level, oglThread);
+    //return dummy osd if shd is detached
+    dsyslog("[softhddev]OpenGl Thread not started successfully, using Dummy OSD");
+    return Osd = new cDummyOsd(left, top, 999);
+#else
     return Osd = new cSoftOsd(left, top, level);
+#endif
 }
 
 /**
@@ -736,6 +821,53 @@ bool cSoftOsdProvider::ProvidesTrueColor(void)
     return true;
 }
 
+#ifdef USE_OPENGLOSD
+const cImage *cSoftOsdProvider::GetImageData(int ImageHandle) {
+    return cOsdProvider::GetImageData(ImageHandle);
+}
+
+void cSoftOsdProvider::OsdSizeChanged(void) {
+    //cleanup OpenGl Context
+    cSoftOsdProvider::StopOpenGlThread();
+    cOsdProvider::UpdateOsdSize();
+}
+
+
+bool cSoftOsdProvider::StartOpenGlThread(void) {
+    //only try to start worker thread if shd is attached
+    //otherwise glutInit() crashes
+    if (SuspendMode != NOT_SUSPENDED) {
+        dsyslog("[softhddev]detached - OpenGl Worker Thread not tried to start");
+        return false;
+    }
+    if (oglThread.get()) {
+        if (oglThread->Active()) {
+            return true;
+        }
+        oglThread.reset();
+    }
+    cCondWait wait;
+    dsyslog("[softhddev]Trying to start OpenGL Worker Thread");
+    oglThread.reset(new cOglThread(&wait, ConfigMaxSizeGPUImageCache));
+    wait.Wait();
+    if (oglThread->Active()) {
+        dsyslog("[softhddev]OpenGL Worker Thread successfully started");
+        return true;
+    }
+    dsyslog("[softhddev]openGL Thread NOT successfully started");
+    return false;
+}
+
+void cSoftOsdProvider::StopOpenGlThread(void) {
+    dsyslog("[softhddev]stopping OpenGL Worker Thread ");
+    if (oglThread) {
+        oglThread->Stop();
+    }
+    oglThread.reset();
+    dsyslog("[softhddev]OpenGL Worker Thread stopped");
+}
+#endif
+
 /**
 **	Create cOsdProvider class.
 */
@@ -745,15 +877,25 @@ cSoftOsdProvider::cSoftOsdProvider(void)
 #ifdef OSD_DEBUG
     Debug(3, "[softhddev]%s:\n", __FUNCTION__);
 #endif
+#ifdef USE_OPENGLOSD
+    StopOpenGlThread();
+    VideoSetVideoEventCallback(&OsdSizeChanged);
+#endif
 }
 
 /**
 **	Destroy cOsdProvider class.
+*/
 cSoftOsdProvider::~cSoftOsdProvider()
 {
+#ifdef OSD_DEBUG
     Debug(3, "[softhddev]%s:\n", __FUNCTION__);
+#endif
+#ifdef USE_OPENGLOSD
+    StopOpenGlThread();
+#endif
 }
-*/
+
 
 //////////////////////////////////////////////////////////////////////////////
 //	cMenuSetupPage
@@ -851,6 +993,11 @@ class cMenuSetupSoft:public cMenuSetupPage
 #ifdef USE_SCREENSAVER
     int EnableDPMSatBlackScreen;
 #endif
+
+#ifdef USE_OPENGLOSD
+    int MaxSizeGPUImageCache;
+#endif
+
     /// @}
   private:
      inline cOsdItem * CollapsedItem(const char *, int &, const char * = NULL);
@@ -961,6 +1108,9 @@ void cMenuSetupSoft::Create(void)
 	    Add(new cMenuEditIntItem(tr("Osd width"), &OsdWidth, 0, 4096));
 	    Add(new cMenuEditIntItem(tr("Osd height"), &OsdHeight, 0, 4096));
 	}
+#ifdef USE_OPENGLOSD
+	Add(new cMenuEditIntItem(tr("GPU mem used for image caching (MB)"), &MaxSizeGPUImageCache, 0, 4000));
+#endif
 	//
 	//	suspend
 	//
@@ -1364,6 +1514,9 @@ cMenuSetupSoft::cMenuSetupSoft(void)
 #ifdef USE_SCREENSAVER
     EnableDPMSatBlackScreen = ConfigEnableDPMSatBlackScreen;
 #endif
+#ifdef USE_OPENGLOSD
+    MaxSizeGPUImageCache = ConfigMaxSizeGPUImageCache;
+#endif
 
     Create();
 }
@@ -1570,6 +1723,11 @@ void cMenuSetupSoft::Store(void)
 	EnableDPMSatBlackScreen);
     SetDPMSatBlackScreen(ConfigEnableDPMSatBlackScreen);
 #endif
+#ifdef USE_OPENGLOSD
+    SetupStore("MaxSizeGPUImageCache", ConfigMaxSizeGPUImageCache =
+    MaxSizeGPUImageCache);
+#endif
+
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -2366,6 +2524,11 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 			ConfigSuspendX11);
 		    SuspendMode = SUSPEND_NORMAL;
 		}
+#ifdef USE_OPENGLOSD
+		Debug(3, "[softhddev]%s stopping Ogl Thread osUser1",
+			__FUNCTION__);
+		cSoftOsdProvider::StopOpenGlThread();
+#endif
 		if (ShutdownHandler.GetUserInactiveTime()) {
 		    Debug(3, "[softhddev]%s: set user inactive\n",
 			__FUNCTION__);
@@ -2411,6 +2574,7 @@ class cSoftHdDevice:public cDevice
     cSoftHdDevice(void);
     virtual ~ cSoftHdDevice(void);
 
+    virtual cString DeviceName(void) const { return "softhddevice"; }
     virtual bool HasDecoder(void) const;
     virtual bool CanReplay(void) const;
     virtual bool SetPlayMode(ePlayMode);
@@ -2508,6 +2672,10 @@ void cSoftHdDevice::MakePrimaryDevice(bool on)
     } else if (SuspendMode == NOT_SUSPENDED) {
 	Suspend(1, 1, 0);
 	SuspendMode = SUSPEND_DETACHED;
+#ifdef USE_OPENGLOSD
+	dsyslog("[softhddev]stopping Ogl Thread MakePrimaryDevice");
+	cSoftOsdProvider::StopOpenGlThread();
+#endif
     }
 }
 
@@ -2571,6 +2739,10 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 	    // FIXME: what if already suspended?
 	    Suspend(1, 1, 0);
 	    SuspendMode = SUSPEND_EXTERNAL;
+#ifdef USE_OPENGLOSD
+	    dsyslog("[softhddev]stopping Ogl Thread pmExtern_THIS_SHOULD_BE_AVOIDED");
+	    cSoftOsdProvider::StopOpenGlThread();
+#endif
 	    return true;
 	default:
 	    Debug(3, "[softhddev] playmode not implemented... %d\n", play_mode);
@@ -3121,6 +3293,10 @@ void cPluginSoftHdDevice::Housekeeping(void)
 	cControl::Attach();
 	Suspend(ConfigSuspendClose, ConfigSuspendClose, ConfigSuspendX11);
 	SuspendMode = SUSPEND_NORMAL;
+#ifdef USE_OPENGLOSD
+	dsyslog("[softhddev]stopping Ogl Thread Housekeeping");
+	cSoftOsdProvider::StopOpenGlThread();
+#endif
     }
 
     ::Housekeeping();
@@ -3496,6 +3672,13 @@ bool cPluginSoftHdDevice::SetupParse(const char *name, const char *value)
     }
 #endif
 
+#ifdef USE_OPENGLOSD
+    if (!strcasecmp(name, "MaxSizeGPUImageCache")) {
+	ConfigMaxSizeGPUImageCache = atoi(value);
+	return true;
+    }
+#endif
+
     return false;
 }
 
@@ -3687,6 +3870,10 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command,
 	cControl::Attach();
 	Suspend(ConfigSuspendClose, ConfigSuspendClose, ConfigSuspendX11);
 	SuspendMode = SUSPEND_NORMAL;
+#ifdef USE_OPENGLOSD
+	dsyslog("[softhddev]stopping Ogl Thread svdrp STAT");
+	cSoftOsdProvider::StopOpenGlThread();
+#endif
 	return "SoftHdDevice is suspended";
     }
     if (!strcasecmp(command, "RESU")) {
@@ -3717,6 +3904,10 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command,
 	cControl::Attach();
 	Suspend(1, 1, 0);
 	SuspendMode = SUSPEND_DETACHED;
+#ifdef USE_OPENGLOSD
+	dsyslog("[softhddev]stopping Ogl Thread svdrp DETA");
+	cSoftOsdProvider::StopOpenGlThread();
+#endif
 	return "SoftHdDevice is detached";
     }
     if (!strcasecmp(command, "ATTA")) {

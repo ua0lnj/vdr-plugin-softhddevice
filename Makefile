@@ -43,9 +43,12 @@ ifeq ($(VDPAU),1)
 CUVID ?= $(shell ffmpeg -loglevel quiet -decoders | grep -c hevc_cuvid)
 endif
 endif
+    # use opengl for OSD
+OPENGLOSD ?= $(shell pkg-config --exists glew glu freetype2 && echo 1)
 
-#CONFIG := -DDEBUG 
-#-DOSD_DEBUG	# enable debug output+functions
+
+#CONFIG += -DDEBUG
+#CONFIG += -DOSD_DEBUG		# enable debug output+functions
 #CONFIG += -DSTILL_DEBUG=2		# still picture debug verbose level
 
 CONFIG += -DAV_INFO -DAV_INFO_TIME=3000	# info/debug a/v sync
@@ -156,6 +159,14 @@ ifeq ($(CUVID),1)
 CONFIG += -DCUVID
 endif
 
+ifeq ($(OPENGLOSD),1)
+CONFIG += -DUSE_OPENGLOSD
+_CFLAGS += $(shell pkg-config --cflags glew)
+LIBS += $(shell pkg-config --libs glew) -lglut
+_CFLAGS += $(shell pkg-config --cflags freetype2)
+LIBS   += $(shell pkg-config --libs freetype2)
+endif
+
 _CFLAGS += $(shell pkg-config --cflags libavcodec x11 x11-xcb xcb xcb-icccm)
 LIBS += -lrt $(shell pkg-config --libs libavcodec x11 x11-xcb xcb xcb-icccm)
 
@@ -169,13 +180,17 @@ DEFINES += -DPLUGIN_NAME_I18N='"$(PLUGIN)"' -D_GNU_SOURCE $(CONFIG) \
 ### Make it standard
 
 override CXXFLAGS += $(_CFLAGS) $(DEFINES) $(INCLUDES) \
-    -g -W -Wall -Wextra -Winit-self -Werror=overloaded-virtual
+    -g -W -Wall -Wextra -Winit-self -Werror=overloaded-virtual -std=c++0x
 override CFLAGS	  += $(_CFLAGS) $(DEFINES) $(INCLUDES) \
     -g -W -Wall -Wextra -Winit-self -Wdeclaration-after-statement
 
 ### The object files (add further files here):
 
 OBJS = $(PLUGIN).o softhddev.o video.o audio.o codec.o ringbuffer.o
+
+ifeq ($(OPENGLOSD),1)
+OBJS += openglosd.o
+endif
 
 SRCS = $(wildcard $(OBJS:.o=.c)) $(PLUGIN).cpp
 

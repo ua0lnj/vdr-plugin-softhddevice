@@ -522,6 +522,10 @@ static int OsdDirtyY;			///< osd dirty area y
 static int OsdDirtyWidth;		///< osd dirty area width
 static int OsdDirtyHeight;		///< osd dirty area height
 
+#ifdef USE_OPENGLOSD
+static void (*VideoEventCallback)(void) = NULL;  /// callback function to notify VDR about Video Events
+#endif
+
 static int64_t VideoDeltaPTS;		///< FIXME: fix pts
 
 #ifdef USE_SCREENSAVER
@@ -803,7 +807,7 @@ static GLXContext GlxContext;		///< our gl context
 static GLXContext GlxThreadContext;	///< our gl context for the thread
 #endif
 
-static GLXFBConfig *GlxFBConfigs;	///< our gl fb configs
+//static GLXFBConfig *GlxFBConfigs;	///< our gl fb configs
 static XVisualInfo *GlxVisualInfo;	///< our gl visual
 
 static GLuint OsdGlTextures[2];		///< gl texture for OSD
@@ -967,9 +971,9 @@ static void GlxOsdInit(int width, int height)
     Debug(3, "video/glx: osd init context %p <-> %p\n", glXGetCurrentContext(),
 	GlxContext);
 
-    if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxContext)) {
-	Fatal(_("video/glx: can't make glx osd context current\n"));
-    }
+//    if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxContext)) {
+//	Fatal(_("video/glx: can't make glx osd context current\n"));
+//    }
 
     //
     //	create a RGBA texture.
@@ -990,7 +994,7 @@ static void GlxOsdInit(int width, int height)
 
     glBindTexture(GL_TEXTURE_2D, 0);
     glDisable(GL_TEXTURE_2D);
-    glXMakeCurrent(XlibDisplay, None, NULL);
+//    glXMakeCurrent(XlibDisplay, None, NULL);
 
 }
 
@@ -1029,7 +1033,7 @@ static void GlxOsdDrawARGB(int xi, int yi, int width, int height, int pitch,
     uint32_t start;
     uint32_t end;
 #endif
-
+/*
     int copywidth, copyheight;
 
     if (OsdWidth < width + x || OsdHeight < height + y) {
@@ -1045,7 +1049,7 @@ static void GlxOsdDrawARGB(int xi, int yi, int width, int height, int pitch,
 	copywidth = OsdWidth - x;
     if (OsdHeight < height + y)
 	copyheight = OsdHeight - y;
-
+*/
 #ifdef DEBUG
     if (!GlxEnabled) {
 	Debug(3, "video/glx: %s called without glx enabled\n", __FUNCTION__);
@@ -1062,16 +1066,21 @@ static void GlxOsdDrawARGB(int xi, int yi, int width, int height, int pitch,
 	return;
     }
     // FIXME: faster way
-    tmp = malloc(copywidth * copyheight * 4);
+//    tmp = malloc(copywidth * copyheight * 4);
+    tmp = malloc(width * height * 4);
     if (tmp) {
 	int i;
 
-	for (i = 0; i < copyheight; ++i) {
-	    memcpy(tmp + i * copywidth * 4, argb + xi * 4 + (i + yi) * pitch,
-		copywidth * 4);
+//	for (i = 0; i < copyheight; ++i) {
+//	    memcpy(tmp + i * copywidth * 4, argb + xi * 4 + (i + yi) * pitch,
+//		copywidth * 4);
+	for (i = 0; i < height; ++i) {
+	    memcpy(tmp + i * width * 4, argb + xi * 4 + (i + yi) * pitch,
+		width * 4);
 	}
 
-	GlxUploadOsdTexture(x, y, copywidth, copyheight, tmp);
+//	GlxUploadOsdTexture(x, y, copywidth, copyheight, tmp);
+	GlxUploadOsdTexture(x, y, width, height, tmp);
 	glXMakeCurrent(XlibDisplay, None, NULL);
 
 	free(tmp);
@@ -1221,21 +1230,27 @@ static void GlxSetupWindow(xcb_window_t window, int width, int height,
 ///
 static void GlxInit(void)
 {
-    static GLint fb_attr[] = {
+/*    static GLint fb_attr[] = {
 	GLX_DRAWABLE_TYPE,	GLX_WINDOW_BIT,
 	GLX_RENDER_TYPE,  	GLX_RGBA_BIT,
 	GLX_RED_SIZE,		8,
 	GLX_GREEN_SIZE,		8,
 	GLX_BLUE_SIZE,		8,
+*/
+    static GLint visual_attr[] = {
+	GLX_RGBA,
+	GLX_RED_SIZE, 8,
+	GLX_GREEN_SIZE, 8,
+	GLX_BLUE_SIZE, 8,
 #ifdef USE_DOUBLEBUFFER
-	GLX_DOUBLEBUFFER,	True,
+	GLX_DOUBLEBUFFER,
 #endif
 	None
     };
     XVisualInfo *vi;
     GLXContext context;
-    GLXFBConfig *fbconfigs;
-    int numconfigs;
+//    GLXFBConfig *fbconfigs;
+//    int numconfigs;
     int major;
     int minor;
     int glx_GLX_EXT_swap_control;
@@ -1288,13 +1303,15 @@ static void GlxInit(void)
 
     // create glx context
     glXMakeCurrent(XlibDisplay, None, NULL);
-    fbconfigs = glXChooseFBConfig(XlibDisplay, DefaultScreen(XlibDisplay), fb_attr, &numconfigs);
+/*    fbconfigs = glXChooseFBConfig(XlibDisplay, DefaultScreen(XlibDisplay), fb_attr, &numconfigs);
     if (!fbconfigs || !numconfigs) {
 	Error(_("video/glx: can't get FB configs\n"));
 	GlxEnabled = 0;
 	return;
     }
     vi = glXGetVisualFromFBConfig(XlibDisplay, fbconfigs[0]);
+*/
+    vi = glXChooseVisual(XlibDisplay, DefaultScreen(XlibDisplay), visual_attr);
     if (!vi) {
 	Error(_("video/glx: can't get a RGB visual\n"));
 	GlxEnabled = 0;
@@ -1310,14 +1327,16 @@ static void GlxInit(void)
 	GlxEnabled = 0;
 	return;
     }
-    context = glXCreateNewContext(XlibDisplay, fbconfigs[0], GLX_RGBA_TYPE, NULL, GL_TRUE);
+//    context = glXCreateNewContext(XlibDisplay, fbconfigs[0], GLX_RGBA_TYPE, NULL, GL_TRUE);
+    context = glXCreateContext(XlibDisplay, vi, NULL, GL_TRUE);
     if (!context) {
-	Error(_("video/glx: can't create shared glx context\n"));
+	Error(_("video/glx: can't create glx context\n"));
 	GlxEnabled = 0;
 	return;
     }
     GlxSharedContext = context;
-    context = glXCreateNewContext(XlibDisplay, fbconfigs[0], GLX_RGBA_TYPE, GlxSharedContext, GL_TRUE);
+//    context = glXCreateNewContext(XlibDisplay, fbconfigs[0], GLX_RGBA_TYPE, GlxSharedContext, GL_TRUE);
+    context = glXCreateContext(XlibDisplay, vi, GlxSharedContext, GL_TRUE);
     if (!context) {
 	Error(_("video/glx: can't create glx context\n"));
 	GlxEnabled = 0;
@@ -1326,7 +1345,7 @@ static void GlxInit(void)
 	return;
     }
     GlxContext = context;
-    GlxFBConfigs = fbconfigs;
+//    GlxFBConfigs = fbconfigs;
     GlxVisualInfo = vi;
     Debug(3, "video/glx: visual %#02x depth %u\n", (unsigned)vi->visualid,
 	vi->depth);
@@ -1422,7 +1441,7 @@ static void GlxExit(void)
     if (GlxThreadContext) {
 	glXDestroyContext(XlibDisplay, GlxThreadContext);
     }
-    if (GlxVisualInfo) {
+/*    if (GlxVisualInfo) {
 	XFree(GlxVisualInfo);
 	GlxVisualInfo = NULL;
     }
@@ -1430,6 +1449,7 @@ static void GlxExit(void)
 	XFree(GlxFBConfigs);
 	GlxFBConfigs = NULL;
     }
+*/
 }
 
 #endif
@@ -1461,7 +1481,7 @@ static VideoResolutions VideoResolutionGroup(int width, int height,
 	return VideoResolution720p;
     }
     if (height < 1080) {
-	return VideoResolutionFake1080i;
+    	return VideoResolutionFake1080i;
     }
     if (width < 1920) {
 	return VideoResolutionFake1080i;
@@ -3627,7 +3647,7 @@ static void VaapiSetup(VaapiDecoder * decoder,
 #ifdef USE_GLX
     if (GlxEnabled) {
 	// FIXME: destroy old context
-	GLXContext prevcontext = glXGetCurrentContext();
+/*	GLXContext prevcontext = glXGetCurrentContext();
 
 	if (!prevcontext) {
 #ifdef USE_VIDEO_THREAD
@@ -3647,16 +3667,22 @@ static void VaapiSetup(VaapiDecoder * decoder,
 		}
 	    }
 	}
-
+*/
 	GlxSetupDecoder(decoder->InputWidth, decoder->InputHeight,
 	    decoder->GlTextures);
 	// FIXME: try two textures
-	status = vaCreateSurfaceGLX(decoder->VaDisplay, GL_TEXTURE_2D,
+/*	status = vaCreateSurfaceGLX(decoder->VaDisplay, GL_TEXTURE_2D,
 			decoder->GlTextures[0], &decoder->GlxSurfaces[0]);
 	if (status != VA_STATUS_SUCCESS) {
 	    Fatal(_("video/glx: can't create glx surfaces (0x%X): %s\n"), status, vaErrorStr(status));
+*/
+	if (vaCreateSurfaceGLX(decoder->VaDisplay, GL_TEXTURE_2D,
+		decoder->GlTextures[0], &decoder->GlxSurfaces[0])
+	    != VA_STATUS_SUCCESS) {
+	    Fatal(_("video/glx: can't create glx surfaces\n"));
 	    // FIXME: no fatal here
 	}
+
 	/*
 	   if (vaCreateSurfaceGLX(decoder->VaDisplay, GL_TEXTURE_2D,
 	   decoder->GlTextures[1], &decoder->GlxSurfaces[1])
@@ -3664,8 +3690,8 @@ static void VaapiSetup(VaapiDecoder * decoder,
 	   Fatal(_("video/glx: can't create glx surfaces\n"));
 	   }
 	 */
-	if (!prevcontext)
-	    glXMakeCurrent(XlibDisplay, None, NULL);
+//	if (!prevcontext)
+//	    glXMakeCurrent(XlibDisplay, None, NULL);
     }
 #endif
     VaapiUpdateOutput(decoder);
@@ -6381,7 +6407,7 @@ static void VaapiDisplayFrame(void)
 
 #ifdef USE_GLX
     if (GlxEnabled) {
-        GLXContext prevcontext = glXGetCurrentContext();
+/*        GLXContext prevcontext = glXGetCurrentContext();
 
         if (!prevcontext) {
 #ifdef USE_VIDEO_THREAD
@@ -6401,7 +6427,7 @@ static void VaapiDisplayFrame(void)
                 }
             }
         }
-
+*/
 	//
 	//	add OSD
 	//
@@ -11466,6 +11492,7 @@ static void VdpauOsdInit(int width, int height)
 	    Debug(4,
 		"video/vdpau: created osd output surface %dx%d with id 0x%08x\n",
 		width, height, VdpauOsdOutputSurface[i]);
+	    Error(_("video/vdpau: created osd output surface %dx%d with id 0x%08x\n"),width, height, VdpauOsdOutputSurface[i]);
 	}
     }
 #endif
@@ -11510,6 +11537,19 @@ static void VdpauOsdExit(void)
     }
 #endif
 }
+
+void *GetVDPAUDevice(void) {
+    return (void*)VdpauDevice;
+}
+void *GetVDPAUProcAdress(void) {
+    return (void*)VdpauGetProcAddress;
+}
+
+void *GetVDPAUOsdOutputSurface(void) {
+    return (void*)VdpauOsdOutputSurface[VdpauOsdSurfaceIndex];
+}
+
+
 
 ///
 ///	VDPAU module.
@@ -11789,6 +11829,10 @@ void VideoOsdDrawARGB(int xi, int yi, int width, int height, int pitch,
     VideoThreadUnlock();
 }
 
+void ActivateOsd(void) {
+    OsdShown = 1;
+}
+
 ///
 ///	Get OSD size.
 ///
@@ -12031,6 +12075,13 @@ void VideoPollEvent(void)
     }
 }
 
+#ifdef USE_OPENGLOSD
+void VideoSetVideoEventCallback(void (*videoEventCallback)(void))
+{
+    VideoEventCallback = videoEventCallback;
+}
+#endif
+
 //----------------------------------------------------------------------------
 //	Thread
 //----------------------------------------------------------------------------
@@ -12076,9 +12127,10 @@ static void *VideoDisplayHandlerThread(void *dummy)
 	    GlxContext);
 
 	GlxThreadContext =
-	    glXCreateNewContext(XlibDisplay, GlxFBConfigs[0], GLX_RGBA_TYPE,
-	    GlxSharedContext, GL_TRUE);
-
+//	    glXCreateNewContext(XlibDisplay, GlxFBConfigs[0], GLX_RGBA_TYPE,
+//	    GlxSharedContext, GL_TRUE);
+	    glXCreateContext(XlibDisplay, GlxVisualInfo, GlxSharedContext,
+	    GL_TRUE);
 	if (!GlxThreadContext) {
 	    Error(_("video/glx: can't create glx context\n"));
 	    return NULL;
@@ -12176,7 +12228,9 @@ static const VideoModule *VideoModules[] = {
 #endif
 #ifdef USE_VAAPI
     &VaapiModule,
+#endif
 #ifdef USE_GLX
+#ifdef USE_VAAPI
     &VaapiGlxModule,			// FIXME: if working, prefer this
 #endif
 #endif
@@ -13383,7 +13437,10 @@ void VideoSetVideoMode( __attribute__ ((unused))
 	&& (unsigned)height == VideoWindowHeight) {
 	return;				// same size nothing todo
     }
-
+#ifdef USE_OPENGLOSD
+    if (VideoEventCallback)
+        VideoEventCallback();
+#endif
     VideoOsdExit();
     // FIXME: must tell VDR that the OsdSize has been changed!
 
