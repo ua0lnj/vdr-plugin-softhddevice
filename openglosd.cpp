@@ -1592,6 +1592,7 @@ bool cOglThread::InitOpenGL(void) {
     buffer[1] = strdup("-display");
     buffer[2] = strdup(displayName);
     char **argv = buffer;
+    glutInitContextVersion (3, 3);
     glutInit(&argc, argv);
     glutInitDisplayMode (GLUT_SINGLE | GLUT_RGBA | GLUT_ALPHA);
     glutInitWindowSize (1, 1);
@@ -1601,6 +1602,7 @@ bool cOglThread::InitOpenGL(void) {
     free(buffer[0]);
     free(buffer[1]);
     free(buffer[2]);
+    glewExperimental = GL_TRUE;
     GLenum err = glewInit();
     if( err != GLEW_OK) {
         esyslog("[softhddev]glewInit failed, aborting\n");

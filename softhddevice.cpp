@@ -801,6 +801,10 @@ cOsd *cSoftOsdProvider::CreateOsd(int left, int top, uint level)
 #endif
 
 #ifdef USE_OPENGLOSD
+    if (strcasecmp(VideoGetDriverName(), "vdpau")) {
+        dsyslog("[softhddev]NOT vdpau driver - use soft OSD");
+        return Osd = new cSoftOsd(left, top, level);
+    }
     if (StartOpenGlThread())
         return Osd = new cOglOsd(left, top, level, oglThread);
     //return dummy osd if shd is detached
