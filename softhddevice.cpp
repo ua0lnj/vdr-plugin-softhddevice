@@ -157,6 +157,7 @@ static char ConfigAudioCompression;	///< config use volume compression
 static int ConfigAudioMaxCompression;	///< config max volume compression
 static int ConfigAudioStereoDescent;	///< config reduce stereo loudness
 int ConfigAudioBufferTime;		///< config size ms of audio buffer
+char DisableOglOsd;			///< flag to disable openGL osd
 static int ConfigAudioAutoAES;		///< config automatic AES handling
 
 static char *ConfigX11Display;		///< config x11 display
@@ -801,8 +802,8 @@ cOsd *cSoftOsdProvider::CreateOsd(int left, int top, uint level)
 #endif
 
 #ifdef USE_OPENGLOSD
-    if (strcasecmp(VideoGetDriverName(), "vdpau")) {
-        dsyslog("[softhddev]NOT vdpau driver - use soft OSD");
+    if (strcasecmp(VideoGetDriverName(), "vdpau") || DisableOglOsd) {
+        dsyslog("[softhddev]NOT vdpau driver or OpenGL Osd disabled - use soft OSD");
         return Osd = new cSoftOsd(left, top, level);
     }
     if (StartOpenGlThread())

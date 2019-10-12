@@ -293,14 +293,39 @@ Commandline:
 
 	Use vdr -h to see the command line arguments supported by the plugin.
 
-    -a audio_device
-
-	Selects audio output module and device.
+    -a audio_device	Selects audio output module and device.
 	""		to disable audio output
 	/...		to use oss audio module (if compiled with oss
 			support)
 	other		to use alsa audio module (if compiled with alsa
 			support)
+
+    -p device		audio device for pass-through (hw:0,1 or /dev/dsp1)
+    -c channel		audio mixer channel name (fe. PCM)
+    -d display		display of x11 server (fe. :0.0)
+    -f 			start with fullscreen window (only with window manager)
+    -g geometry		x11 window geometry wxh+x+y
+    -l loglevel		set the log level (0=none, 1=errors, 2=info, 3=debug)
+    -v device		video driver device (va-api, va-api-glx, vdpau, noop)
+    -s 			start in suspended mode
+    -x 			start x11 server, with -xx try to connect, if this fails
+    -X args		X11 server arguments (f.e. -nocursor)
+
+    -w workaround 	enable/disable workarounds:
+	cuvid-hw-decoder		enable cuvid hw decoder with vdpau render
+	no-hw-decoder			disable hw decoder, use software decoder only
+	no-mpeg-hw-decoder		disable hw decoder for mpeg only
+	still-hw-decoder		enable hardware decoder for still-pictures
+	still-h264-hw-decoder		enable h264 hw decoder for still-pictures
+	talsa-driver-broken		disable broken alsa driver message
+	alsa-no-close-open		disable close open to fix alsa no sound bug
+	alsa-close-open-delay		enable close open delay to fix no sound bug
+	ignore-repeat-pict		disable repeat pict message
+	use-possible-defect-frames	prefer faster channel switch
+	disable-ogl-osd			disable openGL osd
+
+    -D 			start in detached mode
+
 
 SVDRP:
 ------

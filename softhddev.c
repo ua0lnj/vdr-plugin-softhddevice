@@ -81,6 +81,7 @@ static void DumpMpeg(const uint8_t * data, int size);
 //////////////////////////////////////////////////////////////////////////////
 
 extern int ConfigAudioBufferTime;	///< config size ms of audio buffer
+extern char DisableOglOsd;		///< disable OpenGL OSD
 extern int ConfigVideoClearOnSwitch;	///< clear decoder on channel switch
 char ConfigStartX11Server;		///< flag start the x11 server
 static signed char ConfigStartSuspended;	///< flag to start in suspend mode
@@ -3152,6 +3153,7 @@ const char *CommandLineHelp(void)
 	"\talsa-close-open-delay\tenable close open delay to fix no sound bug\n"
 	"\tignore-repeat-pict\tdisable repeat pict message\n"
 	"\tuse-possible-defect-frames prefer faster channel switch\n"
+	"\tdisable-ogl-osd disable openGL osd\n"
 	"  -D\t\tstart in detached mode\n";
 }
 
@@ -3246,6 +3248,8 @@ int ProcessArgs(int argc, char *const argv[])
 		    VideoIgnoreRepeatPict = 1;
 		} else if (!strcasecmp("use-possible-defect-frames", optarg)) {
 		    CodecUsePossibleDefectFrames = 1;
+		} else if (!strcasecmp("disable-ogl-osd", optarg)) {
+		    DisableOglOsd = 1;
 		} else {
 		    fprintf(stderr, _("Workaround '%s' unsupported\n"),
 			optarg);
