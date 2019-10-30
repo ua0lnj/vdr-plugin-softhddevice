@@ -447,6 +447,7 @@ public:
     virtual ~cOglThread();
     void Stop(void);
     void DoCmd(cOglCmd* cmd);
+    void Flush(void);
     int StoreImage(const cImage &image);
     void DropImageData(int imageHandle);
     sOglImage *GetImageRef(int slot);

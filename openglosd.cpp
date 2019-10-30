@@ -1417,6 +1417,16 @@ void cOglThread::DoCmd(cOglCmd* cmd) {
         wait->Signal();
 }
 
+void cOglThread::Flush(void) {
+    Lock();
+    if (commands.size() > 1) {
+        while(commands.size()) {
+            commands.pop();
+        }
+    }
+    Unlock();
+}
+
 int cOglThread::StoreImage(const cImage &image) {
     if (image.Width() > maxTextureSize || image.Height() > maxTextureSize) {
         esyslog("[softhddev] cannot store image of %dpx x %dpx "
@@ -1901,7 +1911,7 @@ cOglOsd::cOglOsd(int Left, int Top, uint Level, std::shared_ptr<cOglThread> oglT
     int osdHeight = 0;
 
     VideoGetOsdSize(&osdWidth, &osdHeight);
-    dsyslog("[softhddev]cOglOsd osdLeft %d osdTop %d screenWidth %d screenHeight %d", Left, Top, osdWidth, osdHeight);
+    //dsyslog("[softhddev]cOglOsd osdLeft %d osdTop %d screenWidth %d screenHeight %d", Left, Top, osdWidth, osdHeight);
 
     //create vdpau output framebuffer
     if (!oFb) {
@@ -1911,6 +1921,7 @@ cOglOsd::cOglOsd(int Left, int Top, uint Level, std::shared_ptr<cOglThread> oglT
 }
 
 cOglOsd::~cOglOsd() {
+    oglThread->Flush();
     OsdClose();
     SetActive(false);
     oglThread->DoCmd(new cOglCmdDeleteFb(bFb));
