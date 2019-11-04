@@ -1418,13 +1418,10 @@ void cOglThread::DoCmd(cOglCmd* cmd) {
 }
 
 void cOglThread::Flush(void) {
-    Lock();
-    if (commands.size() > 1) {
-        while(commands.size()) {
-            commands.pop();
-        }
+    stalled = false;
+    while(commands.size()) {
+        cCondWait::SleepMs(10);
     }
-    Unlock();
 }
 
 int cOglThread::StoreImage(const cImage &image) {
