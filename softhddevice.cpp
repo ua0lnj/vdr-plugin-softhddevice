@@ -157,7 +157,7 @@ static char ConfigAudioCompression;	///< config use volume compression
 static int ConfigAudioMaxCompression;	///< config max volume compression
 static int ConfigAudioStereoDescent;	///< config reduce stereo loudness
 int ConfigAudioBufferTime;		///< config size ms of audio buffer
-char DisableOglOsd;			///< flag to disable openGL osd
+int DisableOglOsd;			///< flag to disable openGL osd
 static int ConfigAudioAutoAES;		///< config automatic AES handling
 
 static char *ConfigX11Display;		///< config x11 display

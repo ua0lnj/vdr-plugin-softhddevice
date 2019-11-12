@@ -81,7 +81,7 @@ static void DumpMpeg(const uint8_t * data, int size);
 //////////////////////////////////////////////////////////////////////////////
 
 extern int ConfigAudioBufferTime;	///< config size ms of audio buffer
-extern char DisableOglOsd;		///< disable OpenGL OSD
+extern int DisableOglOsd;		///< disable OpenGL OSD
 extern int ConfigVideoClearOnSwitch;	///< clear decoder on channel switch
 char ConfigStartX11Server;		///< flag start the x11 server
 static signed char ConfigStartSuspended;	///< flag to start in suspend mode
