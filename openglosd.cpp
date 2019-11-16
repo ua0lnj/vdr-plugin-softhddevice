@@ -337,7 +337,7 @@ void cOglFont::Init(void) {
     fonts = new cList<cOglFont>;
     if (FT_Init_FreeType(&ftLib))
         esyslog("[softhddev]failed to initialize FreeType library!");
-    initiated = true;
+    else initiated = true;
 }
 
 void cOglFont::Cleanup(void) {
