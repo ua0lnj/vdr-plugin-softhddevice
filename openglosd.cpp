@@ -322,6 +322,7 @@ cOglFont::~cOglFont(void) {
 cOglFont *cOglFont::Get(const char *name, int charHeight) {
     if (!fonts)
         Init();
+    if (!initiated) return NULL;
 
     cOglFont *font;
     for (font = fonts->First(); font; font = fonts->Next(font))
@@ -334,10 +335,12 @@ cOglFont *cOglFont::Get(const char *name, int charHeight) {
 }
 
 void cOglFont::Init(void) {
-    fonts = new cList<cOglFont>;
     if (FT_Init_FreeType(&ftLib))
         esyslog("[softhddev]failed to initialize FreeType library!");
-    else initiated = true;
+    else {
+        fonts = new cList<cOglFont>;
+        initiated = true;
+    }
 }
 
 void cOglFont::Cleanup(void) {

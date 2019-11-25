@@ -526,9 +526,9 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
     //decoder->VideoCtx->debug = FF_DEBUG_STARTCODE;
     //decoder->VideoCtx->err_recognition |= AV_EF_EXPLODE;
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,00,100)
-    if (video_codec->capabilities & AV_CODEC_CAP_HWACCEL_VDPAU) {
+    if (video_codec->capabilities & AV_CODEC_CAP_HWACCEL_VDPAU | CODEC_CAP_HWACCEL) {
 #else
-    if (decoder->VideoCtx->hwaccel_context) {
+    if (avcodec_get_hw_config(video_codec, 0)) {
 #endif
 	// FIXME: get_format never called.
 	decoder->VideoCtx->get_format = Codec_get_format;
@@ -538,27 +538,16 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 	    SLICE_FLAG_CODED_ORDER | SLICE_FLAG_ALLOW_FIELD;
 	decoder->VideoCtx->thread_count = 1;
 	decoder->VideoCtx->active_thread_type = 0;
+        decoder->VideoCtx->hwaccel_context =
+        VideoGetHwAccelContext(decoder->HwDecoder);
+
     } else {
 	decoder->VideoCtx->get_format = Codec_get_format;
 	decoder->VideoCtx->get_buffer2 = Codec_get_buffer2;
 	decoder->VideoCtx->thread_count = 0;
 	decoder->VideoCtx->active_thread_type = 0;
 	decoder->VideoCtx->draw_horiz_band = NULL;
-	decoder->VideoCtx->hwaccel_context =
-	    VideoGetHwAccelContext(decoder->HwDecoder);
     }
-#if 0
-    // our pixel format video hardware decoder hook
-    if (decoder->VideoCtx->hwaccel_context) {
-	decoder->VideoCtx->get_format = Codec_get_format;
-	decoder->VideoCtx->get_buffer2 = Codec_get_buffer2;
-	decoder->VideoCtx->thread_count = 1;
-	decoder->VideoCtx->draw_horiz_band = NULL;
-	decoder->VideoCtx->slice_flags =
-	    SLICE_FLAG_CODED_ORDER | SLICE_FLAG_ALLOW_FIELD;
-	//decoder->VideoCtx->flags |= CODEC_FLAG_EMU_EDGE;
-    }
-#endif
     //
     //	Prepare frame buffer for decoder
     //
