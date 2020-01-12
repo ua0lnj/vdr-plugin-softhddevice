@@ -107,9 +107,6 @@ audio/oss:
     oss4 mixer channel not working
     ring buffer overflow with alsa oss emulation
 
-HDMI/SPDIF Passthrough:
-    only AC-3 written
-
 playback of recording
     pause is not reset, when replay exit (fixed?)
     replay/pause need 100% cpu (fixed?)

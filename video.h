@@ -41,8 +41,14 @@ enum  VideoHardwareDecoderMode {
     HWmpeg2Off,
     HWhevcOff,
     HWOn,
-    HWcuvidhevc,
-    HWcuvidOn,
+};
+
+enum VideoOutParameters {
+    brightness,
+    contrast,
+    saturation,
+    hue,
+    stde,
 };
 
 extern enum VideoHardwareDecoderMode VideoHardwareDecoder;	///< flag use hardware decoder
@@ -107,6 +113,7 @@ extern const char *VideoGetDriverName(void);
     /// Get used video driver.
 extern int VideoIsDriverVdpau(void);
 extern int VideoIsDriverVaapi(void);
+extern int VideoIsDriverCuvid(void);
 
     /// Set video geometry.
 extern int VideoSetGeometry(const char *);
@@ -232,6 +239,11 @@ extern void *GetVDPAUDevice(void);
 extern void *GetVDPAUProcAdress(void);
     /// Get VDPAU OSD Output Surface
 extern void *GetVDPAUOsdOutputSurface(void);
+#ifdef USE_CUVID
+extern unsigned int *GetCuvidOsdOutputTexture(unsigned int);
+extern int CuvidInitGlx(void);
+#endif
+extern int DisableOglOsd;
 
     /// Get OSD size.
 extern void VideoGetOsdSize(int *, int *);

@@ -802,8 +802,8 @@ cOsd *cSoftOsdProvider::CreateOsd(int left, int top, uint level)
 #endif
 
 #ifdef USE_OPENGLOSD
-    if (strcasecmp(VideoGetDriverName(), "vdpau") || DisableOglOsd) {
-        dsyslog("[softhddev]NOT vdpau driver or OpenGL Osd disabled - use soft OSD");
+    if ((!VideoIsDriverVdpau() && !VideoIsDriverCuvid()) || DisableOglOsd) {
+        dsyslog("[softhddev]No hw driver or OpenGL Osd disabled - use soft OSD");
         return Osd = new cSoftOsd(left, top, level);
     }
     if (StartOpenGlThread())
@@ -1147,7 +1147,7 @@ void cMenuSetupSoft::Create(void)
 		(int *)&Background, 0, 0x00FFFFFF));
 	Add(new cMenuEditIntItem(tr("Video background color (Alpha)"),
 		(int *)&BackgroundAlpha, 0, 0xFF));
-	if (VideoIsDriverVdpau())
+	if (VideoIsDriverVdpau() || VideoIsDriverCuvid())
 		Add(new cMenuEditBoolItem(tr("Use studio levels"),
 			&StudioLevels, trVDR("no"), trVDR("yes")));
 	Add(new cMenuEditBoolItem(tr("60hz display mode"), &_60HzMode,
@@ -2742,12 +2742,12 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 	case pmExtern_THIS_SHOULD_BE_AVOIDED:
 	    Debug(3, "[softhddev] play mode external\n");
 	    // FIXME: what if already suspended?
-	    Suspend(1, 1, 0);
-	    SuspendMode = SUSPEND_EXTERNAL;
 #ifdef USE_OPENGLOSD
 	    dsyslog("[softhddev]stopping Ogl Thread pmExtern_THIS_SHOULD_BE_AVOIDED");
 	    cSoftOsdProvider::StopOpenGlThread();
 #endif
+	    Suspend(1, 1, 0);
+	    SuspendMode = SUSPEND_EXTERNAL;
 	    return true;
 	default:
 	    Debug(3, "[softhddev] playmode not implemented... %d\n", play_mode);

@@ -1086,7 +1086,6 @@ int VideoDecodeInput(VideoStream * stream)
 	// clear is called during freezed
 	return 1;
     }
-
     filled = atomic_read(&stream->PacketsFilled);
     if (!filled) {
 	return -1;
@@ -1156,7 +1155,6 @@ int VideoDecodeInput(VideoStream * stream)
 	default:
 	    break;
     }
-
     // avcodec_decode_video2 needs size
     saved_size = avpkt->size;
     avpkt->size = avpkt->stream_index;
@@ -1185,7 +1183,6 @@ int VideoDecodeInput(VideoStream * stream)
 	CodecVideoDecode(stream->Decoder, avpkt);
     }
 #endif
-
     avpkt->size = saved_size;
 
   skip:
@@ -1232,7 +1229,6 @@ static void StartVideo(void)
 static void StopVideo(void)
 {
     VideoOsdExit();
-    VideoExit();
     AudioSyncStream = NULL;
 #if 1
     // FIXME: done by exit: VideoDelHwDecoder(MyVideoStream->HwDecoder);
@@ -1259,6 +1255,7 @@ static void StopVideo(void)
     MyVideoStream->NewStream = 1;
     MyVideoStream->InvalidPesCounter = 0;
 #endif
+    VideoExit();
 }
 
 #ifdef DEBUG
@@ -1719,7 +1716,7 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 			}
 
 			if (MyVideoStream->CodecID == AV_CODEC_ID_NONE) {
-			    Debug(3, "video: not detected\n");
+			    Debug(4, "video: not detected\n");
 			    pesdx->Skip += n;
 			    pesdx->PTS = AV_NOPTS_VALUE;
 			    break;
@@ -2502,7 +2499,7 @@ int PlayVideo3(VideoStream * stream, const uint8_t * data, int size)
     }
     // this happens when vdr sends incomplete packets
     if (stream->CodecID == AV_CODEC_ID_NONE) {
-	Debug(3, "video: not detected\n");
+	Debug(4, "video: not detected\n");
 	return size;
     }
 #ifdef USE_PIP
@@ -2601,7 +2598,7 @@ int PlayTsVideo(const uint8_t * data, int size)
     }
     // hard limit buffer full: needed for replay
     if (atomic_read(&MyVideoStream->PacketsFilled) >= VIDEO_PACKET_MAX - 10) {
-	Debug(3,"[softhddev] PlayTsVideo Filled %d\n",MyVideoStream->PacketsFilled);
+	Debug(4,"[softhddev] PlayTsVideo Filled %d\n",MyVideoStream->PacketsFilled);
 	return 0;
     }
 #ifdef USE_SOFTLIMIT
@@ -2916,15 +2913,15 @@ void StillPicture(const uint8_t * data, int size)
     VideoResetPacket(MyVideoStream);
     old_video_hardware_decoder = VideoHardwareDecoder;
     // enable/disable hardware decoder for still picture
-    if (VideoHardwareDecoder != ConfigStillDecoder) {
+    if (VideoHardwareDecoder != ConfigStillDecoder || VideoIsDriverCuvid()) {
 	VideoHardwareDecoder = ConfigStillDecoder;
 	VideoNextPacket(MyVideoStream, AV_CODEC_ID_NONE);	// close last stream
     }
-
     if (MyVideoStream->CodecID == AV_CODEC_ID_NONE) {
 	// FIXME: should detect codec, see PlayVideo
 	Error(_("[softhddev] no codec known for still picture\n"));
     }
+
     // FIXME: can check video backend, if a frame was produced.
     // output for max reference frames
 #ifdef STILL_DEBUG
@@ -2937,6 +2934,7 @@ void StillPicture(const uint8_t * data, int size)
 
 	// FIXME: vdr pes recordings sends mixed audio/video
 	if ((data[3] & 0xF0) == 0xE0) {	// PES packet
+            Debug(3, "[softhddev]%s: receive PES\n", __FUNCTION__);
 	    split = data;
 	    n = size;
 	    // split the I-frame into single pes packets
@@ -2970,6 +2968,7 @@ void StillPicture(const uint8_t * data, int size)
 
 	    VideoNextPacket(MyVideoStream, MyVideoStream->CodecID);	// terminate last packet
 	} else {			// ES packet
+            Debug(3, "[softhddev]%s: receive ES\n", __FUNCTION__);
 	    if (MyVideoStream->CodecID != AV_CODEC_ID_MPEG2VIDEO) {
 		VideoNextPacket(MyVideoStream, AV_CODEC_ID_NONE);	// close last stream
 		MyVideoStream->CodecID = AV_CODEC_ID_MPEG2VIDEO;
@@ -2990,7 +2989,7 @@ void StillPicture(const uint8_t * data, int size)
     }
 
     // wait for empty buffers
-    for (i = 0; VideoGetBuffers(MyVideoStream) && i < 30; ++i) {
+    for (i = 0; VideoGetBuffers(MyVideoStream) && i < 100; ++i) {
 	usleep(10 * 1000);
     }
     Debug(3, "[softhddev]%s: buffers %d %dms\n", __FUNCTION__,
@@ -3138,12 +3137,11 @@ const char *CommandLineHelp(void)
 	"  -f\t\tstart with fullscreen window (only with window manager)\n"
 	"  -g geometry\tx11 window geometry wxh+x+y\n"
 	"  -l loglevel\tset the log level (0=none, 1=errors, 2=info, 3=debug)\n"
-	"  -v device\tvideo driver device (va-api, vdpau, noop)\n"
+	"  -v device\tvideo driver device (va-api, vdpau, cuvid, noop)\n"
 	"  -s\t\tstart in suspended mode\n"
 	"  -x\t\tstart x11 server, with -xx try to connect, if this fails\n"
 	"  -X args\tX11 server arguments (f.e. -nocursor)\n"
 	"  -w workaround\tenable/disable workarounds\n"
-	"\tcuvid-hw-decoder\t\tenable cuvid hw decoder with vdpau render\n"
 	"\tno-hw-decoder\t\tdisable hw decoder, use software decoder only\n"
 	"\tno-mpeg-hw-decoder\tdisable hw decoder for mpeg only\n"
 	"\tstill-hw-decoder\tenable hardware decoder for still-pictures\n"
@@ -3228,10 +3226,6 @@ int ProcessArgs(int argc, char *const argv[])
 		    if (ConfigStillDecoder) {
 			ConfigStillDecoder = HWmpeg2Off;
 		    }
-		} else if (!strcasecmp("cuvid-hw-decoder", optarg)) {
-		    VideoHardwareDecoder = HWcuvidOn;
-		} else if (!strcasecmp("cuvid-hevc-hw-decoder", optarg)) {
-		    VideoHardwareDecoder = HWcuvidhevc;
 		} else if (!strcasecmp("no-hevc-decoder", optarg)) {
 		    VideoHardwareDecoder = HWhevcOff;
 		} else if (!strcasecmp("still-hw-decoder", optarg)) {
@@ -3631,11 +3625,7 @@ void Resume(void)
     Debug(3, "[softhddev]%s:\n", __FUNCTION__);
 
     pthread_mutex_lock(&SuspendLockMutex);
-    // FIXME: start x11
 
-    if (!MyVideoStream->HwDecoder) {	// video not running
-	StartVideo();
-    }
     if (!MyAudioDecoder) {		// audio not running
 	// StartAudio();
 	AudioInit();
@@ -3643,6 +3633,10 @@ void Resume(void)
 	MyAudioDecoder = CodecAudioNewDecoder();
 	AudioCodecID = AV_CODEC_ID_NONE;
 	AudioChannelID = -1;
+    }
+    // FIXME: start x11
+    if (!MyVideoStream->HwDecoder) {	// video not running
+	StartVideo();
     }
 
     if (MyVideoStream->Decoder) {

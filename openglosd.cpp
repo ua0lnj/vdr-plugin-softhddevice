@@ -23,7 +23,7 @@ void ConvertColor(const GLint &colARGB, glm::vec4 &col) {
 ****************************************************************************************/
 
 
-const char *rectVertexShader = 
+const char *rectVertexShader =
 "#version 330 core \n\
 \
 layout (location = 0) in vec2 position; \
@@ -38,7 +38,7 @@ void main() \
 } \
 ";
 
-const char *rectFragmentShader = 
+const char *rectFragmentShader =
 "#version 330 core \n\
 \
 in vec4 rectCol; \
@@ -50,7 +50,7 @@ void main() \
 } \
 ";
 
-const char *textureVertexShader = 
+const char *textureVertexShader =
 "#version 330 core \n\
 \
 layout (location = 0) in vec2 position; \
@@ -70,7 +70,7 @@ void main() \
 } \
 ";
 
-const char *textureFragmentShader = 
+const char *textureFragmentShader =
 "#version 330 core \n\
 in vec2 TexCoords; \
 in vec4 alphaValue; \
@@ -84,7 +84,7 @@ void main() \
 } \
 ";
 
-const char *textVertexShader = 
+const char *textVertexShader =
 "#version 330 core \n\
 \
 layout (location = 0) in vec2 position; \
@@ -104,7 +104,7 @@ void main() \
 } \
 ";
 
-const char *textFragmentShader = 
+const char *textFragmentShader =
 "#version 330 core \n\
 in vec2 TexCoords; \
 in vec4 textColor; \
@@ -120,7 +120,7 @@ void main() \
 } \
 ";
 
-static cShader *Shaders[stCount]; 
+static cShader *Shaders[stCount];
 
 void cShader::Use(void) {
     glUseProgram(id);
@@ -514,42 +514,63 @@ cOglOutputFb::cOglOutputFb(GLint width, GLint height) : cOglFb(width, height, wi
 }
 
 cOglOutputFb::~cOglOutputFb(void) {
-    glVDPAUUnregisterSurfaceNV(surface);
+#ifdef USE_VDPAU
+    if (VideoIsDriverVdpau()) {
+        glVDPAUUnregisterSurfaceNV(surface);
+    }
+#endif
+    texture = 0;
 }
 
 bool cOglOutputFb::Init(void) {
-    //fetching osd vdpau output surface from softhddevice
-    void *vdpauOsdOutputSurface = GetVDPAUOsdOutputSurface();
-
     glGenTextures(1, &texture);
+#ifdef USE_VDPAU
+    if (VideoIsDriverVdpau()) {
+        //fetching osd vdpau output surface from softhddevice
+        void *vdpauOsdOutputSurface = GetVDPAUOsdOutputSurface();
 
-    //register surface for texture
-    surface = glVDPAURegisterOutputSurfaceNV(vdpauOsdOutputSurface, GL_TEXTURE_2D, 1, &texture);
+        //register surface for texture
+        surface = glVDPAURegisterOutputSurfaceNV(vdpauOsdOutputSurface, GL_TEXTURE_2D, 1, &texture);
 
-    GLenum err = glGetError();
-    if (err != GL_NO_ERROR)
-    {
-      esyslog("[softhddev]ERROR::cOglOutputFb: error register output surface %x\n",err);
-      return false;
+        GLenum err = glGetError();
+        if (err != GL_NO_ERROR)
+        {
+            esyslog("[softhddev]ERROR::cOglOutputFb: error register output surface %x\n",err);
+            return false;
+        }
+
+        //set write access to surface
+        glVDPAUSurfaceAccessNV(surface, GL_WRITE_DISCARD_NV);
+        if (glGetError() != GL_NO_ERROR)
+        {
+            esyslog("[softhddev]ERROR::cOglOutputFb: error set access\n");
+            return false;
+        }
+
+        //create framebuffer
+        glVDPAUMapSurfacesNV (1, &surface);
+        if (glGetError() != GL_NO_ERROR)
+        {
+            esyslog("[softhddev]ERROR::cOglOutputFb: error map\n");
+            return false;
+        }
     }
-
-    //set write access to surface
-    glVDPAUSurfaceAccessNV(surface, GL_WRITE_DISCARD_NV);
-    if (glGetError() != GL_NO_ERROR)
-    {
-      esyslog("[softhddev]ERROR::cOglOutputFb: error set access\n");
-      return false;
+#endif
+#ifdef USE_CUVID
+    if (VideoIsDriverCuvid()) {
+        GetCuvidOsdOutputTexture(texture);
     }
-
-    //create framebuffer
-    glVDPAUMapSurfacesNV (1, &surface);
-    if (glGetError() != GL_NO_ERROR)
-    {
-      esyslog("[softhddev]ERROR::cOglOutputFb: error map\n");
-      return false;
-    }
-
+#endif
     glBindTexture(GL_TEXTURE_2D, texture);
+#ifdef USE_VDPAU
+    if (!VideoIsDriverVdpau()) {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    }
+#endif
     glGenFramebuffers(1, &fb);
     glBindFramebuffer(GL_FRAMEBUFFER, fb);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
@@ -557,17 +578,24 @@ bool cOglOutputFb::Init(void) {
         esyslog("[softhddev]ERROR::cOglOutputFb: Framebuffer is not complete! %x\n",glCheckFramebufferStatus(GL_FRAMEBUFFER));
         return false;
     }
-
     return true;
 }
 
 void cOglOutputFb::BindWrite(void) {
-    glVDPAUMapSurfacesNV(1, &surface);
+#ifdef USE_VDPAU
+    if (VideoIsDriverVdpau()) {
+        glVDPAUMapSurfacesNV(1, &surface);
+    }
+#endif
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb);
 }
 
 void cOglOutputFb::Unbind(void) {
-    glVDPAUUnmapSurfacesNV(1, &surface);
+#ifdef USE_VDPAU
+    if (VideoIsDriverVdpau()) {
+        glVDPAUUnmapSurfacesNV(1, &surface);
+    }
+#endif
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -695,7 +723,7 @@ void cOglVb::DrawArrays(int count) {
     if (count == 0)
         count = numVertices;
     glDrawArrays(drawMode, 0, count);
-    glFlush();    
+    glFlush();
 }
 
 
@@ -731,6 +759,7 @@ cOglCmdDeleteFb::cOglCmdDeleteFb(cOglFb *fb) : cOglCmd(fb) {
 }
 
 bool cOglCmdDeleteFb::Execute(void) {
+if(fb)
     delete fb;
     return true;
 }
@@ -1378,7 +1407,7 @@ cOglThread::cOglThread(cCondWait *startWait, int maxCacheSize) : cThread("oglThr
     maxTextureSize = 0;
     for (int i = 0; i < OGL_MAX_OSDIMAGES; i++) {
         imageCache[i].used = false;
-        imageCache[i].texture = GL_NONE;        
+        imageCache[i].texture = GL_NONE;
         imageCache[i].width = 0;
         imageCache[i].height = 0;
     }
@@ -1404,7 +1433,7 @@ void cOglThread::Stop(void) {
 void cOglThread::DoCmd(cOglCmd* cmd) {
     while (stalled)
         cCondWait::SleepMs(10);
-    
+
     bool doSignal = false;
     Lock();
     if (commands.size() == 0)
@@ -1418,13 +1447,6 @@ void cOglThread::DoCmd(cOglCmd* cmd) {
 
     if (doSignal || stalled)
         wait->Signal();
-}
-
-void cOglThread::Flush(void) {
-    stalled = false;
-    while(commands.size()) {
-        cCondWait::SleepMs(10);
-    }
 }
 
 int cOglThread::StoreImage(const cImage &image) {
@@ -1445,7 +1467,7 @@ int cOglThread::StoreImage(const cImage &image) {
         esyslog("[softhddev]Maximum size for GPU cache reached. Used: %.2fMB Max: %.2fMB", cachedMB, maxMB);
         return 0;
     }
-    
+
     int slot = GetFreeSlot();
     if (!slot)
         return 0;
@@ -1532,7 +1554,7 @@ void cOglThread::Action(void) {
         return;
     }
     dsyslog("[softhddev]OpenGL Context initialized");
-    
+
     if (!InitShaders()) {
         esyslog("[softhddev]Could not initiate Shaders");
         Cleanup();
@@ -1540,15 +1562,17 @@ void cOglThread::Action(void) {
         return;
     }
     dsyslog("[softhddev]Shaders initialized");
-    
-    if (!InitVdpauInterop()) {
-        esyslog("[softhddev]: vdpau interop NOT initialized");
-        Cleanup();
-        startWait->Signal();
-        return;
+#ifdef USE_VDPAU
+    if (VideoIsDriverVdpau()) {
+        if (!InitVdpauInterop()) {
+            esyslog("[softhddev]: vdpau interop NOT initialized");
+            Cleanup();
+            startWait->Signal();
+            return;
+        }
+        dsyslog("[softhddev]vdpau interop initialized");
     }
-    dsyslog("[softhddev]vdpau interop initialized");
-
+#endif
     if (!InitVertexBuffers()) {
         esyslog("[softhddev]: Vertex Buffers NOT initialized");
         Cleanup();
@@ -1587,31 +1611,41 @@ void cOglThread::Action(void) {
 }
 
 bool cOglThread::InitOpenGL(void) {
-    const char *displayName = X11DisplayName;
-    if (!displayName) {
-        displayName = getenv("DISPLAY");
+#ifdef USE_VDPAU
+    if (VideoIsDriverVdpau()) {
+        const char *displayName = X11DisplayName;
         if (!displayName) {
-            displayName = ":0.0";
+            displayName = getenv("DISPLAY");
+            if (!displayName) {
+                displayName = ":0.0";
+            }
         }
-    }
-    dsyslog("[softhddev]OpenGL using display %s", displayName);
+        dsyslog("[softhddev]OpenGL using display %s", displayName);
 
-    int argc = 3;
-    char* buffer[3];
-    buffer[0] = strdup("openglosd");
-    buffer[1] = strdup("-display");
-    buffer[2] = strdup(displayName);
-    char **argv = buffer;
-    glutInitContextVersion (3, 3);
-    glutInit(&argc, argv);
-    glutInitDisplayMode (GLUT_SINGLE | GLUT_RGBA | GLUT_ALPHA);
-    glutInitWindowSize (1, 1);
-    glutInitWindowPosition (0, 0);
-    glutCreateWindow("openglosd");
-    glutHideWindow();
-    free(buffer[0]);
-    free(buffer[1]);
-    free(buffer[2]);
+        int argc = 3;
+        char* buffer[3];
+        buffer[0] = strdup("openglosd");
+        buffer[1] = strdup("-display");
+        buffer[2] = strdup(displayName);
+        char **argv = buffer;
+        glutInitContextVersion (3, 3);
+        glutInitContextProfile(GLUT_COMPATIBILITY_PROFILE);
+        glutInit(&argc, argv);
+        glutInitDisplayMode (GLUT_SINGLE | GLUT_RGBA | GLUT_ALPHA);
+        glutInitWindowSize (1, 1);
+        glutInitWindowPosition (0, 0);
+        glutCreateWindow("openglosd");
+        glutHideWindow();
+        free(buffer[0]);
+        free(buffer[1]);
+        free(buffer[2]);
+    }
+#endif
+#ifdef USE_CUVID
+    if (VideoIsDriverCuvid()) {
+        if (!CuvidInitGlx()) return false;
+    }
+#endif
     glewExperimental = GL_TRUE;
     GLenum err = glewInit();
     if( err != GLEW_OK) {
@@ -1637,7 +1671,7 @@ void cOglThread::DeleteShaders(void) {
     for (int i=0; i < stCount; i++)
         delete Shaders[i];
 }
-
+#ifdef USE_VDPAU
 bool cOglThread::InitVdpauInterop(void) {
     void *vdpDevice = GetVDPAUDevice();
     void *procAdress = GetVDPAUProcAdress();
@@ -1646,7 +1680,7 @@ bool cOglThread::InitVdpauInterop(void) {
         return false;
     return true;
 }
-
+#endif
 bool cOglThread::InitVertexBuffers(void) {
     for (int i=0; i < vbCount; i++) {
         cOglVb *vb = new cOglVb(i);
@@ -1668,9 +1702,13 @@ void cOglThread::Cleanup(void) {
     delete cOglOsd::oFb;
     cOglOsd::oFb = NULL;
     DeleteShaders();
-    glVDPAUFiniNV();
     cOglFont::Cleanup();
-    glutExit();
+#ifdef USE_VDPAU
+    if (VideoIsDriverVdpau()) {
+        glVDPAUFiniNV();
+        glutExit();
+    }
+#endif
 }
 
 /****************************************************************************************
@@ -1816,7 +1854,7 @@ void cOglPixmap::DrawText(const cPoint &Point, const char *s, tColor ColorFg, tC
     int cw = Width ? Width : w;
     int ch = Height ? Height : h;
     cRect r(x, y, cw, ch);
-    
+
     if (ColorBg != clrTransparent)
         oglThread->DoCmd(new cOglCmdDrawRectangle(fb, r.X(), r.Y(), r.Width(), r.Height(), ColorBg));
 
@@ -1913,7 +1951,7 @@ cOglOsd::cOglOsd(int Left, int Top, uint Level, std::shared_ptr<cOglThread> oglT
     VideoGetOsdSize(&osdWidth, &osdHeight);
     //dsyslog("[softhddev]cOglOsd osdLeft %d osdTop %d screenWidth %d screenHeight %d", Left, Top, osdWidth, osdHeight);
 
-    //create vdpau output framebuffer
+    //create output framebuffer
     if (!oFb) {
         oFb = new cOglOutputFb(osdWidth, osdHeight);
         oglThread->DoCmd(new cOglCmdInitOutputFb(oFb));
@@ -1921,7 +1959,8 @@ cOglOsd::cOglOsd(int Left, int Top, uint Level, std::shared_ptr<cOglThread> oglT
 }
 
 cOglOsd::~cOglOsd() {
-    oglThread->Flush();
+    oglThread->DoCmd(new cOglCmdFill(bFb, clrTransparent));
+    oglThread->DoCmd(new cOglCmdCopyBufferToOutputFb(bFb, oFb, Left(), Top()));
     OsdClose();
     SetActive(false);
     oglThread->DoCmd(new cOglCmdDeleteFb(bFb));
@@ -2031,7 +2070,7 @@ void cOglOsd::Flush(void) {
             }
         }
     }
-    //copy buffer to Vdpau output framebuffer
+    //copy buffer to output framebuffer
     oglThread->DoCmd(new cOglCmdCopyBufferToOutputFb(bFb, oFb, Left(), Top()));
     //dsyslog("[softhddev]End Flush at %" PRIu64 ", duration %d", cTimeMs::Now(), (int)(cTimeMs::Now()-start));
 }

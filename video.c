@@ -27,7 +27,7 @@
 ///
 ///	@todo disable screen saver support
 ///
-///	Uses Xlib where it is needed for VA-API or vdpau.  XCB is used for
+///	Uses Xlib where it is needed for VA-API or vdpau or cuvid.  XCB is used for
 ///	everything else.
 ///
 ///	- X11
@@ -42,7 +42,6 @@
 #define noUSE_SCREENSAVER		///< support disable screensaver
 #define USE_AUTOCROP			///< compile auto-crop support
 #define USE_GRAB			///< experimental grab code
-#define noUSE_GLX			///< outdated GLX code
 #define USE_DOUBLEBUFFER		///< use GLX double buffers
 //#define USE_VAAPI				///< enable vaapi support
 //#define USE_VDPAU				///< enable vdpau support
@@ -59,6 +58,7 @@
 #include <sys/shm.h>
 #include <sys/ipc.h>
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -151,6 +151,12 @@ typedef enum
 #include <vdpau/vdpau_x11.h>
 #include <libavcodec/vdpau.h>
 #include <libavutil/hwcontext_vdpau.h>
+#endif
+
+#ifdef USE_CUVID
+#include <ffnvcodec/dynlink_cuda.h>
+#include <ffnvcodec/dynlink_loader.h>
+#include <libavutil/hwcontext_cuda.h>
 #endif
 
 #include <libavcodec/avcodec.h>
@@ -391,6 +397,29 @@ static VideoConfigValues VaapiConfigSharpen =
 
 static VideoConfigValues VaapiConfigStde =
 { .active = 1, .min_value = 0.0, .max_value = 4.0, .def_value = 0.0, .step = 1.0, .scale = 1.0, .drv_scale = 1.0 };
+#endif
+
+#ifdef USE_CUVID
+static VideoConfigValues CuvidConfigBrightness =
+{ .active = 1, .min_value = -1000.0, .max_value = 1000.0, .def_value = 0.0, .step = 1.0, .scale = 0.001, .drv_scale = 1.0 };
+
+static VideoConfigValues CuvidConfigContrast =
+{ .active = 1, .min_value = 0.0, .max_value = 10000.0, .def_value = 1000.0, .step = 1.0, .scale = 0.001, .drv_scale = 1.0 };
+
+static VideoConfigValues CuvidConfigSaturation =
+{ .active = 1, .min_value = 0.0, .max_value = 10000.0, .def_value = 1000.0, .step = 1.0, .scale = 0.001, .drv_scale = 1.0 };
+
+static VideoConfigValues CuvidConfigHue =
+{ .active = 1, .min_value = -1000.0 * M_PI, .max_value = 1000.0 * M_PI, .def_value = 0.0, .step = 1.0, .scale = 0.001, .drv_scale = 1.0 };
+
+static VideoConfigValues CuvidConfigDenoise =
+{ .active = 1, .min_value = 0.0, .max_value = 1000.0, .def_value = 0.0, .step = 1.0, .scale = 0.001, .drv_scale = 1.0 };
+
+static VideoConfigValues CuvidConfigSharpen =
+{ .active = 1, .min_value = -1000.0, .max_value = 1000.0, .def_value = 0.0, .step = 1.0, .scale = 0.001, .drv_scale = 1.0 };
+
+static VideoConfigValues CuvidConfigStde =
+{ .active = 0, .min_value = 0.0, .max_value = 1.0, .def_value = 1.0, .step = 1.0, .scale = 1.0, .drv_scale = 1.0 };
 #endif
 
 char VideoIgnoreRepeatPict;		///< disable repeat pict warning
@@ -811,6 +840,7 @@ static GLXContext GlxThreadContext;	///< our gl context for the thread
 static XVisualInfo *GlxVisualInfo;	///< our gl visual
 
 static GLuint OsdGlTextures[2];		///< gl texture for OSD
+static GLuint *OsdGlTexture = NULL;		///< texture for openglosd
 static int OsdIndex;			///< index into OsdGlTextures
 
 ///
@@ -889,7 +919,6 @@ static void GlxSetupDecoder(int width, int height, GLuint * textures)
 	glBindTexture(GL_TEXTURE_2D, 0);
     }
     glDisable(GL_TEXTURE_2D);
-
     GlxCheck();
 }
 
@@ -960,20 +989,16 @@ static void GlxUploadOsdTexture(int x, int y, int width, int height,
 static void GlxOsdInit(int width, int height)
 {
     int i;
-
+    // not init with openglosd
+    if (OsdGlTexture) return;
 #ifdef DEBUG
     if (!GlxEnabled) {
 	Debug(3, "video/glx: %s called without glx enabled\n", __FUNCTION__);
 	return;
     }
 #endif
-
     Debug(3, "video/glx: osd init context %p <-> %p\n", glXGetCurrentContext(),
 	GlxContext);
-
-//    if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxContext)) {
-//	Fatal(_("video/glx: can't make glx osd context current\n"));
-//    }
 
     //
     //	create a RGBA texture.
@@ -994,8 +1019,6 @@ static void GlxOsdInit(int width, int height)
 
     glBindTexture(GL_TEXTURE_2D, 0);
     glDisable(GL_TEXTURE_2D);
-//    glXMakeCurrent(XlibDisplay, None, NULL);
-
 }
 
 ///
@@ -1033,23 +1056,7 @@ static void GlxOsdDrawARGB(int xi, int yi, int width, int height, int pitch,
     uint32_t start;
     uint32_t end;
 #endif
-/*
-    int copywidth, copyheight;
 
-    if (OsdWidth < width + x || OsdHeight < height + y) {
-	Error("video/glx: OSD will not fit (w: %d+%d, w-avail: %d, h: %d+%d, h-avail: %d\n",
-		width, x, OsdWidth, height, y, OsdHeight);
-    }
-    if (OsdWidth < x || OsdHeight < y)
-	return;
-
-    copywidth = width;
-    copyheight = height;
-    if (OsdWidth < width + x)
-	copywidth = OsdWidth - x;
-    if (OsdHeight < height + y)
-	copyheight = OsdHeight - y;
-*/
 #ifdef DEBUG
     if (!GlxEnabled) {
 	Debug(3, "video/glx: %s called without glx enabled\n", __FUNCTION__);
@@ -1059,27 +1066,22 @@ static void GlxOsdDrawARGB(int xi, int yi, int width, int height, int pitch,
     Debug(3, "video/glx: osd context %p <-> %p\n", glXGetCurrentContext(),
 	GlxContext);
 #endif
-
+    if (!GlxContext) return;
     // set glx context
     if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxContext)) {
 	Error(_("video/glx: can't make glx context current\n"));
 	return;
     }
     // FIXME: faster way
-//    tmp = malloc(copywidth * copyheight * 4);
     tmp = malloc(width * height * 4);
     if (tmp) {
 	int i;
 
-//	for (i = 0; i < copyheight; ++i) {
-//	    memcpy(tmp + i * copywidth * 4, argb + xi * 4 + (i + yi) * pitch,
-//		copywidth * 4);
 	for (i = 0; i < height; ++i) {
 	    memcpy(tmp + i * width * 4, argb + xi * 4 + (i + yi) * pitch,
 		width * 4);
 	}
 
-//	GlxUploadOsdTexture(x, y, copywidth, copyheight, tmp);
 	GlxUploadOsdTexture(x, y, width, height, tmp);
 	glXMakeCurrent(XlibDisplay, None, NULL);
 
@@ -1102,6 +1104,7 @@ static void GlxOsdClear(void)
 {
     void *texbuf;
 
+    if (!GlxContext || OsdGlTexture) return;
 #ifdef DEBUG
     if (!GlxEnabled) {
 	Debug(3, "video/glx: %s called without glx enabled\n", __FUNCTION__);
@@ -1111,11 +1114,9 @@ static void GlxOsdClear(void)
     Debug(3, "video/glx: osd context %p <-> %p\n", glXGetCurrentContext(),
 	GlxContext);
 #endif
-
     // FIXME: any opengl function to clear an area?
     // FIXME: if not; use zero buffer
     // FIXME: if not; use dirty area
-
     // set glx context
     if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxContext)) {
 	Error(_("video/glx: can't make glx context current\n"));
@@ -1186,7 +1187,6 @@ static void GlxSetupWindow(xcb_window_t window, int width, int height,
     glColor3f(1.0f, 1.0f, 1.0f);
     glClearDepth(1.0);
     GlxCheck();
-
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glOrtho(0.0, width, height, 0.0, -1.0, 1.0);
@@ -1210,7 +1210,7 @@ static void GlxSetupWindow(xcb_window_t window, int width, int height,
 #ifdef DEBUG
 #ifdef USE_DOUBLEBUFFER
     glDrawBuffer(GL_FRONT);
-    glClearColor(1.0f, 0.0f, 1.0f, 1.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     glDrawBuffer(GL_BACK);
 #endif
@@ -1220,7 +1220,7 @@ static void GlxSetupWindow(xcb_window_t window, int width, int height,
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);	// intial background color
     glClear(GL_COLOR_BUFFER_BIT);
 #ifdef DEBUG
-    glClearColor(1.0f, 1.0f, 0.0f, 1.0f);	// background color
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);	// background color
 #endif
     GlxCheck();
 }
@@ -1230,13 +1230,6 @@ static void GlxSetupWindow(xcb_window_t window, int width, int height,
 ///
 static void GlxInit(void)
 {
-/*    static GLint fb_attr[] = {
-	GLX_DRAWABLE_TYPE,	GLX_WINDOW_BIT,
-	GLX_RENDER_TYPE,  	GLX_RGBA_BIT,
-	GLX_RED_SIZE,		8,
-	GLX_GREEN_SIZE,		8,
-	GLX_BLUE_SIZE,		8,
-*/
     static GLint visual_attr[] = {
 	GLX_RGBA,
 	GLX_RED_SIZE, 8,
@@ -1249,8 +1242,7 @@ static void GlxInit(void)
     };
     XVisualInfo *vi;
     GLXContext context;
-//    GLXFBConfig *fbconfigs;
-//    int numconfigs;
+
     int major;
     int minor;
     int glx_GLX_EXT_swap_control;
@@ -1303,14 +1295,7 @@ static void GlxInit(void)
 
     // create glx context
     glXMakeCurrent(XlibDisplay, None, NULL);
-/*    fbconfigs = glXChooseFBConfig(XlibDisplay, DefaultScreen(XlibDisplay), fb_attr, &numconfigs);
-    if (!fbconfigs || !numconfigs) {
-	Error(_("video/glx: can't get FB configs\n"));
-	GlxEnabled = 0;
-	return;
-    }
-    vi = glXGetVisualFromFBConfig(XlibDisplay, fbconfigs[0]);
-*/
+
     vi = glXChooseVisual(XlibDisplay, DefaultScreen(XlibDisplay), visual_attr);
     if (!vi) {
 	Error(_("video/glx: can't get a RGB visual\n"));
@@ -1327,7 +1312,7 @@ static void GlxInit(void)
 	GlxEnabled = 0;
 	return;
     }
-//    context = glXCreateNewContext(XlibDisplay, fbconfigs[0], GLX_RGBA_TYPE, NULL, GL_TRUE);
+
     context = glXCreateContext(XlibDisplay, vi, NULL, GL_TRUE);
     if (!context) {
 	Error(_("video/glx: can't create glx context\n"));
@@ -1335,7 +1320,7 @@ static void GlxInit(void)
 	return;
     }
     GlxSharedContext = context;
-//    context = glXCreateNewContext(XlibDisplay, fbconfigs[0], GLX_RGBA_TYPE, GlxSharedContext, GL_TRUE);
+
     context = glXCreateContext(XlibDisplay, vi, GlxSharedContext, GL_TRUE);
     if (!context) {
 	Error(_("video/glx: can't create glx context\n"));
@@ -1345,7 +1330,7 @@ static void GlxInit(void)
 	return;
     }
     GlxContext = context;
-//    GlxFBConfigs = fbconfigs;
+
     GlxVisualInfo = vi;
     Debug(3, "video/glx: visual %#02x depth %u\n", (unsigned)vi->visualid,
 	vi->depth);
@@ -1438,16 +1423,16 @@ static void GlxExit(void)
     if (GlxContext) {
 	glXDestroyContext(XlibDisplay, GlxContext);
     }
+//    GlxContext = NULL;
     if (GlxThreadContext) {
 	glXDestroyContext(XlibDisplay, GlxThreadContext);
     }
+    if (OsdGlTexture)
+        OsdGlTexture = NULL;
+//    GlxThreadContext = NULL;
 /*    if (GlxVisualInfo) {
 	XFree(GlxVisualInfo);
 	GlxVisualInfo = NULL;
-    }
-    if (GlxFBConfigs) {
-	XFree(GlxFBConfigs);
-	GlxFBConfigs = NULL;
     }
 */
 }
@@ -6250,7 +6235,7 @@ static void VaapiAdvanceDecoderFrame(VaapiDecoder * decoder)
         // keep use of last surface
         ++decoder->FramesDuped;
         // FIXME: don't warn after stream start, don't warn during pause
-        Error(_("video: display buffer empty, duping frame (%d/%d) %d\n"),
+        Debug(4,"video: display buffer empty, duping frame (%d/%d) %d\n",
 		decoder->FramesDuped, decoder->FrameCounter,
 		VideoGetBuffers(decoder->Stream));
         return;
@@ -8330,9 +8315,6 @@ static int VdpauInit(const char *display_name)
 
     Info(_("video/vdpau: VDPAU API version: %u\n"), api_version);
     Info(_("video/vdpau: VDPAU information: %s\n"), information_string);
-#ifdef CUVID
-    Info(_("video/vdpau: Can be use NVDEC (CUVID)\n"));
-#endif
     // FIXME: check if needed capabilities are available
 
     VdpauGetProc(VDP_FUNC_ID_GENERATE_CSC_MATRIX, &VdpauGenerateCSCMatrix,
@@ -8892,7 +8874,7 @@ void vdpau_uninit(AVCodecContext *s)
     av_freep(&ist->hwaccel_ctx);
     av_freep(&s->hwaccel_context);
 }
-
+/*
 static int vdpau_get_buffer(AVCodecContext *s, AVFrame *frame, int flags)
 {
     VideoDecoder *ist = s->opaque;
@@ -8903,7 +8885,7 @@ static int vdpau_get_buffer(AVCodecContext *s, AVFrame *frame, int flags)
     Debug(4, "hwframe got buffer %#08x \n", frame->data[3]);
     return ret;
 }
-
+*/
 static int vdpau_retrieve_data(AVCodecContext *s, AVFrame *frame)
 {
     VideoDecoder *ist = s->opaque;
@@ -8929,80 +8911,6 @@ static int vdpau_retrieve_data(AVCodecContext *s, AVFrame *frame)
 
     return 0;
 }
-
-#ifdef CUVID
-
-static int cuvid_get_buffer(AVCodecContext *s, AVFrame *frame, int flags)
-{
-    VideoDecoder        *ist = s->opaque;
-    VDPAUContext        *ctx = ist->hwaccel_ctx;
-    int ret;
-
-    if (!ctx->hw_frames_ctx) {
-	Debug(3,"CUDA fail get buffer\n");
-        exit(0);
-    }
-
-    ret = av_hwframe_get_buffer(ctx->hw_frames_ctx, frame, 0);
-
-    Debug(3,"CUDA hwframe got buffer %d\n",ret);
-    return ret;
-}
-
-
-static void cuvid_uninit(AVCodecContext *avctx)
-{
-    VideoDecoder *ist = avctx->opaque;
-    av_buffer_unref(&ist->hw_frames_ctx);
-}
-
-
-static int init_cuvid(AVCodecContext *avctx)
-{
-    VideoDecoder *ist = avctx->opaque;
-    AVHWFramesContext *frames_ctx;
-    int ret;
-
-    Debug(3, "Initializing cuvid hwaccel\n");
-
-    avctx->hw_device_ctx = NULL;
-
-    if (!avctx->hw_device_ctx) {
-        avctx->hw_device_ctx = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_CUDA);
-        if (!avctx->hw_device_ctx) {
-            Debug(3, "Error creating a CUDA device\n");
-            return AVERROR(EINVAL);
-        }
-    }
-
-    ist->hw_frames_ctx = av_hwframe_ctx_alloc(avctx->hw_device_ctx);
-    if (!ist->hw_frames_ctx) {
-        Debug(3, "Error creating a CUDA frames context\n");
-        return AVERROR(ENOMEM);
-    }
-
-    frames_ctx = (AVHWFramesContext*)ist->hw_frames_ctx->data;
-
-    frames_ctx->format = AV_PIX_FMT_CUDA;
-    frames_ctx->sw_format = avctx->sw_pix_fmt;
-    frames_ctx->width = avctx->width;
-    frames_ctx->height = avctx->height;
-
-    Debug(3, "Initializing CUDA frames context: sw_format = %s, width = %d, height = %d\n",
-           av_get_pix_fmt_name(frames_ctx->sw_format), frames_ctx->width, frames_ctx->height);
-
-    ret = av_hwframe_ctx_init(ist->hw_frames_ctx);
-    if (ret < 0) {
-        Debug(3, "Error initializing a CUDA frame pool\n");
-        return ret;
-    }
-
-    ist->hwaccel_uninit = cuvid_uninit;
-
-    return 0;
-}
-#endif
-
 
 static int vdpau_alloc(AVCodecContext *s)
 {
@@ -9156,14 +9064,6 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	    case AV_PIX_FMT_VDPAU_MPEG4:
 #endif
 	    case AV_PIX_FMT_VDPAU:
-#ifdef CUVID
-		if (VideoHardwareDecoder == HWcuvidOn || (VideoHardwareDecoder == HWcuvidhevc && video_ctx->codec_id == AV_CODEC_ID_HEVC))
-		    continue;
-		break;
-	    case AV_PIX_FMT_CUDA:
-		if (VideoHardwareDecoder < HWcuvidhevc || (VideoHardwareDecoder == HWcuvidhevc && video_ctx->codec_id != AV_CODEC_ID_HEVC))
-		    continue;
-#endif
 		break;
 	    default:
 		continue;
@@ -9182,18 +9082,10 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
     switch (video_ctx->codec_id) {
 	case AV_CODEC_ID_MPEG1VIDEO:
 	    max_refs = CODEC_SURFACES_MPEG2;
-#ifdef CUVID
-	    if (*fmt_idx == AV_PIX_FMT_CUDA)
-	        break;
-#endif
 	    profile = VdpauCheckProfile(decoder, VDP_DECODER_PROFILE_MPEG1);
 	    break;
 	case AV_CODEC_ID_MPEG2VIDEO:
 	    max_refs = CODEC_SURFACES_MPEG2;
-#ifdef CUVID
-            if (*fmt_idx == AV_PIX_FMT_CUDA)
-                break;
-#endif
 	    profile = VdpauCheckProfile(decoder, VDP_DECODER_PROFILE_MPEG2_MAIN);
 	    break;
 	case AV_CODEC_ID_MPEG4:
@@ -9207,10 +9099,6 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	    // FIXME: can calculate level 4.1 limits
 	    // vdpau supports only 16 references
 	    max_refs = 16;
-#ifdef CUVID
-            if (*fmt_idx == AV_PIX_FMT_CUDA)
-                break;
-#endif
 	    // try more simple formats, fallback to better
 	    if (video_ctx->profile == FF_PROFILE_H264_BASELINE) {
 		profile =
@@ -9241,10 +9129,6 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	    break;
         case AV_CODEC_ID_HEVC:
             max_refs = 16;
-#ifdef CUVID
-            if (*fmt_idx == AV_PIX_FMT_CUDA)
-               break;
-#endif
             if (video_ctx->profile == FF_PROFILE_HEVC_MAIN_10) {
                 Debug(3,"HEVC Profile Main 10 detected\n");
                 profile =
@@ -9276,10 +9160,6 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	    goto slow_path;
     }
 
-#ifdef CUVID
-  if (*fmt_idx != AV_PIX_FMT_CUDA) {
-#endif
-
     if (profile == VDP_INVALID_HANDLE) {
 	Error(_("video/vdpau: no valid profile found\n"));
 	goto slow_path;
@@ -9289,39 +9169,10 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	profile, video_ctx->width, video_ctx->height, max_refs);
 
     decoder->Profile = profile;
-#ifdef CUVID
-  }
-#endif
     decoder->SurfacesNeeded = max_refs + VIDEO_SURFACES_MAX + 1;
     decoder->PixFmt = *fmt_idx;
     decoder->InputWidth = 0;
     decoder->InputHeight = 0;
-
-#ifdef CUVID
-    if (*fmt_idx == AV_PIX_FMT_CUDA)  {       // HWACCEL used.
-	decoder->PixFmt = AV_PIX_FMT_CUDA;
-	ist->active_hwaccel_id = HWACCEL_CUVID;
-	ist->hwaccel_pix_fmt   = AV_PIX_FMT_CUDA;
-	ist->hwaccel_output_format = AV_PIX_FMT_NV12;
-
-	video_ctx->draw_horiz_band = NULL;
-	video_ctx->slice_flags = 0;
-        if (video_ctx->width && video_ctx->height) {
-            VdpauCleanup(decoder);
-            if (init_cuvid(video_ctx)) {
-	        Debug(3,"CUVID Init failed\n");
-	        goto slow_path;
-	    }
-	    Debug(3,"CUVID Init ok %dx%d\n",video_ctx->width,video_ctx->height);
-	    decoder->InputWidth = video_ctx->width;
-	    decoder->InputHeight = video_ctx->height;
-	    decoder->InputAspect = video_ctx->sample_aspect_ratio;
-	    decoder->PixFmt = AV_PIX_FMT_NV12;
-	    VdpauSetupOutput(decoder);
-        }
-	return AV_PIX_FMT_CUDA;
-    } else
-#endif
 
     if (*fmt_idx == AV_PIX_FMT_VDPAU) { // HWACCEL used
 	int ret;
@@ -9369,6 +9220,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	ist->hwaccel_get_buffer = NULL;
 	ist->hwaccel_uninit = NULL;
 	ist->hwaccel_retrieve_data = NULL;
+	ist->active_hwaccel_id = HWACCEL_NONE;
 
 #ifndef FFMPEG_BUG1_WORKAROUND
     if (video_ctx->width && video_ctx->height) {
@@ -10050,8 +9902,6 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 	//	Copy data from frame to image
 	//
 	switch (video_ctx->pix_fmt) {
-	    case AV_PIX_FMT_CUDA:
-	    case AV_PIX_FMT_NV12:
 	    case AV_PIX_FMT_YUV420P:
 	    case AV_PIX_FMT_YUVJ420P:	// some streams produce this
 	    case AV_PIX_FMT_YUV420P10LE:  // for softdecode of HEVC 10 Bit
@@ -10063,80 +9913,6 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 		    video_ctx->pix_fmt);
 		// FIXME: no fatals!
 	}
-
-if (video_ctx->pix_fmt == AV_PIX_FMT_CUDA) { // JOJO
-      int err,pitch,j;
-      uint16_t d;
-      uint8_t *p1,*p2,*p3,*p4;
-      int w = video_ctx->width,i;
-      int h = video_ctx->height;
-      char *p ;
-
-      output = av_frame_alloc();
-//      output->format = AV_PIX_FMT_NV12;
-      err = av_hwframe_transfer_data(output, frame, 0);
-      err = av_frame_copy_props(output, frame);
-
-//Debug(3,"CUDA sw copy Format %s \n",av_get_pix_fmt_name(output->format));
-//Debug(3,"CUDA %p %p %p i pitches %d %d %d\n",output->data[0],output->data[1],output->data[2],output->linesize[0],output->linesize[1],output->linesize[2]);
-
-      pitch = output->linesize[0];
-
-      surface = VdpauGetSurface0(decoder);
-
-      if (output->format == AV_PIX_FMT_P010LE) {
-        data[0] = malloc(pitch*h);
-        data[1] = malloc(pitch*h);
-        data[2] = NULL;
-	pitches[0] = pitch/2;
-	pitches[1] = pitch/2;
-	pitches[2] = 0;
-        p1 = output->data[0];
-        p2 = output->data[1];
-        p3 = data[0];
-        p4 = data[1];
-	// we have to manualy copy the 10 Bit YUV planes to 8 Bit Planes
-	// the  10 Bit are left aligned in a 16 Bit int  and we take just the upper Byte.
-	for (j=0;j<h;j++) {
-           for (i=0;i<pitch/2;i++) {
-	      *(p3 +j*pitch/2+i) =  *(p1+j*pitch+1+i*2);
-	   }
-        }
-	for (j=0;j<h/2;j++) {
-           for (i=0;i<pitch/2;i++) {
-	      *(p4 +j*pitch/2+i) =  *(p2+j*pitch+1+i*2);
-	   }
-        }
-	status = VdpauVideoSurfacePutBitsYCbCr(surface, VDP_YCBCR_FORMAT_NV12, data,pitches);
-	if (status != VDP_STATUS_OK) {
-	    Error(_("NV12 10bit video/vdpau: can't put video surface %d bits: %s\n"),surface, VdpauGetErrorString(status));
-	}
-        free(data[0]);
-	free(data[1]);
-      }
-      else {   //  hier ist NV12
-        data[0] = output->data[0];
-        data[1] = output->data[1];
-        data[2] = NULL;
-	pitches[0] = pitch;
-	pitches[1] = pitch;
-	pitches[2] = 0;
-
-	status = VdpauVideoSurfacePutBitsYCbCr(surface, VDP_YCBCR_FORMAT_NV12, data,pitches);
-	if (status != VDP_STATUS_OK) {
-	    Error(_("NV12 video/vdpau: can't put video surface %d bits: %s\n"),surface, VdpauGetErrorString(status));
-	}
-      }
-
-      VdpauQueueSurface(decoder, surface, 1);
-
-    if (frame->interlaced_frame) {
-	++decoder->FrameCounter;
-    }
-
-      av_frame_free(&output);
-      return;
-}
 
 	// convert ffmpeg order to vdpau
 	data[0] = frame->data[0];
@@ -10575,7 +10351,7 @@ static void VdpauAdvanceDecoderFrame(VdpauDecoder * decoder)
 	    // keep use of last surface
 	    ++decoder->FramesDuped;
 	    // FIXME: don't warn after stream start, don't warn during pause
-	    Error(_("video: display buffer empty, duping frame (%d/%d) %d\n"),
+	    Debug(4,"video: display buffer empty, duping frame (%d/%d) %d\n",
 		decoder->FramesDuped, decoder->FrameCounter,
 		VideoGetBuffers(decoder->Stream));
 	    return;
@@ -11576,7 +11352,9 @@ static const VideoModule VdpauModule = {
     .ResetStart = (void (*const) (const VideoHwDecoder *))VdpauResetStart,
     .SetTrickSpeed =
 	(void (*const) (const VideoHwDecoder *, int))VdpauSetTrickSpeed,
+#ifdef USE_GRAB
     .GrabOutput = VdpauGrabOutputSurface,
+#endif
     .GetStats = (void (*const) (VideoHwDecoder *, int *, int *, int *,
 	    int *))VdpauGetStats,
     .SetBackground = VdpauSetBackground,
@@ -11591,6 +11369,2088 @@ static const VideoModule VdpauModule = {
     .OsdExit = VdpauOsdExit,
     .Init = VdpauInit,
     .Exit = VdpauExit,
+};
+
+#endif
+
+//----------------------------------------------------------------------------
+//	CUVID
+//----------------------------------------------------------------------------
+
+#ifdef USE_CUVID
+
+///
+///	CUVID decoder
+///
+typedef struct _cuvid_decoder_
+{
+     xcb_window_t Window;		///< output window
+
+    int VideoX;				///< video base x coordinate
+    int VideoY;				///< video base y coordinate
+    int VideoWidth;			///< video base width
+    int VideoHeight;			///< video base height
+
+    int OutputX;			///< real video output x coordinate
+    int OutputY;			///< real video output y coordinate
+    int OutputWidth;			///< real video output width
+    int OutputHeight;			///< real video output height
+
+    enum AVPixelFormat PixFmt;		///< ffmpeg frame pixfmt
+    enum AVColorSpace  ColorSpace;	/// ffmpeg ColorSpace
+    enum AVColorTransferCharacteristic  trc;  // 
+    enum AVColorPrimaries color_primaries;
+
+    int WrongInterlacedWarned;		///< warning about interlace flag issued
+    int Interlaced;			///< ffmpeg interlaced flag
+    int TopFieldFirst;			///< ffmpeg top field displayed first
+
+    int InputWidth;			///< video input width
+    int InputHeight;			///< video input height
+    AVRational InputAspect;		///< video input aspect ratio
+    VideoResolutions Resolution;	///< resolution group
+
+    int CropX;				///< video crop x
+    int CropY;				///< video crop y
+    int CropWidth;			///< video crop width
+    int CropHeight;			///< video crop height
+
+#ifdef USE_AUTOCROP
+    void *AutoCropBuffer;		///< auto-crop buffer cache
+    unsigned AutoCropBufferSize;	///< auto-crop buffer size
+    AutoCropCtx AutoCrop[1];		///< auto-crop variables
+#endif
+    int SurfacesNeeded;			///< number of surface to request
+    int SurfaceUsedN;			///< number of used video surfaces
+    /// used video surface ids
+    int SurfacesUsed[CODEC_SURFACES_MAX];
+    int SurfaceFreeN;			///< number of free video surfaces
+    /// free video surface ids
+    int SurfacesFree[CODEC_SURFACES_MAX];
+    /// video surface ring buffer
+    int SurfacesRb[VIDEO_SURFACES_MAX *2];
+
+    int SurfaceWrite;			///< write pointer
+    int SurfaceRead;			///< read pointer
+    atomic_t SurfacesFilled;		///< how many of the buffer is used
+
+    CUarray cu_array[CODEC_SURFACES_MAX][2];
+    CUgraphicsResource cu_res[CODEC_SURFACES_MAX][2];
+    GLuint gl_textures[CODEC_SURFACES_MAX];  // where we will copy the CUDA result
+    CUcontext cu_ctx;			///cuda context
+
+    AVCodecContext *video_ctx;
+
+    int SurfaceField;			///< current displayed field
+    int TrickSpeed;			///< current trick speed
+    int TrickCounter;			///< current trick speed counter
+    struct timespec FrameTime;		///< time of last display
+    VideoStream *Stream;		///< video stream
+    int Closing;			///< flag about closing current stream
+    int SyncOnAudio;			///< flag sync to audio
+    int64_t PTS;			///< video PTS clock
+
+    int LastAVDiff;			///< last audio - video difference
+    int SyncCounter;			///< counter to sync frames
+    int StartCounter;			///< counter for video start
+    int FramesDuped;			///< number of frames duplicated
+    int FramesMissed;			///< number of frames missed
+    int FramesDropped;			///< number of frames dropped
+    int FrameCounter;			///< number of frames decoded
+    int FramesDisplayed;		///< number of frames displayed
+} CuvidDecoder;
+
+static CuvidDecoder *CuvidDecoders[2];	///< open decoder streams
+static int CuvidDecoderN;		///< number of decoder streams
+static CudaFunctions *cu;
+static CUdevice CuvidDevice;
+static int CuvidSurfaceQueued;          ///< number of display surfaces queued
+
+GLuint vao_buffer, grab_buffer;
+GLuint gl_shader=0, gl_prog = 0, gl_fbo=0;      // shader programm
+GLint gl_colormatrix, gl_colormatrix_c;
+
+static struct timespec CuvidFrameTime;	///< time of last display
+
+static int CuvidOsdSurfaceIndex;	///< index into double buffered osd
+
+/// grab render output surface
+//static VdpOutputSurface CuvidGrabRenderSurface = VDP_INVALID_HANDLE;
+static pthread_mutex_t CuvidGrabMutex;
+
+unsigned int size_tex_data;
+unsigned int num_texels;
+unsigned int num_values;
+int window_width,window_height;
+
+#include "shaders.h"
+
+//----------------------------------------------------------------------------
+
+///
+///	Output video messages.
+///
+///	Reduce output.
+///
+///	@param level	message level (Error, Warning, Info, Debug, ...)
+///	@param format	printf format string (NULL to flush messages)
+///	@param ...	printf arguments
+///
+///	@returns true, if message shown
+///
+int CuvidMessage(int level, const char *format, ...)
+{
+    if (LogLevel > level || DebugLevel > level) {
+	static const char *last_format;
+	static char buf[256];
+	va_list ap;
+
+	va_start(ap, format);
+	if (format != last_format) {	// don't repeat same message
+	    if (buf[0]) {		// print last repeated message
+		syslog(LOG_ERR, "%s", buf);
+		buf[0] = '\0';
+	    }
+
+	    if (format) {
+		last_format = format;
+		vsyslog(LOG_ERR, format, ap);
+	    }
+	    va_end(ap);
+	    return 1;
+	}
+	vsnprintf(buf, sizeof(buf), format, ap);
+	va_end(ap);
+    }
+    return 0;
+}
+
+//	Check CUDA errors ----------------------------------------------------
+
+int CUStatus(CUresult err)
+{
+    if (CUDA_SUCCESS != err)
+    {
+        Error(_("Cuvid Driver API error = %04d"), err );
+        return -1;
+    }
+    return 0;
+}
+
+
+//	Surfaces -------------------------------------------------------------
+
+void CuvidCreateGlTexture(CuvidDecoder * decoder, unsigned int size_x, unsigned int size_y)
+{
+    int n, i, ret;
+
+    glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
+    GlxCheck();
+
+    glGenBuffers(1,&vao_buffer);
+    GlxCheck();
+    // create texture planes
+    glGenTextures(CODEC_SURFACES_MAX, decoder->gl_textures);
+    GlxCheck();
+
+    Debug(3,"video/cuvid: create %d Textures Format %s w %d h %d \n",
+        decoder->SurfacesNeeded, decoder->PixFmt != AV_PIX_FMT_P010LE ? "NV12/YV12" : "P010", size_x, size_y);
+
+    for (i = 0; i < decoder->SurfacesNeeded; i++) {
+        for (n = 0; n < 2; n++) {   // number of planes
+
+            glBindTexture(GL_TEXTURE_2D, decoder->gl_textures[i * 2 + n]);
+            GlxCheck();
+            // set basic parameters
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            if (decoder->PixFmt != AV_PIX_FMT_P010LE)
+                glTexImage2D(GL_TEXTURE_2D, 0, n == 0 ? GL_R8 : GL_RG8, n == 0 ? size_x : size_x/2, n == 0 ? size_y : size_y/2, 0,
+                     n == 0 ? GL_RED : GL_RG, GL_UNSIGNED_BYTE, NULL);
+            else
+                glTexImage2D(GL_TEXTURE_2D, 0, n == 0 ? GL_R16 : GL_RG16, n == 0 ? size_x : size_x/2, n == 0 ? size_y : size_y/2, 0,
+                    n == 0 ? GL_RED : GL_RG, GL_UNSIGNED_SHORT, NULL);
+
+            GlxCheck();
+            // register this texture with CUDA
+            if (decoder->PixFmt == AV_PIX_FMT_NV12 || decoder->PixFmt == AV_PIX_FMT_P010LE) {
+                ret = CUStatus(cu->cuGraphicsGLRegisterImage(&decoder->cu_res[i][n], decoder->gl_textures[i*2+n],
+                    GL_TEXTURE_2D, CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD));
+                if (ret < 0)
+                    Fatal(_("video/cuvid: cuGraphicsGLRegisterImage failed \n"));
+                ret = CUStatus(cu->cuGraphicsMapResources(1, &decoder->cu_res[i][n], 0));
+                if (ret < 0)
+                    Fatal(_("video/cuvid: cuGraphicsMapResources failed \n"));
+                ret = CUStatus(cu->cuGraphicsSubResourceGetMappedArray(&decoder->cu_array[i][n], decoder->cu_res[i][n], 0, 0));
+                if (ret < 0)
+                    Fatal(_("video/cuvid: cuGraphicsSubResourceGetMappedArray failed \n"));
+                ret = CUStatus(cu->cuGraphicsUnmapResources(1, &decoder->cu_res[i][n], 0));
+                if (ret < 0)
+                    Fatal(_("video/cuvid: cuGraphicsUnmapResources failed \n"));
+            }
+        }
+    }
+    glBindTexture(GL_TEXTURE_2D, 0);
+    GlxCheck();
+}
+
+///
+///	Create surfaces for CUVID decoder.
+///
+///	@param decoder	CUVID hw decoder
+///	@param width	surface source/video width
+///	@param height	surface source/video height
+///
+static void CuvidCreateSurfaces(CuvidDecoder * decoder, int width, int height)
+{
+    int i, j;
+
+#ifdef DEBUG
+    if (!decoder->SurfacesNeeded) {
+	Error(_("video/cuvid: surface needed not set\n"));
+	decoder->SurfacesNeeded = VIDEO_SURFACES_MAX * 2;
+    }
+#endif
+    Debug(3, "video/cuvid: %s: %dx%d * %d\n", __FUNCTION__, width, height,
+	decoder->SurfacesNeeded);
+
+    // allocate only the number of needed surfaces
+    decoder->SurfaceFreeN = decoder->SurfacesNeeded;
+
+    CuvidCreateGlTexture(decoder, width, height);
+
+    for (i = 0; i < decoder->SurfaceFreeN; ++i) {
+	    decoder->SurfacesFree[i] = i;
+	}
+	Debug(4, "video/cuvid: created video surface %dx%d with id 0x%08x\n",
+	    width, height, decoder->SurfacesFree[i]);
+}
+
+///
+///	Destroy surfaces of CUVID decoder.
+///
+///	@param decoder	CUVID hw decoder
+///
+static void CuvidDestroySurfaces(CuvidDecoder * decoder)
+{
+    int i, j;
+
+    glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
+    GlxCheck();
+
+    glDeleteTextures(CODEC_SURFACES_MAX, &decoder->gl_textures);
+    GlxCheck();
+
+    if (decoder == CuvidDecoders[0]) {   // only when last decoder closes
+        Debug(3,"Last decoder closes\n");
+        glDeleteBuffers(1, &vao_buffer);
+        vao_buffer = 0;
+        if (gl_prog)
+            glDeleteProgram(gl_prog);
+        gl_prog = 0;
+    }
+
+    for (i = 0; i < decoder->SurfaceFreeN; ++i) {
+	Debug(4, "video/cuvid: destroy video surface with id 0x%08x\n",
+	    decoder->SurfacesFree[i]);
+	decoder->SurfacesFree[i] = -1;
+    }
+    for (i = 0; i < decoder->SurfaceUsedN; ++i) {
+	Debug(4, "video/cuvid: destroy video surface with id 0x%08x\n",
+	    decoder->SurfacesUsed[i]);
+	decoder->SurfacesUsed[i] = -1;
+    }
+    decoder->SurfaceFreeN = 0;
+    decoder->SurfaceUsedN = 0;
+}
+
+///
+///	Get a free surface.
+///
+///	@param decoder	CUVID hw decoder
+///
+///	@returns the oldest free surface
+///
+static unsigned CuvidGetSurface0(CuvidDecoder * decoder)
+{
+    int surface;
+    int i;
+
+    if (!decoder->SurfaceFreeN) {
+	Error(_("video/cuvid: out of surfaces\n"));
+	return -1;
+    }
+    // use oldest surface
+    surface = decoder->SurfacesFree[0];
+
+    decoder->SurfaceFreeN--;
+    for (i = 0; i < decoder->SurfaceFreeN; ++i) {
+	decoder->SurfacesFree[i] = decoder->SurfacesFree[i + 1];
+    }
+    decoder->SurfacesFree[i] = -1;
+
+    // save as used
+    decoder->SurfacesUsed[decoder->SurfaceUsedN++] = surface;
+
+    return surface;
+}
+
+///
+///	Release a surface.
+///
+///	@param decoder	CUVID hw decoder
+///	@param surface	surface no longer used
+///
+static void CuvidReleaseSurface(CuvidDecoder * decoder, int surface)
+{
+    int i;
+
+    for (i = 0; i < decoder->SurfaceUsedN; ++i) {
+	if (decoder->SurfacesUsed[i] == surface) {
+	    // no problem, with last used
+	    decoder->SurfacesUsed[i] =
+		decoder->SurfacesUsed[--decoder->SurfaceUsedN];
+	    decoder->SurfacesFree[decoder->SurfaceFreeN++] = surface;
+	    return;
+	}
+    }
+    Error(_("video/cuvid: release surface %#08x, which is not in use\n"),
+	surface);
+}
+
+///
+///	Debug CUVID decoder frames drop...
+///
+///	@param decoder	CUVID hw decoder
+///
+static void CuvidPrintFrames(const CuvidDecoder * decoder)
+{
+    Debug(3, "video/cuvid: %d missed, %d duped, %d dropped frames of %d,%d\n",
+	decoder->FramesMissed, decoder->FramesDuped, decoder->FramesDropped,
+	decoder->FrameCounter, decoder->FramesDisplayed);
+#ifndef DEBUG
+    (void)decoder;
+#endif
+}
+
+static void CuvidMixerSetup(CuvidDecoder * decoder)
+{
+    int mode, drop;
+
+    if (decoder->video_ctx) {
+        if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceWeave) {
+    Debug(3, "video/cuvid: set weave");
+            mode = 0;
+            drop = 0;
+        } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceBob) {
+    Debug(3, "video/cuvid: set bob");
+            mode = 1;
+            drop = 1;
+        } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceTemporal) {
+    Debug(3, "video/cuvid: set adap");
+            mode = 2;
+            drop = 0;
+        }
+        if (av_opt_set_int(decoder->video_ctx->priv_data, "deint", mode, 0) < 0)
+            Debug(3,"Can't set deinterlace mode\n");
+        if (av_opt_set(decoder->video_ctx->priv_data, "drop_second_field", drop ? "true" : "false", 0) < 0)
+            Debug(3,"Can't set drop second field to false\n");
+    }
+}
+
+///
+///	Allocate new CUVID decoder.
+///
+///	@param stream	video stream
+///
+///	@returns a new prepared cuvid hardware decoder.
+///
+static CuvidDecoder *CuvidNewHwDecoder(VideoStream * stream)
+{
+    CuvidDecoder *decoder;
+    Debug(3, "video/cuvid: %s\n", __FUNCTION__);
+    int i;
+    int version;
+    if ((unsigned)CuvidDecoderN >=
+	sizeof(CuvidDecoders) / sizeof(*CuvidDecoders)) {
+    	Error(_("video/cuvid: out of decoders\n"));
+	return NULL;
+    }
+
+    if (!(decoder = calloc(1, sizeof(*decoder)))) {
+	Error(_("video/cuvid: out of memory\n"));
+	return NULL;
+    }
+    decoder->Window = VideoWindow;
+    decoder->VideoWidth = VideoWindowWidth;
+    decoder->VideoHeight = VideoWindowHeight;
+
+    for (i = 0; i < CODEC_SURFACES_MAX; ++i) {
+	decoder->SurfacesUsed[i] = -1;
+	decoder->SurfacesFree[i] = -1;
+    }
+
+    //
+    // setup video surface ring buffer
+    //
+    atomic_set(&decoder->SurfacesFilled, 0);
+
+    for (i = 0; i < (VIDEO_SURFACES_MAX * 2); ++i) {
+	decoder->SurfacesRb[i] = -1;
+    }
+
+#ifdef DEBUG
+    if ((VIDEO_SURFACES_MAX) < 1 + 1 + 1 + 1) {
+	Error(_
+	    ("video/cuvid: need 1 future, 1 current, 1 back and 1 work surface\n"));
+    }
+#endif
+
+    // Procamp operation parameterization data
+//    decoder->Procamp.struct_version = VDP_PROCAMP_VERSION;
+//    decoder->Procamp.brightness = 0.0;
+//    decoder->Procamp.contrast = 1.0;
+//    decoder->Procamp.saturation = 1.0;
+//    decoder->Procamp.hue = 0.0;		// default values
+
+    decoder->OutputWidth = VideoWindowWidth;
+    decoder->OutputHeight = VideoWindowHeight;
+
+    decoder->PixFmt = AV_PIX_FMT_NONE;
+
+#ifdef USE_AUTOCROP
+    //decoder->AutoCropBuffer = NULL;	// done by calloc
+    //decoder->AutoCropBufferSize = 0;
+#endif
+
+    decoder->Stream = stream;
+    if (!CuvidDecoderN) {		// FIXME: hack sync on audio
+	decoder->SyncOnAudio = 1;
+    }
+    decoder->Closing = -300 - 1;
+
+    decoder->PTS = AV_NOPTS_VALUE;
+
+    CuvidDecoders[CuvidDecoderN++] = decoder;
+
+    decoder->SurfaceUsedN = 1; // for correct cleanup after resume
+
+    if (CUStatus(cu->cuCtxCreate(&decoder->cu_ctx, (unsigned int) CU_CTX_SCHED_BLOCKING_SYNC, CuvidDevice)))
+        Error(_("video/cuvid: CUDA context create failed"));
+
+    cuCtxGetApiVersion(decoder->cu_ctx,&version);
+    Debug(3, "CUDA API Version %d\n",version);
+
+    return decoder;
+}
+
+///
+///	Cleanup CUVID.
+///
+///	@param decoder	CUVID hw decoder
+///
+static void CuvidCleanup(CuvidDecoder * decoder)
+{
+    int i;
+    Debug(3, "video/cuvid: %s\n", __FUNCTION__);
+    if (decoder->SurfaceFreeN || decoder->SurfaceUsedN) {
+	CuvidDestroySurfaces(decoder);
+    }
+    //
+    // reset video surface ring buffer
+    //
+    atomic_set(&decoder->SurfacesFilled, 0);
+
+    for (i = 0; i < VIDEO_SURFACES_MAX * 2; ++i) {
+	decoder->SurfacesRb[i] = -1;
+    }
+
+    decoder->SurfaceRead = 0;
+    decoder->SurfaceWrite = 0;
+    decoder->SurfaceField = 0;
+    decoder->SyncCounter = 0;
+    decoder->FrameCounter = 0;
+    decoder->FramesDisplayed = 0;
+    decoder->StartCounter = 0;
+    decoder->Closing = 0;
+    decoder->PTS = AV_NOPTS_VALUE;
+    VideoDeltaPTS = 0;
+}
+
+///
+///	Destroy a CUVID decoder.
+///
+///	@param decoder	CUVID hw decoder
+///
+static void CuvidDelHwDecoder(CuvidDecoder * decoder)
+{
+    int i;
+    Debug(3, "video/cuvid: %s\n", __FUNCTION__);
+    for (i = 0; i < CuvidDecoderN; ++i) {
+	if (CuvidDecoders[i] == decoder) {
+	    CuvidDecoders[i] = NULL;
+	    // copy last slot into empty slot
+	    if (i < --CuvidDecoderN) {
+		CuvidDecoders[i] = CuvidDecoders[CuvidDecoderN];
+	    }
+
+	    CuvidCleanup(decoder);
+	    CuvidPrintFrames(decoder);
+
+            if (decoder->cu_ctx) {
+                cu->cuCtxDestroy (decoder->cu_ctx);
+                decoder->cu_ctx = NULL;
+            }
+#ifdef USE_AUTOCROP
+	    free(decoder->AutoCropBuffer);
+#endif
+	    free(decoder);
+
+	    return;
+	}
+    }
+    Error(_("video/cuvid: decoder not in decoder list.\n"));
+}
+
+///
+///	CUVID setup.
+///
+///	@param display_name	x11/xcb display name
+///
+///	@returns true if CUVID could be initialized, false otherwise.
+///
+static int CuvidInit(const char *display_name)
+{
+    unsigned int device_count;
+    int ret;
+
+    Info(_("video/cuvid: Start NVDEC (CUVID)\n"));
+
+    GlxEnabled = 1;
+
+    GlxInit();
+    if (GlxEnabled) {
+        GlxSetupWindow(VideoWindow, VideoWindowWidth, VideoWindowHeight, GlxSharedContext);
+    }
+    if (!GlxEnabled) {
+        Error(_("video/cuvid: GLX error\n"));
+        return 0;
+    }
+    if (!cu) {
+        ret = cuda_load_functions(&cu, NULL);
+        if (ret < 0) {
+            Error(_("Could not dynamically load CUDA\n"));
+            return 0;
+        }
+    }
+    ret = CUStatus(cu->cuInit(0));
+    if (ret < 0) {
+        Error(_("Could not init CUDA device\n"));
+        return 0;
+    }
+    ret = CUStatus(cu->cuDeviceGet(&CuvidDevice, 0));
+    if (ret < 0) {
+        Error(_("Could not get CUDA device\n"));
+        return 0;
+    }
+    pthread_mutex_init(&CuvidGrabMutex, NULL);
+    glGenBuffers(1,&grab_buffer);
+    GlxCheck();
+
+    Info(_("video/cuvid: Start NVDEC (CUVID) ok\n"));
+    return 1;
+}
+
+///
+///	CUVID cleanup.
+///
+static void CuvidExit(void)
+{
+    int i;
+    Debug(3, "video/cuvid: %s\n", __FUNCTION__);
+
+    for (i = 0; i < CuvidDecoderN; ++i) {
+	if (CuvidDecoders[i]) {
+	    CuvidDelHwDecoder(CuvidDecoders[i]);
+	    CuvidDecoders[i] = NULL;
+	}
+    }
+    CuvidDecoderN = 0;
+    pthread_mutex_destroy(&CuvidGrabMutex);
+    glDeleteBuffers(1, &grab_buffer);
+    CuvidDevice = NULL;
+    cuda_free_functions(&cu);
+}
+
+///
+///	Update output for new size or aspect ratio.
+///
+///	@param decoder	CUVID hw decoder
+///
+static void CuvidUpdateOutput(CuvidDecoder * decoder)
+{
+    Debug(3, "video/cuvid: %s\n", __FUNCTION__);
+
+    VideoUpdateOutput(decoder->InputAspect, decoder->InputWidth,
+	decoder->InputHeight, decoder->Resolution, decoder->VideoX,
+	decoder->VideoY, decoder->VideoWidth, decoder->VideoHeight,
+	&decoder->OutputX, &decoder->OutputY, &decoder->OutputWidth,
+	&decoder->OutputHeight, &decoder->CropX, &decoder->CropY,
+	&decoder->CropWidth, &decoder->CropHeight);
+#ifdef USE_AUTOCROP
+    decoder->AutoCrop->State = 0;
+    decoder->AutoCrop->Count = AutoCropDelay;
+#endif
+}
+
+///
+///	Configure CUVID for new video format.
+///
+///	@param decoder	CUVID hw decoder
+///
+static void CuvidSetupOutput(CuvidDecoder * decoder)
+{
+    uint32_t width;
+    uint32_t height;
+
+    // FIXME: need only to create and destroy surfaces for size changes
+    //		or when number of needed surfaces changed!
+    decoder->Resolution =
+	VideoResolutionGroup(decoder->InputWidth, decoder->InputHeight,
+	decoder->Interlaced);
+
+    CuvidMixerSetup(decoder);
+
+    CuvidCreateSurfaces(decoder, decoder->InputWidth, decoder->InputHeight);
+
+    CuvidUpdateOutput(decoder);		// update aspect/scaling
+}
+
+///
+///	Get a free surface.  Called from ffmpeg.
+///
+///	@param decoder		CUVID hw decoder
+///	@param video_ctx	ffmpeg video codec context
+///
+///	@returns the oldest free surface
+///
+static unsigned CuvidGetSurface(CuvidDecoder * decoder,
+    const AVCodecContext * video_ctx)
+{
+
+#ifdef FFMPEG_BUG1_WORKAROUND
+    // get_format not called with valid informations.
+    if (video_ctx->width != decoder->InputWidth
+	|| video_ctx->height != decoder->InputHeight) {
+
+	CuvidCleanup(decoder);
+
+	decoder->InputWidth = video_ctx->width;
+	decoder->InputHeight = video_ctx->height;
+	decoder->InputAspect = video_ctx->sample_aspect_ratio;
+	CuvidSetupOutput(decoder);
+    }
+#else
+    (void)video_ctx;
+#endif
+    return CuvidGetSurface0(decoder);
+}
+
+///
+///	Callback to negotiate the PixelFormat.
+///
+///	@param fmt	is the list of formats which are supported by the codec,
+///			it is terminated by -1 as 0 is a valid format, the
+///			formats are ordered by quality.
+///
+static enum AVPixelFormat Cuvid_get_format(CuvidDecoder * decoder,
+    AVCodecContext * video_ctx, const enum AVPixelFormat *fmt)
+{
+    const enum AVPixelFormat *fmt_idx;
+    int ret;
+
+    VideoDecoder *ist = video_ctx->opaque;
+
+    Debug(3,"get format  %dx%d\n",video_ctx->width,video_ctx->height);
+
+    if (!VideoHardwareDecoder || (video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO
+	    && VideoHardwareDecoder == HWmpeg2Off)
+	) {				// hardware disabled by config
+	Debug(3, "codec: hardware acceleration disabled\n");
+	goto slow_path;
+    }
+    //
+    //	look through formats
+    //
+    Debug(3, "%s: codec %d fmts:\n", __FUNCTION__, video_ctx->codec_id);
+    for (fmt_idx = fmt; *fmt_idx != AV_PIX_FMT_NONE; fmt_idx++) {
+        Debug(3, "\t%#010x %s\n", *fmt_idx, av_get_pix_fmt_name(*fmt_idx));
+    }
+
+    Debug(3, "%s: codec %d fmts:\n", __FUNCTION__, video_ctx->codec_id);
+    for (fmt_idx = fmt; *fmt_idx != AV_PIX_FMT_NONE; fmt_idx++) {
+	Debug(3, "\t%#010x %s\n", *fmt_idx, av_get_pix_fmt_name(*fmt_idx));
+	// check supported pixel format with entry point
+	switch (*fmt_idx) {
+	    case AV_PIX_FMT_P010LE:
+	    case AV_PIX_FMT_NV12:
+		break;
+	    default:
+		continue;
+	}
+	break;
+    }
+
+    if (*fmt_idx == AV_PIX_FMT_NONE) {
+	Error(_("video/cuvid: no valid cuvid pixfmt found\n"));
+	goto slow_path;
+    }
+
+    decoder->PixFmt = *fmt_idx;
+    ist->hwaccel_output_format = *fmt_idx;
+    ist->active_hwaccel_id = HWACCEL_CUVID;
+    ist->hwaccel_pix_fmt   = AV_PIX_FMT_CUDA;
+    video_ctx->draw_horiz_band = NULL;
+    video_ctx->slice_flags = 0;
+    decoder->video_ctx = video_ctx;
+
+    if (video_ctx->width && video_ctx->height) {
+        CuvidCleanup(decoder);
+	decoder->InputWidth = video_ctx->width;
+	decoder->InputHeight = video_ctx->height;
+	decoder->InputAspect = video_ctx->sample_aspect_ratio;
+        decoder->SurfacesNeeded = VIDEO_SURFACES_MAX * 2 + 1;
+	CuvidSetupOutput(decoder);
+    }
+
+    Debug(3,"CUVID Init ok %dx%d\n",video_ctx->width,video_ctx->height);
+
+    return AV_PIX_FMT_CUDA;
+
+  slow_path:
+    // no accelerated format found
+
+    ist->active_hwaccel_id = HWACCEL_NONE;
+
+    decoder->SurfacesNeeded = VIDEO_SURFACES_MAX * 2 + 2;
+    decoder->PixFmt = AV_PIX_FMT_NONE;
+    video_ctx->thread_count = 0;
+    decoder->InputWidth = 0;
+    decoder->InputHeight = 0;
+    video_ctx->hwaccel_context = NULL;
+    video_ctx->draw_horiz_band = NULL;
+
+    CUcontext dummy;
+    cu->cuCtxPopCurrent(&dummy);
+
+    return avcodec_default_get_format(video_ctx, fmt);
+}
+
+
+#ifdef USE_GRAB
+///
+///	Grab output surface already locked.
+///
+///	@param ret_size[out]		size of allocated surface copy
+///	@param ret_width[in,out]	width of output
+///	@param ret_height[in,out]	height of output
+///
+static uint8_t *CuvidGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int *ret_height)
+{
+    uint32_t size;
+    uint32_t width;
+    uint32_t height;
+    uint8_t *base;
+
+    typedef struct {
+        uint32_t x0;
+        uint32_t y0;
+        uint32_t x1;
+        uint32_t y1;
+    } CuRect;
+    CuRect source_rect;
+
+	CuvidDecoder *decoder;
+
+	decoder = CuvidDecoders[0];
+	if (decoder == NULL)   // no video aktiv
+		return NULL;
+	
+//    surface = CuvidSurfacesRb[CuvidOutputSurfaceIndex];
+	
+	//	get real surface size
+	width = decoder->InputWidth;
+	height = decoder->InputHeight;
+
+    
+    Debug(3, "video/cuvid: grab %dx%d\n", width, height);
+
+    source_rect.x0 = 0;
+    source_rect.y0 = 0;
+    source_rect.x1 = width;
+    source_rect.y1 = height;
+
+    if (ret_width && ret_height) {
+		if (*ret_width <= -64) {	// this is an Atmo grab service request
+			int overscan;
+
+			// calculate aspect correct size of analyze image
+			width = *ret_width * -1;
+			height = (width * source_rect.y1) / source_rect.x1;
+
+			// calculate size of grab (sub) window
+			overscan = *ret_height;
+
+			if (overscan > 0 && overscan <= 200) {
+			source_rect.x0 = source_rect.x1 * overscan / 1000;
+			source_rect.x1 -= source_rect.x0;
+			source_rect.y0 = source_rect.y1 * overscan / 1000;
+			source_rect.y1 -= source_rect.y0;
+			}
+		} else {
+			if (*ret_width > 0 && (unsigned)*ret_width < width) {
+				width = *ret_width;
+			}
+			if (*ret_height > 0 && (unsigned)*ret_height < height) {
+				height = *ret_height;
+			}
+		}
+
+		Debug(3, "video/cuvid: grab source rect %d,%d:%d,%d dest dim %dx%d\n",
+			source_rect.x0, source_rect.y0, source_rect.x1, source_rect.y1,
+			width, height);
+
+		size = width * height * sizeof(uint32_t);
+		
+		base = malloc(size);
+		
+		if (!base) {
+			Error(_("video/cuvid: out of memory\n"));
+			return NULL;
+		}
+		
+
+//TODO grab
+		Debug(3,"got grab data\n");
+
+		if (ret_size) {
+			*ret_size = size;
+		}
+		if (ret_width) {
+			*ret_width = width;
+		}
+		if (ret_height) {
+			*ret_height = height;
+		}
+		return base;
+	}
+
+    return NULL;
+}
+
+///
+///	Grab output surface.
+///
+///	@param ret_size[out]		size of allocated surface copy
+///	@param ret_width[in,out]	width of output
+///	@param ret_height[in,out]	height of output
+///
+static uint8_t *CuvidGrabOutputSurface(int *ret_size, int *ret_width,  int *ret_height)
+{
+    uint8_t *img;
+
+    if (!vao_buffer) {
+        return NULL;			// cuvid video module not yet initialized
+    }
+
+    pthread_mutex_lock(&CuvidGrabMutex);
+//	pthread_mutex_lock(&VideoLockMutex);
+    img = CuvidGrabOutputSurfaceLocked(ret_size, ret_width, ret_height);
+//	pthread_mutex_unlock(&VideoLockMutex);
+    pthread_mutex_unlock(&CuvidGrabMutex);
+    return img;
+}
+
+#endif
+
+#ifdef USE_AUTOCROP
+
+///
+///	CUVID auto-crop support.
+///
+///	@param decoder	CUVID hw decoder
+///
+static void CuvidAutoCrop(CuvidDecoder * decoder)
+{
+    int surface;
+    uint32_t size;
+    uint32_t width;
+    uint32_t height;
+    void *base;
+    void *data[3];
+    uint32_t pitches[3];
+    int crop14;
+    int crop16;
+    int next_state;
+    int format;
+
+    surface = decoder->SurfacesRb[(decoder->SurfaceRead + 1) %  (VIDEO_SURFACES_MAX * 2)];
+
+    width = decoder->InputWidth;
+    height = decoder->InputHeight;
+
+    size = width * height + ((width + 1) / 2) * ((height + 1) / 2)
+	+ ((width + 1) / 2) * ((height + 1) / 2);
+    // cache buffer for reuse
+    base = decoder->AutoCropBuffer;
+    if (size > decoder->AutoCropBufferSize) {
+	free(base);
+	decoder->AutoCropBuffer = malloc(size);
+	base = decoder->AutoCropBuffer;
+    }
+    if (!base) {
+	Error(_("video/cuvid: out of memory\n"));
+	return;
+    }
+    pitches[0] = width;
+    pitches[1] = width / 2;
+    pitches[2] = width / 2;
+    data[0] = base;
+    data[1] = base + width * height;
+    data[2] = base + width * height + width * height / 4;
+
+    //we need Y in data[0] only
+    memcpy(base, &decoder->gl_textures[surface*2+0], width * height);
+
+    AutoCropDetect(decoder->AutoCrop, width, height, data, pitches);
+
+    // ignore black frames
+    if (decoder->AutoCrop->Y1 >= decoder->AutoCrop->Y2) {
+	return;
+    }
+
+    crop14 =
+	(decoder->InputWidth * decoder->InputAspect.num * 9) /
+	(decoder->InputAspect.den * 14);
+    crop14 = (decoder->InputHeight - crop14) / 2;
+    crop16 =
+	(decoder->InputWidth * decoder->InputAspect.num * 9) /
+	(decoder->InputAspect.den * 16);
+    crop16 = (decoder->InputHeight - crop16) / 2;
+
+    if (decoder->AutoCrop->Y1 >= crop16 - AutoCropTolerance
+	&& decoder->InputHeight - decoder->AutoCrop->Y2 >=
+	crop16 - AutoCropTolerance) {
+	next_state = 16;
+    } else if (decoder->AutoCrop->Y1 >= crop14 - AutoCropTolerance
+	&& decoder->InputHeight - decoder->AutoCrop->Y2 >=
+	crop14 - AutoCropTolerance) {
+	next_state = 14;
+    } else {
+	next_state = 0;
+    }
+
+    if (decoder->AutoCrop->State == next_state) {
+	return;
+    }
+
+    Debug(3, "video: crop aspect %d:%d %d/%d %d%+d\n",
+	decoder->InputAspect.num, decoder->InputAspect.den, crop14, crop16,
+	decoder->AutoCrop->Y1, decoder->InputHeight - decoder->AutoCrop->Y2);
+
+    Debug(3, "video: crop aspect %d -> %d\n", decoder->AutoCrop->State,	next_state);
+
+    switch (decoder->AutoCrop->State) {
+	case 16:
+	case 14:
+	    if (decoder->AutoCrop->Count++ < AutoCropDelay / 2) {
+		return;
+	    }
+	    break;
+	case 0:
+	    if (decoder->AutoCrop->Count++ < AutoCropDelay) {
+		return;
+	    }
+	    break;
+    }
+
+    decoder->AutoCrop->State = next_state;
+    if (next_state) {
+		decoder->CropX = VideoCutLeftRight[decoder->Resolution];
+		decoder->CropY =
+			(next_state ==
+			16 ? crop16 : crop14) + VideoCutTopBottom[decoder->Resolution];
+		decoder->CropWidth = decoder->InputWidth - decoder->CropX * 2;
+		decoder->CropHeight = decoder->InputHeight - decoder->CropY * 2;
+
+		// FIXME: this overwrites user choosen output position
+		// FIXME: resize kills the auto crop values
+		// FIXME: support other 4:3 zoom modes
+		decoder->OutputX = decoder->VideoX;
+		decoder->OutputY = decoder->VideoY;
+		decoder->OutputWidth = (decoder->VideoHeight * next_state) / 9;
+		decoder->OutputHeight = (decoder->VideoWidth * 9) / next_state;
+		if (decoder->OutputWidth > decoder->VideoWidth) {
+			decoder->OutputWidth = decoder->VideoWidth;
+			decoder->OutputY =
+			(decoder->VideoHeight - decoder->OutputHeight) / 2;
+		} else if (decoder->OutputHeight > decoder->VideoHeight) {
+			decoder->OutputHeight = decoder->VideoHeight;
+			decoder->OutputX =
+			(decoder->VideoWidth - decoder->OutputWidth) / 2;
+		}
+		Debug(3, "video: aspect output %dx%d %dx%d%+d%+d\n",
+			decoder->InputWidth, decoder->InputHeight, decoder->OutputWidth,
+			decoder->OutputHeight, decoder->OutputX, decoder->OutputY);
+    } else {
+		// sets AutoCrop->Count
+		CuvidUpdateOutput(decoder);
+    }
+    decoder->AutoCrop->Count = 0;
+}
+
+///
+///	CUVID check if auto-crop todo.
+///
+///	@param decoder	CUVID hw decoder
+///
+///	@note a copy of VaapiCheckAutoCrop
+///	@note auto-crop only supported with normal 4:3 display mode
+///
+static void CuvidCheckAutoCrop(CuvidDecoder * decoder)
+{
+    // reduce load, check only n frames
+    if (Video4to3ZoomMode == VideoNormal && AutoCropInterval
+	&& !(decoder->FrameCounter % AutoCropInterval)) {
+	AVRational input_aspect_ratio;
+	AVRational tmp_ratio;
+	av_reduce(&input_aspect_ratio.num, &input_aspect_ratio.den,
+	    decoder->InputWidth * decoder->InputAspect.num,
+	    decoder->InputHeight * decoder->InputAspect.den, 1024 * 1024);
+
+	tmp_ratio.num = 4;
+	tmp_ratio.den = 3;
+	// only 4:3 with 16:9/14:9 inside supported
+	if (!av_cmp_q(input_aspect_ratio, tmp_ratio)) {
+	    CuvidAutoCrop(decoder);
+	} else {
+	    decoder->AutoCrop->Count = 0;
+	    decoder->AutoCrop->State = 0;
+	}
+    }
+}
+
+///
+///	CUVID reset auto-crop.
+///
+static void CuvidResetAutoCrop(void)
+{
+    int i;
+
+    for (i = 0; i < CuvidDecoderN; ++i) {
+	CuvidDecoders[i]->AutoCrop->State = 0;
+	CuvidDecoders[i]->AutoCrop->Count = 0;
+    }
+}
+
+#endif
+
+///
+///	Queue output surface.
+///
+///	@param decoder	CUVID hw decoder
+///	@param surface	output surface
+///	@param softdec	software decoder
+///
+///	@note we can't mix software and hardware decoder surfaces
+///
+static void CuvidQueueSurface(CuvidDecoder * decoder, int surface,
+    int softdec)
+{
+    int old;
+
+    ++decoder->FrameCounter;
+
+    if (1) {				// can't wait for output queue empty
+	if (atomic_read(&decoder->SurfacesFilled) >= (VIDEO_SURFACES_MAX * 2)) {
+	    Warning(_
+		("video/cuvid: output buffer full, dropping frame (%d/%d)\n"),
+		++decoder->FramesDropped, decoder->FrameCounter);
+	    if (!(decoder->FramesDisplayed % 300)) {
+		CuvidPrintFrames(decoder);
+	    }
+	    // software surfaces only
+	    if (softdec) {
+		CuvidReleaseSurface(decoder, surface);
+	    }
+	    return;
+	}
+#if 0
+    } else {				// wait for output queue empty
+	while (atomic_read(&decoder->SurfacesFilled) >= (VIDEO_SURFACES_MAX * 2)) {
+	    VideoDisplayHandler();
+	}
+#endif
+    }
+
+    //
+    //	    Check and release, old surface
+    //
+    if ((old = decoder->SurfacesRb[decoder->SurfaceWrite])
+	!= -1) {
+
+	// now we can release the surface, software surfaces only
+	if (softdec) {
+	    CuvidReleaseSurface(decoder, old);
+	}
+    }
+
+    Debug(4, "video/cuvid: yy video surface %#08x@%d ready\n", surface,
+	decoder->SurfaceWrite);
+
+    decoder->SurfacesRb[decoder->SurfaceWrite] = surface;
+    decoder->SurfaceWrite = (decoder->SurfaceWrite + 1)
+	% (VIDEO_SURFACES_MAX * 2);
+    atomic_inc(&decoder->SurfacesFilled);
+}
+
+///
+///	Render a ffmpeg frame.
+///
+///	@param decoder		CUVID hw decoder
+///	@param video_ctx	ffmpeg video codec context
+///	@param frame		frame to display
+///
+static void CuvidRenderFrame(CuvidDecoder * decoder,
+    const AVCodecContext * video_ctx, const AVFrame * frame)
+{
+    int surface;
+    VideoDecoder        *ist = video_ctx->opaque;
+    AVFrame *output;
+    int interlaced;
+    enum AVColorSpace color;
+    int n;
+
+    // FIXME: some tv-stations toggle interlace on/off
+    // frame->interlaced_frame isn't always correct set
+    interlaced = frame->interlaced_frame;
+
+    // FIXME: should be done by init video_ctx->field_order
+    if (decoder->Interlaced != interlaced
+	|| decoder->TopFieldFirst != frame->top_field_first) {
+
+	Debug(3, "video/cuvid: interlaced %d top-field-first %d\n", interlaced,
+	    frame->top_field_first);
+
+	decoder->Interlaced = interlaced;
+	decoder->TopFieldFirst = frame->top_field_first;
+	decoder->SurfaceField = 0;
+    }
+    // update aspect ratio changes
+    if (decoder->InputWidth && decoder->InputHeight
+	&& av_cmp_q(decoder->InputAspect, frame->sample_aspect_ratio)) {
+	Debug(3, "video/cuvid: aspect ratio changed\n");
+
+	decoder->InputAspect = frame->sample_aspect_ratio;
+	CuvidUpdateOutput(decoder);
+    }
+
+    decoder->Closing = 0;
+    color = frame->colorspace;
+    if (color == AVCOL_SPC_UNSPECIFIED)   // if unknown
+        color = AVCOL_SPC_BT709;
+
+    //
+    // render
+    //
+    //
+    // Check image, format, size
+    //
+    if (/*decoder->PixFmt != video_ctx->pix_fmt
+        ||*/ video_ctx->width != decoder->InputWidth
+        || video_ctx->height != decoder->InputHeight) {
+
+    //    decoder->PixFmt = video_ctx->pix_fmt;
+        decoder->InputWidth = video_ctx->width;
+        decoder->InputHeight = video_ctx->height;
+
+        CuvidCleanup(decoder);
+        decoder->SurfacesNeeded = VIDEO_SURFACES_MAX * 2 + 1;
+        CuvidSetupOutput(decoder);
+    }
+    //
+    // Copy data from frame to image
+    //
+    switch (video_ctx->pix_fmt) {
+        case AV_PIX_FMT_CUDA:
+//        case AV_PIX_FMT_NV12:
+        case AV_PIX_FMT_YUV420P:      // for softdecode
+//        case AV_PIX_FMT_YUVJ420P:     // some streams produce this
+//        case AV_PIX_FMT_YUV420P10LE:  // for softdecode of HEVC 10 Bit
+        break;
+//        case AV_PIX_FMT_YUV422P:
+//        case AV_PIX_FMT_YUV444P:
+        default:
+            Error(_("video/cuvid: pixel format %d not supported\n"),
+            video_ctx->pix_fmt);
+            // FIXME: no fatals!
+    }
+    decoder->ColorSpace = color;     // save colorspace
+    decoder->trc = frame->color_trc;
+    decoder->color_primaries = frame->color_primaries;
+
+    surface = CuvidGetSurface0(decoder);
+
+    if (surface == -1)     // no free surfaces
+        return;
+    if (video_ctx->pix_fmt == AV_PIX_FMT_CUDA) { //hardware
+
+        for (n = 0; n < 2; n++) { //.
+            // widthInBytes must account for the chroma plane
+            // elements being two samples wide.
+            CUDA_MEMCPY2D cpy = {
+                .srcMemoryType = CU_MEMORYTYPE_DEVICE,
+                .dstMemoryType = CU_MEMORYTYPE_ARRAY,
+                .srcDevice     = (CUdeviceptr)frame->data[n],
+                .srcPitch      = frame->linesize[n],
+                .srcY          = 0,
+                .dstArray      = decoder->cu_array[surface][n],
+                .WidthInBytes  = decoder->InputWidth * (decoder->PixFmt == AV_PIX_FMT_NV12 ? 1 : 2),
+                .Height        = n == 0 ? decoder->InputHeight : decoder->InputHeight / 2,
+            };
+            if (CUStatus(cu->cuMemcpy2D(&cpy))) Fatal(_("video/cuvid: render frame error\n"));
+        }
+        CuvidQueueSurface(decoder, surface, 1);
+
+    } else {       //software
+
+        //YV12 -> NV12
+        uint8_t *outUV;
+
+        int size = frame->linesize[0] * decoder->InputHeight;
+        int quarter = size / 4;
+
+        outUV = (uint8_t*) malloc(size / 2 * sizeof(uint8_t));
+
+        if (!outUV) {
+            Error(_("video/cuvid: out of memory\n"));
+            return;
+        }
+
+        for (int i = 0; i < quarter; i++) {
+            memcpy(outUV + i * 2, frame->data[1] + i, 1); // For NV12, U first
+            memcpy(outUV + i * 2 + 1, frame->data[2] + i, 1); // For NV12, V second
+        }
+        glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
+        GlxCheck();
+
+        //Y
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[0]);
+        glTextureSubImage2D(decoder->gl_textures[surface * 2 + 0], 0, 0, 0, decoder->InputWidth, decoder->InputHeight, GL_RED, GL_UNSIGNED_BYTE, frame->data[0]);
+        //UV
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[1]);
+        glTextureSubImage2D(decoder->gl_textures[surface * 2 + 1], 0, 0, 0, decoder->InputWidth/2, decoder->InputHeight/2, GL_RG, GL_UNSIGNED_BYTE, outUV);
+        GlxCheck();
+
+        Debug(4, "video/cuvid: sw render hw surface %#08x\n", surface);
+
+        CuvidQueueSurface(decoder, surface, 1);
+        free(outUV);
+    }
+    if (frame->interlaced_frame) {
+	++decoder->FrameCounter;
+    }
+}
+
+///
+///	Get hwaccel context for ffmpeg.
+///
+///	@param decoder	CUVID hw decoder
+///
+static void *CuvidGetHwAccelContext(CuvidDecoder * decoder)
+{
+    unsigned int version;
+
+    Debug(3, "Initializing cuvid hwaccel\n");
+
+    cu->cuCtxPushCurrent(decoder->cu_ctx);
+
+    return NULL;
+}
+
+static void CuvidMixVideo(CuvidDecoder * decoder, int level)
+{
+    int current;
+    int y;
+    float xcropf, ycropf;
+    GLint texLoc;
+
+#ifdef USE_AUTOCROP
+    // FIXME: can move to render frame
+    CuvidCheckAutoCrop(decoder);
+#endif
+
+    xcropf = (float) decoder->CropX / (float) decoder->InputWidth;
+    ycropf = (float) decoder->CropY / (float) decoder->InputHeight;
+
+    current = decoder->SurfacesRb[decoder->SurfaceRead];
+
+    // Render Progressive frame and simple interlaced
+    y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
+    if (y <0 )
+        y = 0;
+    glViewport(decoder->OutputX, y, decoder->OutputWidth, decoder->OutputHeight);
+
+    if (gl_prog == 0)
+        gl_prog = sc_generate(gl_prog, decoder->ColorSpace);    // generate shader programm
+
+    glUseProgram(gl_prog);
+    texLoc = glGetUniformLocation(gl_prog, "texture0");
+    glUniform1i(texLoc, 0);
+    texLoc = glGetUniformLocation(gl_prog, "texture1");
+    glUniform1i(texLoc, 1);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[current*2+0]);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[current*2+1]);
+
+    render_pass_quad(0, xcropf, ycropf);
+
+    glUseProgram(0);
+    glActiveTexture(GL_TEXTURE0);
+
+    Debug(4, "video/cuvid: yy video surface %p displayed\n", current, decoder->SurfaceRead);
+
+}
+
+///
+///	Create and display a black empty surface.
+///
+///	@param decoder	CUVID hw decoder
+///
+///	@FIXME: render only video area, not fullscreen!
+///	decoder->Output.. isn't correct setup for radio stations
+///
+static void CuvidBlackSurface(CuvidDecoder * decoder)
+{
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    return;
+}
+
+///
+///	Advance displayed frame of decoder.
+///
+///	@param decoder	CUVID hw decoder
+///
+static void CuvidAdvanceDecoderFrame(CuvidDecoder * decoder)
+{
+    // next surface, if complete frame is displayed (1 -> 0)
+    if (decoder->SurfaceField) {
+	int filled;
+
+	// FIXME: this should check the caller
+	// check decoder, if new surface is available
+	// need 2 frames for progressive
+	// need 4 frames for interlaced
+	filled = atomic_read(&decoder->SurfacesFilled);
+	if (filled <  1 + 2 * decoder->Interlaced) {
+	    // keep use of last surface
+	    ++decoder->FramesDuped;
+	    // FIXME: don't warn after stream start, don't warn during pause
+	    Debug(3,"video: display buffer empty, duping frame (%d/%d) %d\n",
+		decoder->FramesDuped, decoder->FrameCounter,
+		VideoGetBuffers(decoder->Stream));
+	    return;
+	}
+	decoder->SurfaceRead = (decoder->SurfaceRead + 1) % (VIDEO_SURFACES_MAX * 2);
+	atomic_dec(&decoder->SurfacesFilled);
+	decoder->SurfaceField = !decoder->Interlaced;
+	return;
+    }
+    // next field
+    decoder->SurfaceField = 1;
+}
+
+///
+///	Display a video frame.
+///
+static void CuvidDisplayFrame(void)
+{
+    uint64_t first_time;
+    static uint64_t last_time;
+    int i;
+    static unsigned int Count;
+    int filled;
+    CuvidDecoder *decoder;
+    int RTS_flag;
+
+    if (VideoSurfaceModesChanged) {	// handle changed modes
+	VideoSurfaceModesChanged = 0;
+	for (i = 0; i < CuvidDecoderN; ++i) {
+		CuvidMixerSetup(CuvidDecoders[i]);
+	}
+    }
+
+    glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
+//    if (CuvidDecoderN)
+//        CuvidDecoders[0]->Frameproc = (float)(GetusTicks()-last_time)/1000000.0;
+
+    glXWaitVideoSyncSGI (2, (Count + 1) % 2, &Count);   // wait for previous frame to swap
+//    last_time = GetusTicks();
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    // check if surface was displayed for more than 1 frame
+    // FIXME: 21 only correct for 50Hz
+    if (last_time && first_time > last_time + 21 * 1000 * 1000) {
+	// FIXME: ignore still-frame, trick-speed
+	Debug(3, "video/cuvid: %" PRId64 " display time %" PRId64 "\n",
+	    first_time / 1000, (first_time - last_time) / 1000);
+	// FIXME: can be more than 1 frame long shown
+	for (i = 0; i < CuvidDecoderN; ++i) {
+	    CuvidDecoders[i]->FramesMissed++;
+	    CuvidMessage(2, _("video/cuvid: missed frame (%d/%d)\n"),
+		CuvidDecoders[i]->FramesMissed,
+		CuvidDecoders[i]->FrameCounter);
+	}
+    }
+    last_time = first_time;
+
+    //
+    //	Render videos into output
+    //
+    for (i = 0; i < CuvidDecoderN; ++i) {
+	int filled;
+	CuvidDecoder *decoder;
+
+	decoder = CuvidDecoders[i];
+	decoder->FramesDisplayed++;
+	decoder->StartCounter++;
+
+	filled = atomic_read(&decoder->SurfacesFilled);
+	// need 1 frame for progressive, 3 frames for interlaced
+	if (filled < 1 + 2 * decoder->Interlaced) {
+	    // FIXME: rewrite MixVideo to support less surfaces
+	    if ((VideoShowBlackPicture && !decoder->TrickSpeed)
+		|| (VideoShowBlackPicture && decoder->Closing < -300)) {
+		CuvidBlackSurface(decoder);
+		CuvidMessage(4, "video/cuvid: black surface displayed\n");
+#ifdef USE_SCREENSAVER
+		if (EnableDPMSatBlackScreen && DPMSDisabled) {
+		    CuvidMessage(4, "Black surface, DPMS enabled\n");
+		    X11DPMSReenable(Connection);
+		    X11SuspendScreenSaver(Connection, 1);
+		}
+#endif
+	    }
+	    continue;
+#ifdef USE_SCREENSAVER
+	} else if (!DPMSDisabled) {	// always disable
+	    CuvidMessage(4, "DPMS disabled\n");
+	    X11DPMSDisable(Connection);
+	    X11SuspendScreenSaver(Connection, 0);
+#endif
+	}
+
+	CuvidMixVideo(decoder, i);
+    }
+
+    //
+    //	add osd to surface
+    //
+    if (OsdShown) {
+#ifdef USE_OPENGLOSD
+        if(!DisableOglOsd && OsdGlTexture) {
+            glViewport(0, 0, VideoWindowWidth, VideoWindowHeight);
+            glMatrixMode(GL_PROJECTION);
+            glLoadIdentity();
+            glOrtho(0.0, VideoWindowWidth, VideoWindowHeight, 0.0, -1.0, 1.0);
+            GlxCheck();
+            GlxRenderTexture(OsdGlTexture, 0,0, VideoWindowWidth, VideoWindowHeight);
+        } else
+#endif
+        {
+            GlxRenderTexture(OsdGlTextures[OsdIndex], 0,0, VideoWindowWidth, VideoWindowHeight);
+        }
+    }
+
+    glXGetVideoSyncSGI (&Count);    // get current frame
+    glXSwapBuffers(XlibDisplay, VideoWindow);
+    glXMakeCurrent(XlibDisplay, None, NULL);
+
+    // FIXME: CLOCK_MONOTONIC_RAW
+    clock_gettime(CLOCK_MONOTONIC, &CuvidFrameTime);
+    for (i = 0; i < CuvidDecoderN; ++i) {
+	// remember time of last shown surface
+	CuvidDecoders[i]->FrameTime = CuvidFrameTime;
+    }
+
+    xcb_flush(Connection);
+}
+
+
+///
+///	Set CUVID decoder video clock.
+///
+///	@param decoder	CUVID hardware decoder
+///	@param pts	audio presentation timestamp
+///
+void CuvidSetClock(CuvidDecoder * decoder, int64_t pts)
+{
+    decoder->PTS = pts;
+}
+
+///
+///	Get CUVID decoder video clock.
+///
+///	@param decoder	CUVID hw decoder
+///
+///	FIXME: 20 wrong for 60hz dvb streams
+///
+static int64_t CuvidGetClock(const CuvidDecoder * decoder)
+{
+    // pts is the timestamp of the latest decoded frame
+    if (decoder->PTS == (int64_t) AV_NOPTS_VALUE) {
+	return AV_NOPTS_VALUE;
+    }
+    // subtract buffered decoded frames
+    if (decoder->Interlaced) {
+	/*
+	   Info("video: %s =pts field%d #%d\n",
+	   Timestamp2String(decoder->PTS),
+	   decoder->SurfaceField,
+	   atomic_read(&decoder->SurfacesFilled));
+	 */
+	// 1 field is future, 2 fields are past, + 2 in driver queue
+	return decoder->PTS -
+	    20 * 90 * (2 * atomic_read(&decoder->SurfacesFilled)
+	    - decoder->SurfaceField - 2 + 2);
+    }
+    // + 2 in driver queue
+    return decoder->PTS - 20 * 90 * (atomic_read(&decoder->SurfacesFilled) +2);
+}
+
+///
+///	Set CUVID decoder closing stream flag.
+///
+///	@param decoder	CUVID decoder
+///
+static void CuvidSetClosing(CuvidDecoder * decoder)
+{
+    decoder->Closing = 1;
+}
+
+///
+///	Reset start of frame counter.
+///
+///	@param decoder	CUVID decoder
+///
+static void CuvidResetStart(CuvidDecoder * decoder)
+{
+    decoder->StartCounter = 0;
+}
+
+///
+///	Set trick play speed.
+///
+///	@param decoder	CUVID decoder
+///	@param speed	trick speed (0 = normal)
+///
+static void CuvidSetTrickSpeed(CuvidDecoder * decoder, int speed)
+{
+    decoder->TrickSpeed = speed;
+    decoder->TrickCounter = speed;
+    if (speed) {
+	decoder->Closing = 0;
+    }
+}
+
+///
+///	Get CUVID decoder statistics.
+///
+///	@param decoder		CUVID decoder
+///	@param[out] missed	missed frames
+///	@param[out] duped	duped frames
+///	@param[out] dropped	dropped frames
+///	@param[out] count	number of decoded frames
+///
+void CuvidGetStats(CuvidDecoder * decoder, int *missed, int *duped,
+    int *dropped, int *counter)
+{
+    *missed = decoder->FramesMissed;
+    *duped = decoder->FramesDuped;
+    *dropped = decoder->FramesDropped;
+    *counter = decoder->FrameCounter;
+}
+
+///
+///	Sync decoder output to audio.
+///
+///	trick-speed	show frame <n> times
+///	still-picture	show frame until new frame arrives
+///	60hz-mode	repeat every 5th picture
+///	video>audio	slow down video by duplicating frames
+///	video<audio	speed up video by skipping frames
+///	soft-start	show every second frame
+///
+///	@param decoder	CUVID hw decoder
+///
+static void CuvidSyncDecoder(CuvidDecoder * decoder)
+{
+    int err;
+    int filled;
+    int64_t audio_clock;
+    int64_t video_clock;
+
+    err = 0;
+    video_clock = CuvidGetClock(decoder);
+    filled = atomic_read(&decoder->SurfacesFilled);
+
+    if (!decoder->SyncOnAudio) {
+	audio_clock = AV_NOPTS_VALUE;
+	// FIXME: 60Hz Mode
+	goto skip_sync;
+    }
+    mutex_start_time = GetMsTicks();
+    pthread_mutex_lock(&PTS_mutex);
+    pthread_mutex_lock(&ReadAdvance_mutex);
+    audio_clock = AudioGetClock();
+    pthread_mutex_unlock(&ReadAdvance_mutex);
+    pthread_mutex_unlock(&PTS_mutex);
+    if (GetMsTicks() - mutex_start_time > max_mutex_delay) {
+	max_mutex_delay = GetMsTicks() - mutex_start_time;
+	Debug(3, "video: mutex delay: %"PRIu32"ms\n", max_mutex_delay);
+    }
+
+    // 60Hz: repeat every 5th field
+    if (Video60HzMode && !(decoder->FramesDisplayed % 6)) {
+	if (audio_clock == (int64_t) AV_NOPTS_VALUE
+	    || video_clock == (int64_t) AV_NOPTS_VALUE) {
+	    goto out;
+	}
+	// both clocks are known
+	if (audio_clock + VideoAudioDelay <= video_clock + 25 * 90) {
+	    goto out;
+	}
+	// out of sync: audio before video
+	if (!decoder->TrickSpeed) {
+	    goto skip_sync;
+	}
+    }
+    // TrickSpeed
+    if (decoder->TrickSpeed) {
+	if (decoder->TrickCounter--) {
+	    goto out;
+	}
+	decoder->TrickCounter = decoder->TrickSpeed;
+	goto skip_sync;
+    }
+    // at start of new video stream, soft or hard sync video to audio
+    if (!VideoSoftStartSync && decoder->StartCounter < VideoSoftStartFrames
+	&& video_clock != (int64_t) AV_NOPTS_VALUE
+	&& (audio_clock == (int64_t) AV_NOPTS_VALUE
+	    || video_clock > audio_clock + VideoAudioDelay + 120 * 90)) {
+	err =
+	    CuvidMessage(3, "video: initial slow down video, frame %d\n",
+	    decoder->StartCounter);
+	goto out;
+    }
+
+    if (decoder->SyncCounter && decoder->SyncCounter--) {
+	goto skip_sync;
+    }
+
+    if (audio_clock != (int64_t) AV_NOPTS_VALUE
+	&& video_clock != (int64_t) AV_NOPTS_VALUE) {
+	// both clocks are known
+	int diff;
+	int lower_limit;
+
+	diff = video_clock - audio_clock - VideoAudioDelay;
+	lower_limit = !IsReplay() ? -25 : 32;
+	if (!IsReplay()) {
+	    diff = (decoder->LastAVDiff + diff) / 2;
+	    decoder->LastAVDiff = diff;
+	}
+
+	if (abs(diff) > 5000 * 90) {	// more than 5s
+	    err = CuvidMessage(3, "video: audio/video difference too big\n");
+	} else if (diff > 100 * 90) {
+	    // FIXME: this quicker sync step, did not work with new code!
+	    err = CuvidMessage(3, "video: slow down video, duping frame %d\n",diff);
+	    ++decoder->FramesDuped;
+	    if (VideoSoftStartSync) {
+		decoder->SyncCounter = 1;
+		goto out;
+	    }
+	} else if (diff > 55 * 90) {
+	    err = CuvidMessage(3, "video: slow down video, duping frame\n");
+	    ++decoder->FramesDuped;
+	    if (VideoSoftStartSync) {
+		decoder->SyncCounter = 1;
+		goto out;
+	    }
+	} else if (diff < lower_limit * 90 && filled > 1 + 2 * decoder->Interlaced) {
+	    err = CuvidMessage(3, "video: speed up video, droping frame\n");
+	    ++decoder->FramesDropped;
+	    CuvidAdvanceDecoderFrame(decoder);
+	    if (VideoSoftStartSync) {
+		decoder->SyncCounter = 1;
+	    }
+	}
+#if defined(DEBUG) || defined(AV_INFO)
+	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
+#ifdef DEBUG
+	    Debug(3, "video/cuvid: synced after %d frames %dms\n",
+		decoder->StartCounter, GetMsTicks() - VideoSwitch);
+#else
+	    Info("video/cuvid: synced after %d frames\n",
+		decoder->StartCounter);
+#endif
+	    decoder->StartCounter += 1000;
+	}
+#endif
+    }
+
+  skip_sync:
+    // check if next field is available
+    if (decoder->SurfaceField && filled <= 1 + 2 * decoder->Interlaced) {
+	if (filled == 1 + 2 * decoder->Interlaced) {
+	    ++decoder->FramesDuped;
+	    // FIXME: don't warn after stream start, don't warn during pause
+	    err =
+		CuvidMessage(3,
+		_("video: decoder buffer empty, "
+		    "duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
+		decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
+	    // some time no new picture or black video configured
+	    if (decoder->Closing < -300 || (VideoShowBlackPicture
+		    && decoder->Closing)) {
+		// clear ring buffer to trigger black picture
+		atomic_set(&decoder->SurfacesFilled, 0);
+	    }
+	}
+	goto out;
+    }
+
+    CuvidAdvanceDecoderFrame(decoder);
+  out:
+#if defined(DEBUG) || defined(AV_INFO)
+    // debug audio/video sync
+    if (err || !(decoder->FramesDisplayed % AV_INFO_TIME)) {
+	if (!err) {
+	    CuvidMessage(0, NULL);
+	}
+	Info("video: %s%+5" PRId64 " %4" PRId64 " %3d/\\ms %3d%+d%+d v-buf\n",
+	    Timestamp2String(video_clock),
+	    abs((video_clock - audio_clock) / 90) <
+	    8888 ? ((video_clock - audio_clock) / 90) : 8888,
+	    AudioGetDelay() / 90, (int)VideoDeltaPTS / 90,
+	    VideoGetBuffers(decoder->Stream),
+	    decoder->Interlaced ? 2 * atomic_read(&decoder->SurfacesFilled)
+	    - decoder->SurfaceField : atomic_read(&decoder->SurfacesFilled),
+	    CuvidSurfaceQueued);
+	if (!(decoder->FramesDisplayed % (5 * 60 * 60))) {
+	    CuvidPrintFrames(decoder);
+	}
+    }
+#endif
+    return;				// fix gcc bug!
+}
+
+///
+///	Sync a video frame.
+///
+static void CuvidSyncFrame(void)
+{
+    int i;
+
+    //
+    //	Sync video decoder to audio
+    //
+    for (i = 0; i < CuvidDecoderN; ++i) {
+	CuvidSyncDecoder(CuvidDecoders[i]);
+    }
+}
+
+///
+///	Sync and display surface.
+///
+static void CuvidSyncDisplayFrame(void)
+{
+    CuvidDisplayFrame();
+    CuvidSyncFrame();
+}
+
+///
+///	Sync and render a ffmpeg frame
+///
+///	@param decoder		CUVID hw decoder
+///	@param video_ctx	ffmpeg video codec context
+///	@param frame		frame to display
+///
+static void CuvidSyncRenderFrame(CuvidDecoder * decoder,
+    const AVCodecContext * video_ctx, const AVFrame * frame)
+{
+    // FIXME: temp debug
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,61,100)
+    if (0 && frame->pkt_pts != (int64_t) AV_NOPTS_VALUE) {
+#else
+    if (0 && frame->pts != (int64_t) AV_NOPTS_VALUE) {
+#endif
+	Debug(3, "video: render frame pts %s\n",
+	    Timestamp2String(frame->pkt_pts));
+    }
+#ifdef DEBUG
+    if (!atomic_read(&decoder->SurfacesFilled)) {
+	Debug(3, "video: new stream frame %dms\n", GetMsTicks() - VideoSwitch);
+    }
+#endif
+
+#if 1
+#ifndef USE_PIP
+#error	"-DUSE_PIP or #define USE_PIP is needed,"
+#endif
+    // if video output buffer is full, wait and display surface.
+    // loop for interlace
+    if (atomic_read(&decoder->SurfacesFilled) >= (VIDEO_SURFACES_MAX * 2)) {
+#ifdef DEBUG
+	Fatal("video/cuvid: this code part shouldn't be used\n");
+#else
+	Info("video/cuvid: this code part shouldn't be used\n");
+#endif
+	return;
+    }
+#else
+    // FIXME: disabled for remove
+    // FIXME: wrong for multiple streams
+    // FIXME: this part code should be no longer be needed with new mpeg fix
+    while (atomic_read(&decoder->SurfacesFilled) >= (VIDEO_SURFACES_MAX * 2)) {
+	struct timespec abstime;
+
+	pthread_mutex_unlock(&VideoLockMutex);
+
+	abstime = decoder->FrameTime;
+	abstime.tv_nsec += 14 * 1000 * 1000;
+	if (abstime.tv_nsec >= 1000 * 1000 * 1000) {
+	    // avoid overflow
+	    abstime.tv_sec++;
+	    abstime.tv_nsec -= 1000 * 1000 * 1000;
+	}
+
+	VideoPollEvent();
+
+	// fix dead-lock with VdpauExit
+	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+	pthread_testcancel();
+	pthread_mutex_lock(&VideoLockMutex);
+	// give osd some time slot
+	while (pthread_cond_timedwait(&VideoWakeupCond, &VideoLockMutex,
+		&abstime) != ETIMEDOUT) {
+	    // SIGUSR1
+	    Debug(3, "video/cuvid: pthread_cond_timedwait error\n");
+	}
+	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+
+	CuvidSyncDisplayFrame();
+    }
+#endif
+
+    if (!decoder->Closing) {
+	VideoSetPts(&decoder->PTS, decoder->Interlaced, video_ctx, frame);
+    }
+    CuvidRenderFrame(decoder, video_ctx, frame);
+}
+
+///
+///	Set CUVID background color.
+///
+///	@param rgba	32 bit RGBA color.
+///
+static void CuvidSetBackground( __attribute__ ((unused)) uint32_t rgba)
+{
+}
+
+///
+///	Set CUVID video mode.
+///
+static void CuvidSetVideoMode(void)
+{
+    int i;
+
+    for (i = 0; i < CuvidDecoderN; ++i) {
+	// reset video window, upper level needs to fix the positions
+	CuvidDecoders[i]->VideoX = 0;
+	CuvidDecoders[i]->VideoY = 0;
+	CuvidDecoders[i]->VideoWidth = VideoWindowWidth;
+	CuvidDecoders[i]->VideoHeight = VideoWindowHeight;
+	CuvidUpdateOutput(CuvidDecoders[i]);
+    }
+}
+
+
+///
+///	Handle a CUVID display.
+///
+static void CuvidDisplayHandlerThread(void)
+{
+    int i;
+    int err;
+    int allfull;
+    int decoded;
+    struct timespec nowtime;
+    CuvidDecoder *decoder;
+
+    allfull = 1;
+    decoded = 0;
+    pthread_mutex_lock(&VideoLockMutex);
+    for (i = 0; i < CuvidDecoderN; ++i) {
+	int filled;
+
+	decoder = CuvidDecoders[i];
+
+	//
+	// fill frame output ring buffer
+	//
+	filled = atomic_read(&decoder->SurfacesFilled);
+	if (filled <= 1 + 2 * decoder->Interlaced) {
+	    // FIXME: hot polling
+	    // fetch+decode or reopen
+	    allfull = 0;
+	    err = VideoDecodeInput(decoder->Stream);
+	} else {
+	    err = VideoPollInput(decoder->Stream);
+	}
+	// decoder can be invalid here
+	if (err) {
+	    // nothing buffered?
+	    if (err == -1 && decoder->Closing) {
+		decoder->Closing--;
+		if (!decoder->Closing) {
+		    Debug(3, "video/cuvid: closing eof\n");
+		    decoder->Closing = -1;
+		}
+	    }
+	    continue;
+	}
+	decoded = 1;
+    }
+    pthread_mutex_unlock(&VideoLockMutex);
+
+    if (!decoded) {			// nothing decoded, sleep
+	// FIXME: sleep on wakeup
+	usleep(1 * 1000);
+    }
+    // all decoder buffers are full
+    // and display is not preempted
+    // speed up filling display queue, wait on display queue empty
+    if (!allfull) {
+	clock_gettime(CLOCK_MONOTONIC, &nowtime);
+	// time for one frame over?
+	if ((nowtime.tv_sec - CuvidFrameTime.tv_sec) * 1000 * 1000 * 1000 +
+	    (nowtime.tv_nsec - CuvidFrameTime.tv_nsec) < 15 * 1000 * 1000) {
+	    return;
+	}
+    }
+
+    pthread_mutex_lock(&VideoLockMutex);
+    CuvidSyncDisplayFrame();
+    pthread_mutex_unlock(&VideoLockMutex);
+}
+
+
+///
+///	Set video output position.
+///
+///	@param decoder	CUVID hw decoder
+///	@param x	video output x coordinate inside the window
+///	@param y	video output y coordinate inside the window
+///	@param width	video output width
+///	@param height	video output height
+///
+///	@note FIXME: need to know which stream.
+///
+static void CuvidSetOutputPosition(CuvidDecoder * decoder, int x, int y,
+    int width, int height)
+{
+    Debug(3, "video/cuvid: output %dx%d%+d%+d\n", width, height, x, y);
+
+    decoder->VideoX = x;
+    decoder->VideoY = y;
+    decoder->VideoWidth = width;
+    decoder->VideoHeight = height;
+
+    // next video pictures are automatic rendered to correct position
+}
+
+//----------------------------------------------------------------------------
+//	CUVID OSD USE GLX
+//----------------------------------------------------------------------------
+#ifdef USE_OPENGLOSD
+unsigned int *GetCuvidOsdOutputTexture(GLuint texture) {
+    OsdGlTexture = texture;
+}
+
+int CuvidInitGlx(void) {
+    if (/*!GlxContext ||*/ !GlxEnabled /*|| !GlxThreadContext*/) {
+        Debug(3,"video/osd: can't create glx context\n");
+        return 0;
+    }
+    while (!GlxContext || !GlxThreadContext){
+        usleep(1000);
+    }
+    Debug(3,"Create OSD GLX context\n");
+    glXMakeCurrent(XlibDisplay, None, NULL);
+    glXMakeCurrent(XlibDisplay, VideoWindow, GlxContext);
+    return 1;
+}
+#endif
+
+///
+///	CUVID module.
+///
+static const VideoModule CuvidModule = {
+    .Name = "cuvid",
+    .Enabled = 1,
+    .NewHwDecoder =
+	(VideoHwDecoder * (*const)(VideoStream *)) CuvidNewHwDecoder,
+    .DelHwDecoder = (void (*const) (VideoHwDecoder *))CuvidDelHwDecoder,
+    .GetSurface = (unsigned (*const) (VideoHwDecoder *,
+	    const AVCodecContext *))CuvidGetSurface,
+    .ReleaseSurface =
+	(void (*const) (VideoHwDecoder *, unsigned))CuvidReleaseSurface,
+    .get_format = (enum AVPixelFormat(*const) (VideoHwDecoder *,
+	    AVCodecContext *, const enum AVPixelFormat *))Cuvid_get_format,
+    .RenderFrame = (void (*const) (VideoHwDecoder *,
+	    const AVCodecContext *, const AVFrame *))CuvidSyncRenderFrame,
+    .GetHwAccelContext = (void *(*const)(VideoHwDecoder *))
+	CuvidGetHwAccelContext,
+    .SetClock = (void (*const) (VideoHwDecoder *, int64_t))CuvidSetClock,
+    .GetClock = (int64_t(*const) (const VideoHwDecoder *))CuvidGetClock,
+    .SetClosing = (void (*const) (const VideoHwDecoder *))CuvidSetClosing,
+    .ResetStart = (void (*const) (const VideoHwDecoder *))CuvidResetStart,
+    .SetTrickSpeed =
+	(void (*const) (const VideoHwDecoder *, int))CuvidSetTrickSpeed,
+#ifdef USE_GRAB
+//    .GrabOutput = CuvidGrabOutputSurface,
+#endif
+    .GetStats = (void (*const) (VideoHwDecoder *, int *, int *, int *,
+	    int *))CuvidGetStats,
+    .SetBackground = CuvidSetBackground,
+    .SetVideoMode = CuvidSetVideoMode,
+#ifdef USE_AUTOCROP
+    .ResetAutoCrop = CuvidResetAutoCrop,
+#endif
+    .DisplayHandlerThread = CuvidDisplayHandlerThread,
+    .OsdClear = GlxOsdClear,
+    .OsdDrawARGB = GlxOsdDrawARGB,
+    .OsdInit = GlxOsdInit,
+    .OsdExit = GlxOsdExit,
+    .Init = CuvidInit,
+    .Exit = CuvidExit,
 };
 
 #endif
@@ -11975,7 +13835,7 @@ static void VideoEvent(void)
 
 	case MapNotify:
 	    Debug(3, "video/event: MapNotify\n");
-	    // µwm workaround
+	    // wm workaround
 	    VideoThreadLock();
 	    xcb_change_window_attributes(Connection, VideoWindow,
 		XCB_CW_CURSOR, &VideoBlankCursor);
@@ -12124,11 +13984,9 @@ static void *VideoDisplayHandlerThread(void *dummy)
 	Debug(3, "video/glx: thread context %p <-> %p\n",
 	    glXGetCurrentContext(), GlxThreadContext);
 	Debug(3, "video/glx: context %p <-> %p\n", glXGetCurrentContext(),
-	    GlxContext);
+	    GlxThreadContext);
 
 	GlxThreadContext =
-//	    glXCreateNewContext(XlibDisplay, GlxFBConfigs[0], GLX_RGBA_TYPE,
-//	    GlxSharedContext, GL_TRUE);
 	    glXCreateContext(XlibDisplay, GlxVisualInfo, GlxSharedContext,
 	    GL_TRUE);
 	if (!GlxThreadContext) {
@@ -12146,12 +14004,9 @@ static void *VideoDisplayHandlerThread(void *dummy)
 	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 	pthread_testcancel();
 	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
-
 	VideoPollEvent();
-
 	VideoUsedModule->DisplayHandlerThread();
     }
-
     return dummy;
 }
 
@@ -12229,6 +14084,9 @@ static const VideoModule *VideoModules[] = {
 #ifdef USE_VAAPI
     &VaapiModule,
 #endif
+#ifdef USE_CUVID
+    &CuvidModule,
+#endif
 #ifdef USE_GLX
 #ifdef USE_VAAPI
     &VaapiGlxModule,			// FIXME: if working, prefer this
@@ -12249,6 +14107,9 @@ struct _video_hw_decoder_
 #endif
 #ifdef USE_VDPAU
 	VdpauDecoder Vdpau;		///< vdpau decoder structure
+#endif
+#ifdef USE_CUVID
+	CuvidDecoder Cuvid;		///< cuvid decoder structure
 #endif
     };
 };
@@ -12704,6 +14565,16 @@ void VideoGetVideoSize(VideoHwDecoder * hw_decoder, int *width, int *height,
 	    1024 * 1024);
     }
 #endif
+#ifdef USE_CUVID
+    if (VideoUsedModule == &CuvidModule) {
+	*width = hw_decoder->Cuvid.InputWidth;
+	*height = hw_decoder->Cuvid.InputHeight;
+	av_reduce(aspect_num, aspect_den,
+	    hw_decoder->Cuvid.InputWidth * hw_decoder->Cuvid.InputAspect.num,
+	    hw_decoder->Cuvid.InputHeight * hw_decoder->Cuvid.InputAspect.den,
+	    1024 * 1024);
+    }
+#endif
 
 }
 
@@ -13004,6 +14875,16 @@ int VideoIsDriverVaapi(void)
    return 0;
 }
 
+int VideoIsDriverCuvid(void)
+{
+#ifdef USE_CUVID
+    if (VideoUsedModule == &CuvidModule) {
+	return 1;
+    }
+#endif
+   return 0;
+}
+
 ///
 ///	Set video geometry.
 ///
@@ -13105,6 +14986,12 @@ void VideoSetBrightness(int brightness)
 				  VaapiConfigBrightness.scale);
     }
 #endif
+#ifdef USE_CUVID
+//    if (VideoUsedModule == &CuvidModule) {
+//	CuvidDecoders[0]->VOparams.brightness = VideoConfigClamp(&CuvidConfigBrightness, brightness) *
+//					       CuvidConfigBrightness.scale;
+//    }
+#endif
 }
 
 ///
@@ -13130,6 +15017,14 @@ int VideoGetBrightnessConfig(int *minvalue, int *defvalue, int *maxvalue)
 	*defvalue = VaapiConfigBrightness.def_value;
 	*maxvalue = VaapiConfigBrightness.max_value;
 	return VaapiConfigBrightness.active;
+    }
+#endif
+#ifdef USE_CUVID
+    if (VideoUsedModule == &CuvidModule) {
+	*minvalue = CuvidConfigBrightness.min_value;
+	*defvalue = CuvidConfigBrightness.def_value;
+	*maxvalue = CuvidConfigBrightness.max_value;
+	return CuvidConfigBrightness.active;
     }
 #endif
     return 0;
@@ -13160,6 +15055,12 @@ void VideoSetContrast(int contrast)
 				  VaapiConfigContrast.scale);
     }
 #endif
+#ifdef USE_CUVID
+//    if (VideoUsedModule == &CuvidModule) {
+//	CuvidDecoders[0]->Procamp.contrast = VideoConfigClamp(&CuvidConfigContrast, contrast) *
+//					     CuvidConfigContrast.scale;
+//    }
+#endif
 }
 
 ///
@@ -13185,6 +15086,14 @@ int VideoGetContrastConfig(int *minvalue, int *defvalue, int *maxvalue)
 	*defvalue = VaapiConfigContrast.def_value;
 	*maxvalue = VaapiConfigContrast.max_value;
 	return VaapiConfigContrast.active;
+    }
+#endif
+#ifdef USE_CUVID
+    if (VideoUsedModule == &CuvidModule) {
+	*minvalue = CuvidConfigContrast.min_value;
+	*defvalue = CuvidConfigContrast.def_value;
+	*maxvalue = CuvidConfigContrast.max_value;
+	return CuvidConfigContrast.active;
     }
 #endif
     return 0;
@@ -13215,6 +15124,12 @@ void VideoSetSaturation(int saturation)
 				  VaapiConfigSaturation.scale);
     }
 #endif
+#ifdef USE_CUVID
+//    if (VideoUsedModule == &CuvidModule) {
+//	CuvidDecoders[0]->Procamp.saturation = VideoConfigClamp(&CuvidConfigSaturation, saturation) *
+//					       CuvidConfigSaturation.scale;
+//    }
+#endif
 }
 
 ///
@@ -13240,6 +15155,14 @@ int VideoGetSaturationConfig(int *minvalue, int *defvalue, int *maxvalue)
 	*defvalue = VaapiConfigSaturation.def_value;
 	*maxvalue = VaapiConfigSaturation.max_value;
 	return VaapiConfigSaturation.active;
+    }
+#endif
+#ifdef USE_CUVID
+    if (VideoUsedModule == &CuvidModule) {
+	*minvalue = CuvidConfigSaturation.min_value;
+	*defvalue = CuvidConfigSaturation.def_value;
+	*maxvalue = CuvidConfigSaturation.max_value;
+	return CuvidConfigSaturation.active;
     }
 #endif
     return 0;
@@ -13269,6 +15192,12 @@ void VideoSetHue(int hue)
 				  VideoConfigClamp(&VaapiConfigHue, hue) * VaapiConfigHue.scale);
     }
 #endif
+#ifdef USE_CUVID
+//    if (VideoUsedModule == &CuvidModule) {
+//	CuvidDecoders[0]->Procamp.hue = VideoConfigClamp(&CuvidConfigHue, hue) *
+//					CuvidConfigHue.scale;
+//    }
+#endif
 }
 
 ///
@@ -13296,6 +15225,14 @@ int VideoGetHueConfig(int *minvalue, int *defvalue, int *maxvalue)
 	return VaapiConfigHue.active;
     }
 #endif
+#ifdef USE_CUVID
+    if (VideoUsedModule == &CuvidModule) {
+	*minvalue = CuvidConfigHue.min_value;
+	*defvalue = CuvidConfigHue.def_value;
+	*maxvalue = CuvidConfigHue.max_value;
+	return CuvidConfigHue.active;
+    }
+#endif
     return 0;
 }
 
@@ -13319,6 +15256,11 @@ void VideoSetSkinToneEnhancement(int stde)
     if (VideoUsedModule == &VaapiModule) {
 #endif
 	VideoSkinToneEnhancement = VideoConfigClamp(&VaapiConfigStde, stde);
+    }
+#endif
+#ifdef USE_CUVID
+    if (VideoUsedModule == &CuvidModule) {
+	VideoSkinToneEnhancement = VideoConfigClamp(&CuvidConfigStde, stde);
     }
 #endif
     VideoSurfaceModesChanged = 1;
@@ -13347,6 +15289,14 @@ int VideoGetSkinToneEnhancementConfig(int *minvalue, int *defvalue, int *maxvalu
         *defvalue = VaapiConfigStde.def_value;
         *maxvalue = VaapiConfigStde.max_value;
         return VaapiConfigStde.active;
+    }
+#endif
+#ifdef USE_CUVID
+    if (VideoUsedModule == &CuvidModule) {
+        *minvalue = CuvidConfigStde.min_value;
+        *defvalue = CuvidConfigStde.def_value;
+        *maxvalue = CuvidConfigStde.max_value;
+        return CuvidConfigStde.active;
     }
 #endif
     return 0;
@@ -13412,6 +15362,23 @@ void VideoSetOutputPosition(VideoHwDecoder * hw_decoder, int x, int y,
         VaapiSetOutputPosition(&hw_decoder->Vaapi, x, y, width, height);
         VaapiUpdateOutput(&hw_decoder->Vaapi);
         VideoThreadUnlock();
+    }
+#endif
+#ifdef USE_CUVID
+    if (VideoUsedModule == &CuvidModule) {
+	// check values to be able to avoid
+	// interfering with the video thread if possible
+
+	if (x == hw_decoder->Cuvid.VideoX && y == hw_decoder->Cuvid.VideoY
+	    && width == hw_decoder->Cuvid.VideoWidth
+	    && height == hw_decoder->Cuvid.VideoHeight) {
+	    // not necessary...
+	    return;
+	}
+	VideoThreadLock();
+	CuvidSetOutputPosition(&hw_decoder->Cuvid, x, y, width, height);
+	CuvidUpdateOutput(&hw_decoder->Cuvid);
+	VideoThreadUnlock();
     }
 #endif
     (void)hw_decoder;
@@ -13596,6 +15563,22 @@ static const char *vaapi_scaling_short[] = {
 };
 #endif
 
+#ifdef USE_CUVID
+static const char *cuvid_scaling[] = {
+    "Normal",      ///< VideoScalingNormal
+    "Fast",        ///< VideoScalingFast
+    "HighQuality", ///< VideoScalingHQ
+    "Anamorphic"   ///< VideoScalingAnamorphic
+};
+
+static const char *cuvid_scaling_short[] = {
+    "N",           ///< VideoScalingNormal
+    "F",           ///< VideoScalingFast
+    "HQ",          ///< VideoScalingHQ
+    "A"            ///< VideoScalingAnamorphic
+};
+#endif
+
 int VideoGetScalingModes(const char* **long_table, const char* **short_table)
 {
 #ifdef USE_VDPAU
@@ -13614,6 +15597,13 @@ int VideoGetScalingModes(const char* **long_table, const char* **short_table)
 	*long_table = vaapi_scaling;
 	*short_table = vaapi_scaling_short;
 	return ARRAY_ELEMS(vaapi_scaling);
+    }
+#endif
+#ifdef USE_CUVID
+    if (VideoUsedModule == &CuvidModule) {
+	*long_table = cuvid_scaling;
+	*short_table = cuvid_scaling_short;
+	return ARRAY_ELEMS(cuvid_scaling);
     }
 #endif
     return 0;
@@ -13658,6 +15648,26 @@ static const char *vaapi_deinterlace_short[] = {
 };
 #endif
 
+#ifdef USE_CUVID
+static const char *cuvid_deinterlace[] = {
+    "Bob",                ///< VideoDeinterlaceBob
+    "Weave/None",         ///< VideoDeinterlaceWeave
+    "Adaptive",           ///< VideoDeinterlaceTemporal
+//    "TemporalSpatial",    ///< VideoDeinterlaceTemporalSpatial
+//    "Software Bob",       ///< VideoDeinterlaceSoftBob
+//    "Software Spatial"    ///< VideoDeinterlaceSoftSpatial
+};
+
+static const char *cuvid_deinterlace_short[] = {
+    "B",                  ///< VideoDeinterlaceBob
+    "W",                  ///< VideoDeinterlaceWeave
+    "A",                  ///< VideoDeinterlaceTemporal
+//    "T+S",                ///< VideoDeinterlaceTemporalSpatial
+//    "S+B",                ///< VideoDeinterlaceSoftBob
+//    "S+S"                 ///< VideoDeinterlaceSoftSpatial
+};
+#endif
+
 int VideoGetDeinterlaceModes(const char* **long_table, const char* **short_table)
 {
 #ifdef USE_VDPAU
@@ -13679,6 +15689,13 @@ int VideoGetDeinterlaceModes(const char* **long_table, const char* **short_table
 	if (len > ARRAY_ELEMS(vaapi_deinterlace))
 	   len = ARRAY_ELEMS(vaapi_deinterlace);
 	return len;
+    }
+#endif
+#ifdef USE_CUVID
+    if (VideoUsedModule == &CuvidModule) {
+	*long_table = cuvid_deinterlace;
+	*short_table = cuvid_deinterlace_short;
+	return ARRAY_ELEMS(cuvid_deinterlace);
     }
 #endif
     return 0;
@@ -13761,6 +15778,14 @@ void VideoSetDenoise(int level[VideoResolutionMax])
 	}
     }
 #endif
+#ifdef USE_CUVID
+    if (VideoUsedModule == &CuvidModule) {
+	int i;
+	for (i = 0; i < VideoResolutionMax; ++i) {
+	    level[i] = VideoConfigClamp(&CuvidConfigDenoise, level[i]);
+	}
+    }
+#endif
     VideoDenoise[0] = level[0];
     VideoDenoise[1] = level[1];
     VideoDenoise[2] = level[2];
@@ -13794,6 +15819,14 @@ int VideoGetDenoiseConfig(int *minvalue, int *defvalue, int *maxvalue)
         return VaapiConfigDenoise.active;
     }
 #endif
+#ifdef USE_CUVID
+    if (VideoUsedModule == &CuvidModule) {
+        *minvalue = CuvidConfigDenoise.min_value;
+        *defvalue = CuvidConfigDenoise.def_value;
+        *maxvalue = CuvidConfigDenoise.max_value;
+        return CuvidConfigDenoise.active;
+    }
+#endif
     return 0;
 }
 
@@ -13819,6 +15852,14 @@ void VideoSetSharpen(int level[VideoResolutionMax])
 	int i;
 	for (i = 0; i < VideoResolutionMax; ++i) {
 	    level[i] = VideoConfigClamp(&VaapiConfigSharpen, level[i]);
+	}
+    }
+#endif
+#ifdef USE_CUVID
+    if (VideoUsedModule == &CuvidModule) {
+	int i;
+	for (i = 0; i < VideoResolutionMax; ++i) {
+	    level[i] = VideoConfigClamp(&CuvidConfigSharpen, level[i]);
 	}
     }
 #endif
@@ -13853,6 +15894,14 @@ int VideoGetSharpenConfig(int *minvalue, int *defvalue, int *maxvalue)
         *defvalue = VaapiConfigSharpen.def_value;
         *maxvalue = VaapiConfigSharpen.max_value;
         return VaapiConfigSharpen.active;
+    }
+#endif
+#ifdef USE_CUVID
+    if (VideoUsedModule == &CuvidModule) {
+        *minvalue = CuvidConfigSharpen.min_value;
+        *defvalue = CuvidConfigSharpen.def_value;
+        *maxvalue = CuvidConfigSharpen.max_value;
+        return CuvidConfigSharpen.active;
     }
 #endif
     return 0;
@@ -14094,7 +16143,7 @@ void VideoInit(const char *display_name)
 	VideoCreateWindow(screen->root, GlxVisualInfo->visualid,
 	    GlxVisualInfo->depth);
 	GlxSetupWindow(VideoWindow, VideoWindowWidth, VideoWindowHeight,
-	    GlxContext);
+	    GlxThreadContext);
     } else
 #endif
 
@@ -14181,6 +16230,7 @@ void VideoExit(void)
 #ifdef USE_GLX
     if (GlxEnabled) {
 	GlxExit();
+        GlxEnabled = 0;
     }
 #endif
 
@@ -14358,6 +16408,11 @@ int main(int argc, char *const argv[])
 #ifdef USE_VDPAU
 	if (VideoVdpauEnabled) {
 	    VdpauDisplayFrame();
+	}
+#endif
+#ifdef USE_CUVID
+	if (VideoCuvidEnabled) {
+	    CuvidDisplayFrame();
 	}
 #endif
 	tick = GetMsTicks();

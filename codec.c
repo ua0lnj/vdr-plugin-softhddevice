@@ -297,7 +297,7 @@ static void Codec_free_buffer(void *opaque, uint8_t *data)
     }
 #endif
 #endif
-    // VA-API
+    // VA-API and new VDPAU
     if (video_ctx->hwaccel_context) {
 	VideoDecoder *decoder;
 	unsigned surface;
@@ -305,7 +305,7 @@ static void Codec_free_buffer(void *opaque, uint8_t *data)
 	decoder = video_ctx->opaque;
 	surface = (unsigned)(size_t) data;
 
-	//Debug(3, "codec: release surface %#010x\n", surface);
+	Debug(4, "codec: release surface %#010x\n", surface);
 	VideoReleaseSurface(decoder->HwDecoder, surface);
 
 	return;
@@ -415,7 +415,7 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
     }
 
     name = NULL;
-    if (!strcasecmp(VideoGetDriverName(), "vdpau")) {
+    if (VideoIsDriverVdpau()) {
 	switch (codec_id) {
 	    case AV_CODEC_ID_MPEG2VIDEO:
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,89,100)
@@ -423,10 +423,6 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 #else
 		name = VideoHardwareDecoder > HWmpeg2Off ? "mpeg2video" : NULL;
 #endif
-#ifdef CUVID
-		name = VideoHardwareDecoder == HWcuvidOn ? "mpeg2_cuvid" : name;
-#endif
-
 		break;
 	    case AV_CODEC_ID_H264:
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,89,100)
@@ -434,24 +430,30 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 #else
 		name = VideoHardwareDecoder ? "h264" : NULL;
 #endif
-#ifdef CUVID
-		name = VideoHardwareDecoder == HWcuvidOn ? "h264_cuvid" : name;
-#endif
-
 		break;
 	    case AV_CODEC_ID_HEVC:
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57,89,100)
 		name = VideoHardwareDecoder > HWhevcOff? "hevc" : NULL;	//Nvidia fix vdpau hevc in 4xx driver, Radeon can vdpau hevc
 #endif
-#ifdef CUVID
-		name = VideoHardwareDecoder > HWOn ? "hevc_cuvid" : name;
-#endif
+		break;
+	}
+    }
+    if (VideoIsDriverCuvid()) {
+	switch (codec_id) {
+	    case AV_CODEC_ID_MPEG2VIDEO:
+		name = VideoHardwareDecoder > HWmpeg2Off ? "mpeg2_cuvid" : NULL;
+		break;
+	    case AV_CODEC_ID_H264:
+		name = VideoHardwareDecoder ? "h264_cuvid" : NULL;
+		break;
+	    case AV_CODEC_ID_HEVC:
+		name = VideoHardwareDecoder ? "hevc_cuvid" : NULL;
 		break;
 	}
     }
 
     if (name && (video_codec = avcodec_find_decoder_by_name(name))) {
-	Debug(3, "codec: vdpau decoder found\n");
+	Debug(3, "codec: hw decoder found\n");
     } else if (!(video_codec = avcodec_find_decoder(codec_id))) {
 	Error(_("codec: codec ID %#06x not found\n"), codec_id);
 	return 0;
@@ -464,7 +466,16 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
     }
     // FIXME: for software decoder use all cpus, otherwise 1
     decoder->VideoCtx->thread_count = 1;
+
+    decoder->VideoCtx->pkt_timebase.num = 1;
+    decoder->VideoCtx->pkt_timebase.den = 90000;
+
+    if (strstr(decoder->VideoCodec->name, "cuvid"))
+        av_opt_set_int(decoder->VideoCtx->priv_data, "surfaces", 10, 0);
+
     pthread_mutex_lock(&CodecLockMutex);
+
+
     // open codec
 #if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(53,5,0)
     if (avcodec_open(decoder->VideoCtx, video_codec) < 0) {
@@ -481,7 +492,6 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 	// taken from mplayer vd_ffmpeg.c
 	decoder->VideoCtx->slice_flags =
 	    SLICE_FLAG_CODED_ORDER | SLICE_FLAG_ALLOW_FIELD;
-	decoder->VideoCtx->thread_count = 1;
 	decoder->VideoCtx->active_thread_type = 0;
     }
 #endif
@@ -513,11 +523,6 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
     if (video_codec->capabilities & AV_CODEC_CAP_DR1) {
 	Debug(3, "codec: can use own buffer management\n");
     }
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,00,100)
-    if (video_codec->capabilities & AV_CODEC_CAP_HWACCEL_VDPAU) {
-	Debug(3, "codec: can export data for HW decoding (VDPAU)\n");
-    }
-#endif
 #ifdef CODEC_CAP_FRAME_THREADS
     if (video_codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) {
 	Debug(3, "codec: codec supports frame threads\n");
@@ -530,17 +535,15 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 #else
     if (avcodec_get_hw_config(video_codec, 0)) {
 #endif
+	Debug(3, "codec: can export data for HW decoding\n");
 	// FIXME: get_format never called.
 	decoder->VideoCtx->get_format = Codec_get_format;
 	decoder->VideoCtx->get_buffer2 = Codec_get_buffer2;
 	decoder->VideoCtx->draw_horiz_band = Codec_draw_horiz_band;
-	decoder->VideoCtx->slice_flags =
-	    SLICE_FLAG_CODED_ORDER | SLICE_FLAG_ALLOW_FIELD;
 	decoder->VideoCtx->thread_count = 1;
 	decoder->VideoCtx->active_thread_type = 0;
         decoder->VideoCtx->hwaccel_context =
-        VideoGetHwAccelContext(decoder->HwDecoder);
-
+            VideoGetHwAccelContext(decoder->HwDecoder);
     } else {
 	decoder->VideoCtx->get_format = Codec_get_format;
 	decoder->VideoCtx->get_buffer2 = Codec_get_buffer2;
@@ -577,6 +580,7 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 */
 void CodecVideoClose(VideoDecoder * video_decoder)
 {
+Debug(3, "codec: video codec close\n");
     // FIXME: play buffered data
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(56,28,1)
     av_frame_free(&video_decoder->Frame);	// callee does checks
@@ -655,27 +659,27 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 
     *pkt = *avpkt;			// use copy
 
-  next_part:
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,37,100)
+  next_part:
     used = avcodec_decode_video2(video_ctx, frame, &got_frame, pkt);
 #else
     used = avcodec_send_packet(video_ctx, pkt);
     if (used < 0 && used != AVERROR(EAGAIN) && used != AVERROR_EOF)
         return;
 
-    pkt->size = 0;
-
-    used = avcodec_receive_frame(video_ctx, frame);
-    if (used < 0 && used != AVERROR(EAGAIN) && used != AVERROR_EOF)
-        return;
-    if (used>=0)
-        got_frame = 1;
+    while(!used) { //multiple frames
+        used = avcodec_receive_frame(video_ctx, frame);
+        if (used < 0 && used != AVERROR(EAGAIN) && used != AVERROR_EOF)
+            return;
+        if (used>=0)
+            got_frame = 1;
+        else got_frame = 0;
 #endif
     Debug(4, "%s: %p %d -> %d %d\n", __FUNCTION__, pkt->data, pkt->size, used,
 	got_frame);
 
     if (got_frame) {			// frame completed
-
+        if (pkt->pts == (int64_t)AV_NOPTS_VALUE) frame->pts = (int64_t)AV_NOPTS_VALUE; //correct pts for cuvid
 #ifdef FFMPEG_WORKAROUND_ARTIFACTS
 	if (!CodecUsePossibleDefectFrames && decoder->FirstKeyFrame) {
 	    decoder->FirstKeyFrame++;
@@ -723,6 +727,9 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(56,28,1)
     av_frame_unref(frame);
+#endif
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57,37,100)
+    }
 #endif
     }
 }

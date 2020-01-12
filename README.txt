@@ -20,8 +20,8 @@ $Id$
 
 A software and GPU emulated HD output device plugin for VDR.
 
-    o Video decoder CPU / VDPAU
-    o Video output VDPAU
+    o Video decoder CPU / VDPAU / NVDEC
+    o Video output VDPAU / NVDEC
     o Audio FFMpeg / Alsa / Analog
     o Audio FFMpeg / Alsa / Digital
     o Audio FFMpeg / OSS / Analog
@@ -36,8 +36,6 @@ A software and GPU emulated HD output device plugin for VDR.
     o atmo light support with plugin http://github.com/durchflieger/DFAtmo
     o PIP (Picture-in-Picture) (VDPAU only)
 
-    o planned: Remove VA-API decoder and output support
-    o planned: Video decoder OpenMax
     o planned: Video output Opengl / Xv
     o planned: Improved software deinterlacer (yadif or/and ffmpeg filters)
     o XvBa support is no longer planned (use future Radeon UVD VDPAU)
@@ -45,7 +43,6 @@ A software and GPU emulated HD output device plugin for VDR.
 To compile you must have the 'requires' installed.
 
 Good luck
-johns
 
 Quickstart:
 -----------
@@ -55,15 +52,17 @@ Just type make and use.
 Install:
 --------
 	1a) git
-
+	original git
 	git clone git://projects.vdr-developer.org/vdr-plugin-softhddevice.git
+	latest git
+	git clone https://github.com/ua0lnj/vdr-plugin-softhddevice.git
 	cd vdr-plugin-softhddevice
 	make
 	make install
 
 	2a) tarball
 
-	Download latest version from:
+	Download original version from:
 	    http://projects.vdr-developer.org/projects/plg-softhddevice/files
 
 	tar vxf vdr-softhddevice-*.tar.bz2
@@ -71,7 +70,7 @@ Install:
 	make
 	make install
 
-	You can edit Makefile to enable/disable VDPAU / VA-API / Alsa / OSS
+	You can edit Makefile to enable/disable VDPAU / VA-API / NVDEC / Alsa / OSS
 	support.  The default is to autodetect as much as possible.
 
 Setup:	environment
@@ -306,18 +305,17 @@ Commandline:
     -f 			start with fullscreen window (only with window manager)
     -g geometry		x11 window geometry wxh+x+y
     -l loglevel		set the log level (0=none, 1=errors, 2=info, 3=debug)
-    -v device		video driver device (va-api, va-api-glx, vdpau, noop)
+    -v device		video driver device (va-api, va-api-glx, vdpau, cuvid, noop)
     -s 			start in suspended mode
     -x 			start x11 server, with -xx try to connect, if this fails
     -X args		X11 server arguments (f.e. -nocursor)
 
     -w workaround 	enable/disable workarounds:
-	cuvid-hw-decoder		enable cuvid hw decoder with vdpau render
 	no-hw-decoder			disable hw decoder, use software decoder only
 	no-mpeg-hw-decoder		disable hw decoder for mpeg only
 	still-hw-decoder		enable hardware decoder for still-pictures
 	still-h264-hw-decoder		enable h264 hw decoder for still-pictures
-	talsa-driver-broken		disable broken alsa driver message
+	alsa-driver-broken		disable broken alsa driver message
 	alsa-no-close-open		disable close open to fix alsa no sound bug
 	alsa-close-open-delay		enable close open delay to fix no sound bug
 	ignore-repeat-pict		disable repeat pict message
@@ -408,6 +406,10 @@ Requires:
 	x11-libs/libvdpau
 		VDPAU wrapper and trace libraries
 		http://www.freedesktop.org/wiki/Software/VDPAU
+    or
+	nvdec libs
+	    ffnvcodec and ffmpeg with cuvid support
+	    libs gl glu
 
 	x11-libs/libxcb,
 		X C-language Bindings library
@@ -427,3 +429,6 @@ Requires:
 		http://www.gnu.org/software/make/make.html
 
 Optional:
+	for openGL osd need
+	    libs gl glu glew freetype2
+

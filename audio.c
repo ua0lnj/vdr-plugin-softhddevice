@@ -2611,7 +2611,7 @@ int64_t AudioGetDelay(void)
 void AudioSetClock(int64_t pts)
 {
     if (AudioRing[AudioRingWrite].PTS != pts) {
-	Debug(3, "audio: sync set clock %s -> %s pts\n",
+	Debug(4, "audio: sync set clock %s -> %s pts\n",
 	    Timestamp2String(AudioRing[AudioRingWrite].PTS),
 	    Timestamp2String(pts));
     }

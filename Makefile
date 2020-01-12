@@ -39,9 +39,8 @@ endif
 endif
     # support CUVID (NVdec) video decoder with vdpau render
 ifeq ($(shell lspci|grep -Ei "VGA|3D" |grep -c NVIDIA),1)
-ifeq ($(VDPAU),1)
-CUVID ?= $(shell ffmpeg -loglevel quiet -decoders | grep -c hevc_cuvid)
-endif
+CUVID ?= $(shell ffmpeg -loglevel quiet -hwaccels | grep -c cuvid)
+FFNVCODEC ?= $(shell pkg-config --exists ffnvcodec && echo 1)
 endif
     # use opengl for OSD
 OPENGLOSD ?= $(shell pkg-config --exists glew glu freetype2 && echo 1)
@@ -55,7 +54,7 @@ CONFIG += -DAV_INFO -DAV_INFO_TIME=3000	# info/debug a/v sync
 CONFIG += -DUSE_PIP			# PIP support
 CONFIG += -DHAVE_PTHREAD_NAME		# supports new pthread_setname_np
 CONFIG += -DUSE_TS			# build ts parser
-CONFIG += -DUSE_MPEG_COMPLETE		# support only complete mpeg packets
+#CONFIG += -DUSE_MPEG_COMPLETE		# support only complete mpeg packets
 CONFIG += -DH264_EOS_TRICKSPEED		# insert seq end packets for trickspeed
 #CONDIF += -DDUMP_TRICKSPEED		# dump trickspeed packets
 #CONFIG += -DUSE_BITMAP			# VDPAU, use bitmap surface for OSD
@@ -156,7 +155,13 @@ _CFLAGS += $(shell pkg-config --cflags libavresample)
 LIBS += $(shell pkg-config --libs libavresample)
 endif
 ifeq ($(CUVID),1)
-CONFIG += -DCUVID
+ifeq ($(FFNVCODEC),1)
+ifeq ($(OPENGL),1)
+CONFIG += -DUSE_CUVID
+LDFLAGS += -L/usr/lib/x86_64-linux-gnu
+LIBS += -lcuda
+endif
+endif
 endif
 
 ifeq ($(OPENGLOSD),1)
