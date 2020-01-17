@@ -21,7 +21,7 @@ $Id$
 A software and GPU emulated HD output device plugin for VDR.
 
     o Video decoder CPU / VDPAU / NVDEC
-    o Video output VDPAU / NVDEC
+    o Video output VDPAU / GLX (VA-API NVDEC)
     o Audio FFMpeg / Alsa / Analog
     o Audio FFMpeg / Alsa / Digital
     o Audio FFMpeg / OSS / Analog

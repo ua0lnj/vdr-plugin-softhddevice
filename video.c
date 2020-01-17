@@ -11574,7 +11574,7 @@ void CuvidCreateGlTexture(CuvidDecoder * decoder, unsigned int size_x, unsigned 
                     n == 0 ? GL_RED : GL_RG, GL_UNSIGNED_SHORT, NULL);
 
             GlxCheck();
-            // register this texture with CUDA
+            // register this texture with CUDA, not need for software decoder YV12
             if (decoder->PixFmt == AV_PIX_FMT_NV12 || decoder->PixFmt == AV_PIX_FMT_P010LE) {
                 ret = CUStatus(cu->cuGraphicsGLRegisterImage(&decoder->cu_res[i][n], decoder->gl_textures[i*2+n],
                     GL_TEXTURE_2D, CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD));
@@ -12649,6 +12649,7 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
         //Y
         glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[0]);
         glTextureSubImage2D(decoder->gl_textures[surface * 2 + 0], 0, 0, 0, decoder->InputWidth, decoder->InputHeight, GL_RED, GL_UNSIGNED_BYTE, frame->data[0]);
+        GlxCheck();
         //UV
         glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[1]);
         glTextureSubImage2D(decoder->gl_textures[surface * 2 + 1], 0, 0, 0, decoder->InputWidth/2, decoder->InputHeight/2, GL_RG, GL_UNSIGNED_BYTE, outUV);
@@ -12796,11 +12797,7 @@ static void CuvidDisplayFrame(void)
     }
 
     glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
-//    if (CuvidDecoderN)
-//        CuvidDecoders[0]->Frameproc = (float)(GetusTicks()-last_time)/1000000.0;
-
     glXWaitVideoSyncSGI (2, (Count + 1) % 2, &Count);   // wait for previous frame to swap
-//    last_time = GetusTicks();
     glClear(GL_COLOR_BUFFER_BIT);
 
     // check if surface was displayed for more than 1 frame
@@ -13291,6 +13288,11 @@ static void CuvidSetVideoMode(void)
     }
 }
 
+#ifdef USE_VIDEO_THREAD2
+
+#else
+
+#ifdef USE_VIDEO_THREAD
 
 ///
 ///	Handle a CUVID display.
@@ -13361,6 +13363,13 @@ static void CuvidDisplayHandlerThread(void)
     pthread_mutex_unlock(&VideoLockMutex);
 }
 
+#else
+
+#define CuvidDisplayHandlerThread	NULL
+
+#endif
+
+#endif
 
 ///
 ///	Set video output position.
@@ -13984,7 +13993,7 @@ static void *VideoDisplayHandlerThread(void *dummy)
 	Debug(3, "video/glx: thread context %p <-> %p\n",
 	    glXGetCurrentContext(), GlxThreadContext);
 	Debug(3, "video/glx: context %p <-> %p\n", glXGetCurrentContext(),
-	    GlxThreadContext);
+	    GlxContext);
 
 	GlxThreadContext =
 	    glXCreateContext(XlibDisplay, GlxVisualInfo, GlxSharedContext,
