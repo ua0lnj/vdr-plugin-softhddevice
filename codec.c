@@ -545,11 +545,15 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
         decoder->VideoCtx->hwaccel_context =
             VideoGetHwAccelContext(decoder->HwDecoder);
     } else {
+	Debug(3, "codec: use SW decoding\n");
 	decoder->VideoCtx->get_format = Codec_get_format;
 	decoder->VideoCtx->get_buffer2 = Codec_get_buffer2;
 	decoder->VideoCtx->thread_count = 0;
 	decoder->VideoCtx->active_thread_type = 0;
 	decoder->VideoCtx->draw_horiz_band = NULL;
+        decoder->VideoCtx->hwaccel_context = NULL;
+        decoder->hwaccel_pix_fmt = AV_PIX_FMT_NONE;
+        decoder->active_hwaccel_id = HWACCEL_NONE;
     }
     //
     //	Prepare frame buffer for decoder

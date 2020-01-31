@@ -1151,6 +1151,20 @@ int VideoDecodeInput(VideoStream * stream)
 		    goto skip;
             }
             break;
+        case AV_CODEC_ID_CAVS:
+            if (stream->LastCodecID != AV_CODEC_ID_CAVS) {
+                stream->LastCodecID = AV_CODEC_ID_CAVS;
+                if (!CodecVideoOpen(stream->Decoder, AV_CODEC_ID_CAVS))
+		    goto skip;
+            }
+            break;
+        case AV_CODEC_ID_AVS2:
+            if (stream->LastCodecID != AV_CODEC_ID_AVS2) {
+                stream->LastCodecID = AV_CODEC_ID_AVS2;
+                if (!CodecVideoOpen(stream->Decoder, AV_CODEC_ID_AVS2))
+		    goto skip;
+            }
+            break;
 
 	default:
 	    break;
@@ -1622,11 +1636,15 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 			    ++check;
 			    ++z;
 			}
+#ifdef DEBUG
+			if (z >= 2 && l > 4)
+			    Debug(4, "!!!!! %d %x %x %x %x %x %d %d\n", z, check[0], check[1], check[2], check[3], check[4], l, is_start);
+#endif
 			// H264 NAL AUD Access Unit Delimiter (0x00) 0x00 0x00 0x01 0x09
 			// and next start code
-			if ((z >= 2 && check[0] == 0x01 && check[1] == 0x09 && !check[3] && !check[4]) ||
+			if (((z >= 2 && check[0] == 0x01 && check[1] == 0x09 && !check[3] && !check[4]) ||
 			// H264 NAL SEQ PARAMETER SET (0x00) 0x00 0x00 0x01 0x06
-			(z >=2 && check[0] == 0x01 && check[1] == 0x06 && is_start)) {
+			(z >=2 && check[0] == 0x01 && check[1] == 0x06 && is_start)) && l > 6) {
 			// old PES HDTV recording z == 2 -> stronger check!
 			    if (MyVideoStream->CodecID == AV_CODEC_ID_H264) {
 #ifdef DUMP_TRICKSPEED
@@ -1689,12 +1707,10 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 			    pesdx->PTS = AV_NOPTS_VALUE;
 			    break;
 			}
-			// PES start code 0x00 0x00 0x01 0x00|0xb3
-			if (z > 1 && check[0] == 0x01 && (!check[1] || check[1] == 0xb3)) {
+			// PES start code 0x00 0x00 0x01 0x00|(0xb3 0xXX 0xXX)
+			if (z > 1 && check[0] == 0x01 && (!check[1] || (check[1] == 0xb3 && check[2] && check[3]))) {
 			    if (MyVideoStream->CodecID == AV_CODEC_ID_MPEG2VIDEO) {
 				VideoNextPacket(MyVideoStream, AV_CODEC_ID_MPEG2VIDEO);
-				VideoMpegEnqueue(MyVideoStream, pesdx->PTS, pesdx->videoBuffer, pesdx->videoIndex);
-				pesdx->videoIndex=0;
 			    } else {
 				Debug(3, "video: mpeg2 detected ID %02x\n", check[3]);
 				MyVideoStream->CodecID = AV_CODEC_ID_MPEG2VIDEO;
@@ -1705,11 +1721,46 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 			    }
 #endif
 #ifdef USE_PIP
+			    VideoMpegEnqueue(MyVideoStream, pesdx->PTS, pesdx->videoBuffer, pesdx->videoIndex);
+			    pesdx->videoIndex=0;
 			    memcpy(pesdx->videoBuffer + pesdx->videoIndex, check - z, l + z);
 			    pesdx->videoIndex += l + z;
 #else
 			    VideoEnqueue(MyVideoStream, pesdx->PTS, check - z, l + z);
 #endif
+			    pesdx->Skip += n;
+			    pesdx->PTS = AV_NOPTS_VALUE;
+			    break;
+			}
+
+			// CAVS Codec
+			if (z >= 2 && check[0] == 0x01 && ((check[1] == 0xb0 && check[2] == 0x48) ||
+			(check[1] == 0xb6 &&  check[2] && check[3]))) {
+			    if (MyVideoStream->CodecID == AV_CODEC_ID_CAVS) {
+				VideoNextPacket(MyVideoStream, AV_CODEC_ID_CAVS);
+			    } else {
+				Debug(3, "video: cavs detected\n");
+				MyVideoStream->CodecID = AV_CODEC_ID_CAVS;
+			    }
+			    // (ffmpeg supports short start code)
+			    VideoEnqueue(MyVideoStream, pesdx->PTS, check - 2, l + 2);
+			    pesdx->Skip += n;
+			    pesdx->PTS = AV_NOPTS_VALUE;
+			    break;
+			}
+
+			// AVS2 Codec
+			if (z >= 2 && check[0] == 0x01 && ((check[1] == 0xb0 &&
+			(check[2] == 0x20 || check[2] == 0x22 || check[2] == 0x30 || check[2] == 0x32)) ||
+			((check[1] == 0xb3 || check[1] == 0xb6) && !check[2] && !check[3]))) {
+			    if (MyVideoStream->CodecID == AV_CODEC_ID_AVS2) {
+				VideoNextPacket(MyVideoStream, AV_CODEC_ID_AVS2);
+			    } else {
+				Debug(3, "video: avs2 detected\n");
+				MyVideoStream->CodecID = AV_CODEC_ID_AVS2;
+			    }
+			    // (ffmpeg supports short start code)
+			    VideoEnqueue(MyVideoStream, pesdx->PTS, check - 2, l + 2);
 			    pesdx->Skip += n;
 			    pesdx->PTS = AV_NOPTS_VALUE;
 			    break;
@@ -1725,6 +1776,16 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 			if (MyVideoStream->CodecID == AV_CODEC_ID_MPEG2VIDEO) {
 			    memcpy(pesdx->videoBuffer + pesdx->videoIndex, q, n);
 			    pesdx->videoIndex += n;
+#ifndef USE_MPEG_COMPLETE
+			    if ( pesdx->videoIndex< 65526) {
+			    // mpeg codec supports incomplete packets
+			    // waiting for a full complete packages, increases needed delays
+			    // PES recordings sends incomplete packets
+			    // incomplete packets  breaks the decoder for some stations
+			    // for the new USE_PIP code, this is only a very little improvement
+			        VideoNextPacket(MyVideoStream, AV_CODEC_ID_MPEG2VIDEO);
+			    }
+#endif
 			} else {
 			    VideoEnqueue(MyVideoStream, pesdx->PTS, q, n);
 			}
@@ -2477,7 +2538,7 @@ int PlayVideo3(VideoStream * stream, const uint8_t * data, int size)
     }
 
     // PES start code 0x00 0x00 0x01 0x00|0xb3
-    if (z > 1 && check[0] == 0x01 && (!check[1] || check[1] == 0xb3)) {
+    if (z > 1 && check[0] == 0x01 && (!check[1] || (check[1] == 0xb3 && check[2] && check[3]))) {
 	if (stream->CodecID == AV_CODEC_ID_MPEG2VIDEO) {
 	    VideoNextPacket(stream, AV_CODEC_ID_MPEG2VIDEO);
 	} else {
@@ -2497,6 +2558,21 @@ int PlayVideo3(VideoStream * stream, const uint8_t * data, int size)
 #endif
 	return size;
     }
+    // AVS2 Codec
+    if ((data[6] & 0xC0) == 0x80 && z >= 2 && check[0] == 0x01 && ((check[1] == 0xb0 &&
+	(check[2] == 0x20 || check[2] == 0x22 || check[2] == 0x30 || check[2] == 0x32)) ||
+	((check[1] == 0xb3 || check[1] == 0xb6) &&  !check[2] && !check[3]))) {
+	if (stream->CodecID == AV_CODEC_ID_AVS2) {
+	    VideoNextPacket(stream, AV_CODEC_ID_AVS2);
+	} else {
+	    Debug(3, "video: avs2 detected\n");
+	    stream->CodecID = AV_CODEC_ID_AVS2;
+	}
+	// SKIP PES header (ffmpeg supports short start code)
+	VideoEnqueue(stream, pts, check - 2, l + 2);
+	return size;
+    }
+
     // this happens when vdr sends incomplete packets
     if (stream->CodecID == AV_CODEC_ID_NONE) {
 	Debug(4, "video: not detected\n");

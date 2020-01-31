@@ -102,7 +102,6 @@ typedef struct _audio_decoder_ AudioDecoder;
 
     /// Flag prefer fast xhannel switch
 extern char CodecUsePossibleDefectFrames;
-extern const char *X11DisplayName;
 
 //----------------------------------------------------------------------------
 //	Prototypes

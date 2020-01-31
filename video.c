@@ -9050,9 +9050,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
         Debug(3, "\t%#010x %s\n", *fmt_idx, av_get_pix_fmt_name(*fmt_idx));
     }
 
-    Debug(3, "%s: codec %d fmts:\n", __FUNCTION__, video_ctx->codec_id);
     for (fmt_idx = fmt; *fmt_idx != AV_PIX_FMT_NONE; fmt_idx++) {
-	Debug(3, "\t%#010x %s\n", *fmt_idx, av_get_pix_fmt_name(*fmt_idx));
 	// check supported pixel format with entry point
 	switch (*fmt_idx) {
 #if LIBAVUTIL_VERSION_MAJOR < 56
@@ -9070,6 +9068,8 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	}
 	break;
     }
+    Debug(3, "%s: selected codec:\n", __FUNCTION__);
+    Debug(3, "\t%#010x %s\n", *fmt_idx, av_get_pix_fmt_name(*fmt_idx));
 
     if (*fmt_idx == AV_PIX_FMT_NONE) {
 	Error(_("video/vdpau: no valid vdpau pixfmt found\n"));
@@ -11740,23 +11740,25 @@ static void CuvidMixerSetup(CuvidDecoder * decoder)
     int mode, drop;
 
     if (decoder->video_ctx) {
-        if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceWeave) {
-    Debug(3, "video/cuvid: set weave");
-            mode = 0;
-            drop = 0;
-        } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceBob) {
-    Debug(3, "video/cuvid: set bob");
-            mode = 1;
-            drop = 1;
-        } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceTemporal) {
-    Debug(3, "video/cuvid: set adap");
-            mode = 2;
-            drop = 0;
-        }
-        if (av_opt_set_int(decoder->video_ctx->priv_data, "deint", mode, 0) < 0)
-            Debug(3,"Can't set deinterlace mode\n");
-        if (av_opt_set(decoder->video_ctx->priv_data, "drop_second_field", drop ? "true" : "false", 0) < 0)
-            Debug(3,"Can't set drop second field to false\n");
+        if (decoder->PixFmt == AV_PIX_FMT_NV12) {
+            if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceWeave) {
+                Debug(3, "video/cuvid: set weave");
+                mode = 0;
+                drop = 0;
+            } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceBob) {
+                Debug(3, "video/cuvid: set bob");
+                mode = 1;
+                drop = 1;
+            } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceTemporal) {
+                Debug(3, "video/cuvid: set adap");
+                mode = 2;
+                drop = 0;
+            }
+            if (av_opt_set_int(decoder->video_ctx->priv_data, "deint", mode, 0) < 0)
+                Debug(3,"Can't set deinterlace mode\n");
+            if (av_opt_set(decoder->video_ctx->priv_data, "drop_second_field", drop ? "true" : "false", 0) < 0)
+                Debug(3,"Can't set drop second field to false\n");
+        }//else soft deinterlace
     }
 }
 
@@ -11956,7 +11958,9 @@ static int CuvidInit(const char *display_name)
         return 0;
     }
     pthread_mutex_init(&CuvidGrabMutex, NULL);
+#ifdef USE_GRAB
     glGenBuffers(1,&grab_buffer);
+#endif
     GlxCheck();
 
     Info(_("video/cuvid: Start NVDEC (CUVID) ok\n"));
@@ -11979,7 +11983,9 @@ static void CuvidExit(void)
     }
     CuvidDecoderN = 0;
     pthread_mutex_destroy(&CuvidGrabMutex);
+#ifdef USE_GRAB
     glDeleteBuffers(1, &grab_buffer);
+#endif
     CuvidDevice = NULL;
     cuda_free_functions(&cu);
 }
@@ -12089,9 +12095,7 @@ static enum AVPixelFormat Cuvid_get_format(CuvidDecoder * decoder,
         Debug(3, "\t%#010x %s\n", *fmt_idx, av_get_pix_fmt_name(*fmt_idx));
     }
 
-    Debug(3, "%s: codec %d fmts:\n", __FUNCTION__, video_ctx->codec_id);
     for (fmt_idx = fmt; *fmt_idx != AV_PIX_FMT_NONE; fmt_idx++) {
-	Debug(3, "\t%#010x %s\n", *fmt_idx, av_get_pix_fmt_name(*fmt_idx));
 	// check supported pixel format with entry point
 	switch (*fmt_idx) {
 	    case AV_PIX_FMT_P010LE:
@@ -12102,6 +12106,8 @@ static enum AVPixelFormat Cuvid_get_format(CuvidDecoder * decoder,
 	}
 	break;
     }
+    Debug(3, "%s: selected codec:\n", __FUNCTION__);
+    Debug(3, "\t%#010x %s\n", *fmt_idx, av_get_pix_fmt_name(*fmt_idx));
 
     if (*fmt_idx == AV_PIX_FMT_NONE) {
 	Error(_("video/cuvid: no valid cuvid pixfmt found\n"));
@@ -12109,9 +12115,8 @@ static enum AVPixelFormat Cuvid_get_format(CuvidDecoder * decoder,
     }
 
     decoder->PixFmt = *fmt_idx;
-    ist->hwaccel_output_format = *fmt_idx;
     ist->active_hwaccel_id = HWACCEL_CUVID;
-    ist->hwaccel_pix_fmt   = AV_PIX_FMT_CUDA;
+    ist->hwaccel_pix_fmt = AV_PIX_FMT_CUDA;
     video_ctx->draw_horiz_band = NULL;
     video_ctx->slice_flags = 0;
     decoder->video_ctx = video_ctx;
@@ -12133,6 +12138,7 @@ static enum AVPixelFormat Cuvid_get_format(CuvidDecoder * decoder,
     // no accelerated format found
 
     ist->active_hwaccel_id = HWACCEL_NONE;
+    ist->hwaccel_pix_fmt   = AV_PIX_FMT_NONE;
 
     decoder->SurfacesNeeded = VIDEO_SURFACES_MAX * 2 + 2;
     decoder->PixFmt = AV_PIX_FMT_NONE;
@@ -12231,7 +12237,6 @@ static uint8_t *CuvidGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int 
 			return NULL;
 		}
 		
-
 //TODO grab
 		Debug(3,"got grab data\n");
 
@@ -12568,11 +12573,14 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
     //
     // Check image, format, size
     //
-    if (/*decoder->PixFmt != video_ctx->pix_fmt
-        ||*/ video_ctx->width != decoder->InputWidth
-        || video_ctx->height != decoder->InputHeight) {
 
-    //    decoder->PixFmt = video_ctx->pix_fmt;
+    if (ist->hwaccel_pix_fmt != video_ctx->pix_fmt
+        || video_ctx->width != decoder->InputWidth
+        || video_ctx->height != decoder->InputHeight) {
+        if (video_ctx->pix_fmt != AV_PIX_FMT_CUDA) { // for softdecode
+            decoder->PixFmt = video_ctx->pix_fmt;
+            ist->hwaccel_pix_fmt = video_ctx->pix_fmt;
+        }
         decoder->InputWidth = video_ctx->width;
         decoder->InputHeight = video_ctx->height;
 
@@ -12678,7 +12686,7 @@ static void *CuvidGetHwAccelContext(CuvidDecoder * decoder)
 
     cu->cuCtxPushCurrent(decoder->cu_ctx);
 
-    return NULL;
+    return decoder->cu_ctx;
 }
 
 static void CuvidMixVideo(CuvidDecoder * decoder, int level)

@@ -54,7 +54,7 @@ CONFIG += -DAV_INFO -DAV_INFO_TIME=3000	# info/debug a/v sync
 CONFIG += -DUSE_PIP			# PIP support
 CONFIG += -DHAVE_PTHREAD_NAME		# supports new pthread_setname_np
 CONFIG += -DUSE_TS			# build ts parser
-#CONFIG += -DUSE_MPEG_COMPLETE		# support only complete mpeg packets
+CONFIG += -DUSE_MPEG_COMPLETE		# support only complete mpeg packets
 CONFIG += -DH264_EOS_TRICKSPEED		# insert seq end packets for trickspeed
 #CONDIF += -DDUMP_TRICKSPEED		# dump trickspeed packets
 #CONFIG += -DUSE_BITMAP			# VDPAU, use bitmap surface for OSD
