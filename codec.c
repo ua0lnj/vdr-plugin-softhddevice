@@ -708,7 +708,7 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 	    video_ctx->frame_number, used);
     }
 
-#if 0
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,37,100)
     // old code to support truncated or multi frame packets
     if (used != pkt->size) {
 	// ffmpeg 0.8.7 dislikes our seq_end_h264 and enters endless loop here
@@ -1568,6 +1568,7 @@ int myavcodec_decode_audio3(AVCodecContext *avctx, int16_t *samples, int *frame_
 	return AVERROR(ENOMEM);
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,37,100)
     ret = avcodec_decode_audio4(avctx, frame, &got_frame, avpkt);
+    if (ret < 0) return ret;
 #else
 //  SUGGESTION
 //  Now that avcodec_decode_audio4 is deprecated and replaced
@@ -1575,44 +1576,42 @@ int myavcodec_decode_audio3(AVCodecContext *avctx, int16_t *samples, int *frame_
 //  into separate routines or separate threads.
 //  Also now that it always consumes a whole buffer some code
 //  in the caller may be able to be optimized.
-    ret = avcodec_receive_frame(avctx,frame);
-    if (ret == 0)
-        got_frame = true;
-    if (ret == AVERROR(EAGAIN))
-        ret = 0;
-    if (ret == 0)
-        ret = avcodec_send_packet(avctx, avpkt);
-    if (ret == AVERROR(EAGAIN))
-        ret = 0;
-    else if (ret < 0)
-    {
-        Debug(3, "codec/audio: audio decode error: %1 (%2)\n",av_make_error_string(error, sizeof(error), ret),got_frame);
+    ret = avcodec_send_packet(avctx, avpkt);
+    if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF)
         return ret;
-    }
-    else
-        ret = avpkt->size;
+
+    while (!ret) { //multiple frames
+        ret = avcodec_receive_frame(avctx,frame);
+        if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF)
+            return ret;
+        if (ret>=0)
+            got_frame = 1;
+        else got_frame = 0;
 #endif
-    if (ret >= 0 && got_frame) {
-	int i, ch;
-	int planar = av_sample_fmt_is_planar(avctx->sample_fmt);
-	int data_size = av_get_bytes_per_sample(avctx->sample_fmt);
-	if (data_size < 0) {
-	    /* This should not occur, checking just for paranoia */
-	    fprintf(stderr, "Failed to calculate data size\n");
-	    exit(1);
-	}
-	for (i = 0; i < frame->nb_samples; i++)
-	    for (ch = 0; ch < avctx->channels; ch++) {
-		memcpy(samples, frame->extended_data[ch] + data_size * i, data_size);
-		samples = (char *)samples + data_size;
+        if (got_frame) {
+	    int i, ch;
+	    int planar = av_sample_fmt_is_planar(avctx->sample_fmt);
+	    int data_size = av_get_bytes_per_sample(avctx->sample_fmt);
+	    if (data_size < 0) {
+	        /* This should not occur, checking just for paranoia */
+	        fprintf(stderr, "Failed to calculate data size\n");
+	        exit(1);
 	    }
-	*frame_size_ptr = data_size * avctx->channels * frame->nb_samples;
-    } else {
-	*frame_size_ptr = 0;
+	    for (i = 0; i < frame->nb_samples; i++)
+	        for (ch = 0; ch < avctx->channels; ch++) {
+		    memcpy(samples, frame->extended_data[ch] + data_size * i, data_size);
+		    samples = (char *)samples + data_size;
+	        }
+	    *frame_size_ptr = data_size * avctx->channels * frame->nb_samples;
+        } else {
+	    *frame_size_ptr = 0;
+        }
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57,37,100)
     }
+#endif
     av_frame_free(&frame);
     return ret;
- }
+}
 
 /**
 **	Decode an audio packet.
@@ -1964,7 +1963,7 @@ void CodecAudioDecode(AudioDecoder * audio_decoder, const AVPacket * avpkt)
     AVFrame *frame;
 #endif
     int got_frame;
-    int n, ret;
+    int ret;
 
     audio_ctx = audio_decoder->AudioCtx;
 
@@ -1979,9 +1978,10 @@ void CodecAudioDecode(AudioDecoder * audio_decoder, const AVPacket * avpkt)
 #endif
 
     got_frame = 0;
-#if 0
-    n = avcodec_decode_audio4(audio_ctx, frame, &got_frame,
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,37,100)
+    ret = avcodec_decode_audio4(audio_ctx, frame, &got_frame,
         (AVPacket *) avpkt);
+    if (ret < 0) return;
 #else
 //  SUGGESTION
 //  Now that avcodec_decode_audio4 is deprecated and replaced
@@ -1989,121 +1989,98 @@ void CodecAudioDecode(AudioDecoder * audio_decoder, const AVPacket * avpkt)
 //  into separate routines or separate threads.
 //  Also now that it always consumes a whole buffer some code
 //  in the caller may be able to be optimized.
-    ret = avcodec_receive_frame(audio_ctx,frame);
-    if (ret == 0)
-        got_frame = 1;
-    if (ret == AVERROR(EAGAIN))
-        ret = 0;
-    if (ret == 0)
-        ret = avcodec_send_packet(audio_ctx, avpkt);
-    if (ret == AVERROR(EAGAIN))
-        ret = 0;
-    else if (ret < 0)
-    {
-//        Debug(3, "codec/audio: audio decode error: %1 (%2)\n",av_make_error_string(error, sizeof(error), ret),got_frame);
+    ret = avcodec_send_packet(audio_ctx, avpkt);
+    if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF)
         return;
-    }
-    else
-        ret = avpkt->size;
-    n = ret; //FIXME: why n and not ret??
+
+    while (!ret) { //multiple frames
+        ret = avcodec_receive_frame(audio_ctx,frame);
+        if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF)
+            return;
+        if (ret>=0)
+            got_frame = 1;
+        else got_frame = 0;
 #endif
-    if (n != avpkt->size) {
-	if (n == AVERROR(EAGAIN)) {
-	    Error(_("codec/audio: latm\n"));
-	    return;
-	}
-	if (n < 0) {			// no audio frame could be decompressed
-	    Error(_("codec/audio: bad audio frame\n"));
-	    return;
-	}
-	Error(_("codec/audio: error more than one frame data\n"));
-    }
-    if (!got_frame) {
-	Error(_("codec/audio: no frame\n"));
-	return;
-    }
-    // update audio clock
-    if (avpkt->pts != (int64_t) AV_NOPTS_VALUE) {
-	CodecAudioSetClock(audio_decoder, avpkt->pts);
-    }
-    // format change
-    if (audio_decoder->Passthrough != CodecPassthrough
-	|| audio_decoder->SampleRate != audio_ctx->sample_rate
-	|| audio_decoder->Channels != audio_ctx->channels) {
-	CodecAudioUpdateFormat(audio_decoder);
-    }
+        if(got_frame) {
+            // update audio clock
+            if (avpkt->pts != (int64_t) AV_NOPTS_VALUE) {
+                CodecAudioSetClock(audio_decoder, avpkt->pts);
+            }
+            // format change
+            if (audio_decoder->Passthrough != CodecPassthrough
+            || audio_decoder->SampleRate != audio_ctx->sample_rate
+            || audio_decoder->Channels != audio_ctx->channels) {
+                CodecAudioUpdateFormat(audio_decoder);
+            }
 
-    if (!audio_decoder->HwSampleRate || !audio_decoder->HwChannels) {
-	return;				// unsupported sample format
-    }
+            if (!audio_decoder->HwSampleRate || !audio_decoder->HwChannels) {
+                return;                        // unsupported sample format
+            }
 
-    if (CodecAudioPassthroughHelper(audio_decoder, avpkt)) {
-	return;
-    }
+            if (CodecAudioPassthroughHelper(audio_decoder, avpkt)) {
+                return;
+            }
 
-    if (0) {
-	char strbuf[32];
-	int data_sz;
-	int plane_sz;
+            if (0) {
+                char strbuf[32];
+                int data_sz;
+                int plane_sz;
 
-	data_sz =
-	    av_samples_get_buffer_size(&plane_sz, audio_ctx->channels,
-	    frame->nb_samples, audio_ctx->sample_fmt, 1);
-	fprintf(stderr, "codec/audio: sample_fmt %s\n",
-	    av_get_sample_fmt_name(audio_ctx->sample_fmt));
-	av_get_channel_layout_string(strbuf, 32, audio_ctx->channels,
-	    audio_ctx->channel_layout);
-	fprintf(stderr, "codec/audio: layout %s\n", strbuf);
-	fprintf(stderr,
-	    "codec/audio: channels %d samples %d plane %d data %d\n",
-	    audio_ctx->channels, frame->nb_samples, plane_sz, data_sz);
-    }
+                data_sz =
+                    av_samples_get_buffer_size(&plane_sz, audio_ctx->channels,
+                    frame->nb_samples, audio_ctx->sample_fmt, 1);
+                fprintf(stderr, "codec/audio: sample_fmt %s\n",
+                av_get_sample_fmt_name(audio_ctx->sample_fmt));
+                av_get_channel_layout_string(strbuf, 32, audio_ctx->channels,
+                audio_ctx->channel_layout);
+                fprintf(stderr, "codec/audio: layout %s\n", strbuf);
+                fprintf(stderr,
+                    "codec/audio: channels %d samples %d plane %d data %d\n",
+                    audio_ctx->channels, frame->nb_samples, plane_sz, data_sz);
+            }
 #ifdef USE_SWRESAMPLE
-    if (audio_decoder->Resample && frame->nb_samples > 1000) {
-	uint8_t outbuf[8192 * 2 * 8];
-	uint8_t *out[1];
+            if (audio_decoder->Resample && frame->nb_samples > 1000) {
+                uint8_t outbuf[8192 * 2 * 8];
+                uint8_t *out[1];
 
-	out[0] = outbuf;
-	n = swr_convert(audio_decoder->Resample, out,
-	    sizeof(outbuf) / (2 * audio_decoder->HwChannels),
-	    (const uint8_t **)frame->extended_data, frame->nb_samples);
-	if (n > 0) {
-	    if (!(audio_decoder->Passthrough & CodecPCM)) {
-		CodecReorderAudioFrame((int16_t *) outbuf,
-		    n * 2 * audio_decoder->HwChannels,
-		    audio_decoder->HwChannels);
-	    }
-	    AudioEnqueue(outbuf, n * 2 * audio_decoder->HwChannels);
-	}
-	return;
-    }
+                out[0] = outbuf;
+                ret = swr_convert(audio_decoder->Resample, out,
+                    sizeof(outbuf) / (2 * audio_decoder->HwChannels),
+                    (const uint8_t **)frame->extended_data, frame->nb_samples);
+                if (ret > 0) {
+                    if (!(audio_decoder->Passthrough & CodecPCM)) {
+                        CodecReorderAudioFrame((int16_t *) outbuf,
+                            ret * 2 * audio_decoder->HwChannels,
+                            audio_decoder->HwChannels);
+                    }
+                    AudioEnqueue(outbuf, ret * 2 * audio_decoder->HwChannels);
+                }
+            }
 #endif
 
 #ifdef USE_AVRESAMPLE
-    if (audio_decoder->Resample) {
-	uint8_t outbuf[8192 * 2 * 8];
-	uint8_t *out[1];
+            if (audio_decoder->Resample) {
+                uint8_t outbuf[8192 * 2 * 8];
+                uint8_t *out[1];
 
-	out[0] = outbuf;
-	n = avresample_convert(audio_decoder->Resample, out, 0,
-	    sizeof(outbuf) / (2 * audio_decoder->HwChannels),
-	    (uint8_t **) frame->extended_data, 0, frame->nb_samples);
-	// FIXME: set out_linesize, in_linesize correct
-	if (n > 0) {
-	    if (!(audio_decoder->Passthrough & CodecPCM)) {
-		CodecReorderAudioFrame((int16_t *) outbuf,
-		    n * 2 * audio_decoder->HwChannels,
-		    audio_decoder->HwChannels);
-	    }
-	    AudioEnqueue(outbuf, n * 2 * audio_decoder->HwChannels);
-	}
-	return;
-    }
+                out[0] = outbuf;
+                ret = avresample_convert(audio_decoder->Resample, out, 0,
+                    sizeof(outbuf) / (2 * audio_decoder->HwChannels),
+                    (uint8_t **) frame->extended_data, 0, frame->nb_samples);
+                // FIXME: set out_linesize, in_linesize correct
+                if (ret > 0) {
+                    if (!(audio_decoder->Passthrough & CodecPCM)) {
+                    CodecReorderAudioFrame((int16_t *) outbuf,
+                        ret * 2 * audio_decoder->HwChannels,
+                        audio_decoder->HwChannels);
+                    }
+                    AudioEnqueue(outbuf, ret * 2 * audio_decoder->HwChannels);
+                }
+            }
 #endif
-
-#ifdef DEBUG
-    // should be never reached
-    fprintf(stderr, "oops\n");
+        }
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57,37,100)
+    }
 #endif
 }
 
