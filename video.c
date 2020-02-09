@@ -10449,7 +10449,7 @@ static void VdpauDisplayFrame(void)
 	    if ((VideoShowBlackPicture && !decoder->TrickSpeed)
 		|| (VideoShowBlackPicture && decoder->Closing < -300)) {
 		VdpauBlackSurface(decoder);
-		VdpauMessage(3, "video/vdpau: black surface displayed\n");
+		VdpauMessage(4, "video/vdpau: black surface displayed\n");
 #ifdef USE_SCREENSAVER
 		if (EnableDPMSatBlackScreen && DPMSDisabled) {
 		    VdpauMessage(3, "Black surface, DPMS enabled\n");
@@ -10706,6 +10706,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    VdpauAdvanceDecoderFrame(decoder);
 	    if (VideoSoftStartSync) {
 		decoder->SyncCounter = 1;
+		goto out;
 	    }
 	}
 #if defined(DEBUG) || defined(AV_INFO)
@@ -12770,7 +12771,7 @@ static void CuvidAdvanceDecoderFrame(CuvidDecoder * decoder)
 	    // keep use of last surface
 	    ++decoder->FramesDuped;
 	    // FIXME: don't warn after stream start, don't warn during pause
-	    Debug(3,"video: display buffer empty, duping frame (%d/%d) %d\n",
+	    Debug(4,"video: display buffer empty, duping frame (%d/%d) %d\n",
 		decoder->FramesDuped, decoder->FrameCounter,
 		VideoGetBuffers(decoder->Stream));
 	    return;
@@ -13104,6 +13105,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    CuvidAdvanceDecoderFrame(decoder);
 	    if (VideoSoftStartSync) {
 		decoder->SyncCounter = 1;
+		goto out;
 	    }
 	}
 #if defined(DEBUG) || defined(AV_INFO)
