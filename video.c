@@ -991,12 +991,12 @@ static void GlxOsdInit(int width, int height)
     int i;
     // not init with openglosd
     if (OsdGlTexture) return;
-#ifdef DEBUG
+
     if (!GlxEnabled) {
 	Debug(3, "video/glx: %s called without glx enabled\n", __FUNCTION__);
 	return;
     }
-#endif
+
     Debug(3, "video/glx: osd init context %p <-> %p\n", glXGetCurrentContext(),
 	GlxContext);
 
@@ -1057,11 +1057,11 @@ static void GlxOsdDrawARGB(int xi, int yi, int width, int height, int pitch,
     uint32_t end;
 #endif
 
-#ifdef DEBUG
     if (!GlxEnabled) {
 	Debug(3, "video/glx: %s called without glx enabled\n", __FUNCTION__);
 	return;
     }
+#ifdef DEBUG
     start = GetMsTicks();
     Debug(3, "video/glx: osd context %p <-> %p\n", glXGetCurrentContext(),
 	GlxContext);
@@ -1105,7 +1105,7 @@ static void GlxOsdClear(void)
     void *texbuf;
 
     if (!GlxContext || OsdGlTexture) return;
-#ifdef DEBUG
+
     if (!GlxEnabled) {
 	Debug(3, "video/glx: %s called without glx enabled\n", __FUNCTION__);
 	return;
@@ -1113,7 +1113,7 @@ static void GlxOsdClear(void)
 
     Debug(3, "video/glx: osd context %p <-> %p\n", glXGetCurrentContext(),
 	GlxContext);
-#endif
+
     // FIXME: any opengl function to clear an area?
     // FIXME: if not; use zero buffer
     // FIXME: if not; use dirty area
@@ -1207,13 +1207,11 @@ static void GlxSetupWindow(xcb_window_t window, int width, int height,
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-#ifdef DEBUG
 #ifdef USE_DOUBLEBUFFER
     glDrawBuffer(GL_FRONT);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     glDrawBuffer(GL_BACK);
-#endif
 #endif
 
     // clear
