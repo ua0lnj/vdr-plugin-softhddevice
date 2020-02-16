@@ -1158,6 +1158,7 @@ int VideoDecodeInput(VideoStream * stream)
 		    goto skip;
             }
             break;
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58,21,100)
         case AV_CODEC_ID_AVS2:
             if (stream->LastCodecID != AV_CODEC_ID_AVS2) {
                 stream->LastCodecID = AV_CODEC_ID_AVS2;
@@ -1165,7 +1166,7 @@ int VideoDecodeInput(VideoStream * stream)
 		    goto skip;
             }
             break;
-
+#endif
 	default:
 	    break;
     }
@@ -1748,7 +1749,7 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 			    pesdx->PTS = AV_NOPTS_VALUE;
 			    break;
 			}
-
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58,21,100)
 			// AVS2 Codec
 			if (z >= 2 && check[0] == 0x01 && ((check[1] == 0xb0 &&
 			(check[2] == 0x20 || check[2] == 0x22 || check[2] == 0x30 || check[2] == 0x32)) ||
@@ -1765,7 +1766,7 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 			    pesdx->PTS = AV_NOPTS_VALUE;
 			    break;
 			}
-
+#endif
 			if (MyVideoStream->CodecID == AV_CODEC_ID_NONE) {
 			    Debug(4, "video: not detected\n");
 			    pesdx->Skip += n;
@@ -2558,6 +2559,7 @@ int PlayVideo3(VideoStream * stream, const uint8_t * data, int size)
 #endif
 	return size;
     }
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58,21,100)
     // AVS2 Codec
     if ((data[6] & 0xC0) == 0x80 && z >= 2 && check[0] == 0x01 && ((check[1] == 0xb0 &&
 	(check[2] == 0x20 || check[2] == 0x22 || check[2] == 0x30 || check[2] == 0x32)) ||
@@ -2572,7 +2574,7 @@ int PlayVideo3(VideoStream * stream, const uint8_t * data, int size)
 	VideoEnqueue(stream, pts, check - 2, l + 2);
 	return size;
     }
-
+#endif
     // this happens when vdr sends incomplete packets
     if (stream->CodecID == AV_CODEC_ID_NONE) {
 	Debug(4, "video: not detected\n");
