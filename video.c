@@ -12935,8 +12935,8 @@ static int64_t CuvidGetClock(const CuvidDecoder * decoder)
 	    20 * 90 * (2 * atomic_read(&decoder->SurfacesFilled)
 	    - decoder->SurfaceField - 2 + 2);
     }
-    // + 2 in driver queue
-    return decoder->PTS - 20 * 90 * (atomic_read(&decoder->SurfacesFilled) +2);
+    // + 4 in driver queue
+    return decoder->PTS - 20 * 90 * (atomic_read(&decoder->SurfacesFilled) +4);
 }
 
 ///
