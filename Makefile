@@ -158,8 +158,6 @@ ifeq ($(CUVID),1)
 ifeq ($(FFNVCODEC),1)
 ifeq ($(OPENGL),1)
 CONFIG += -DUSE_CUVID
-LDFLAGS += -L/usr/lib/x86_64-linux-gnu
-LIBS += -lcuda
 endif
 endif
 endif
