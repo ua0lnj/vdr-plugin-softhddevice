@@ -10593,6 +10593,7 @@ void VdpauGetStats(VdpauDecoder * decoder, int *missed, int *duped,
     *counter = decoder->FrameCounter;
 }
 
+void AudioFlushBuffers(void);
 ///
 ///	Sync decoder output to audio.
 ///
@@ -10684,30 +10685,33 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	}
 
 	if (abs(diff) > 5000 * 90) {	// more than 5s
-	    err = VdpauMessage(2, "video: audio/video difference too big\n");
+	    err = VdpauMessage(3, "video: audio/video difference too big\n");
 	} else if (diff > 100 * 90) {
 	    // FIXME: this quicker sync step, did not work with new code!
 	    err = VdpauMessage(2, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
 	    if (VideoSoftStartSync) {
-		decoder->SyncCounter = 1;
+//		decoder->SyncCounter = 1;
 		goto out;
 	    }
 	} else if (diff > 55 * 90) {
-	    err = VdpauMessage(2, "video: slow down video, duping frame\n");
+	    err = VdpauMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
 	    if (VideoSoftStartSync) {
 		decoder->SyncCounter = 1;
 		goto out;
 	    }
 	} else if (diff < lower_limit * 90 && filled > 1 + 2 * decoder->Interlaced) {
-	    err = VdpauMessage(2, "video: speed up video, droping frame\n");
+	    err = VdpauMessage(3, "video: speed up video, droping frame\n");
 	    ++decoder->FramesDropped;
 	    VdpauAdvanceDecoderFrame(decoder);
 	    if (VideoSoftStartSync) {
 		decoder->SyncCounter = 1;
 		goto out;
 	    }
+	} else if (diff < lower_limit * 90) {
+		err = VdpauMessage(3, "video: speed up audio, flush audio\n");
+		AudioFlushBuffers();
 	}
 #if defined(DEBUG) || defined(AV_INFO)
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
@@ -10730,7 +10734,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    ++decoder->FramesDuped;
 	    // FIXME: don't warn after stream start, don't warn during pause
 	    err =
-		VdpauMessage(1,
+		VdpauMessage(3,
 		_("video: decoder buffer empty, "
 		    "duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
 		decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
@@ -12992,6 +12996,7 @@ void CuvidGetStats(CuvidDecoder * decoder, int *missed, int *duped,
     *counter = decoder->FrameCounter;
 }
 
+void AudioFlushBuffers(void);
 ///
 ///	Sync decoder output to audio.
 ///
@@ -13089,7 +13094,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    err = CuvidMessage(3, "video: slow down video, duping frame %d\n",diff);
 	    ++decoder->FramesDuped;
 	    if (VideoSoftStartSync) {
-		decoder->SyncCounter = 1;
+//		decoder->SyncCounter = 1;
 		goto out;
 	    }
 	} else if (diff > 55 * 90) {
@@ -13107,6 +13112,9 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 		decoder->SyncCounter = 1;
 		goto out;
 	    }
+	} else if (diff < lower_limit * 90) {
+		err = CuvidMessage(3, "video: speed up audio, flush audio\n");
+		AudioFlushBuffers();
 	}
 #if defined(DEBUG) || defined(AV_INFO)
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
