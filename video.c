@@ -10707,7 +10707,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    VdpauAdvanceDecoderFrame(decoder);
 	    if (VideoSoftStartSync) {
 		decoder->SyncCounter = 1;
-		goto out;
+//		goto out;
 	    }
 	} else if (diff < lower_limit * 90) {
 		err = VdpauMessage(3, "video: speed up audio, flush audio\n");
@@ -13109,7 +13109,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    CuvidAdvanceDecoderFrame(decoder);
 	    if (VideoSoftStartSync) {
 		decoder->SyncCounter = 1;
-		goto out;
+//		goto out;
 	    }
 	} else if (diff < lower_limit * 90) {
 		err = CuvidMessage(3, "video: speed up audio, flush audio\n");
