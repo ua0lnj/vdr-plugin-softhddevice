@@ -11847,8 +11847,7 @@ static CuvidDecoder *CuvidNewHwDecoder(VideoStream * stream)
     if (CUStatus(cu->cuCtxCreate(&decoder->cu_ctx, (unsigned int) CU_CTX_SCHED_BLOCKING_SYNC, CuvidDevice)))
         Error(_("video/cuvid: CUDA context create failed"));
 
-    cuCtxGetApiVersion(decoder->cu_ctx,&version);
-    Debug(3, "CUDA API Version %d\n",version);
+    Debug(3, "CUDA API Version %d\n", CUDA_VERSION);
 
     return decoder;
 }
