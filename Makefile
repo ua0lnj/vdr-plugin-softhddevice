@@ -38,10 +38,10 @@ SWRESAMPLE = 0
 endif
 endif
     # support CUVID (NVdec) video decoder with vdpau render
-ifeq ($(shell lspci|grep -Ei "VGA|3D" |grep -c NVIDIA),1)
+#ifeq ($(shell lspci|grep -Ei "VGA|3D" |grep -c NVIDIA),1)
 CUVID ?= $(shell ffmpeg -loglevel quiet -hwaccels | grep -c cuvid)
 FFNVCODEC ?= $(shell pkg-config --exists ffnvcodec && echo 1)
-endif
+#endif
     # use opengl for OSD
 OPENGLOSD ?= $(shell pkg-config --exists glew glu freetype2 && echo 1)
 
