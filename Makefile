@@ -37,7 +37,7 @@ SWRESAMPLE = 0
 #AVRESAMPLE = 0
 endif
 endif
-    # support CUVID (NVdec) video decoder with vdpau render
+    # support CUVID (NVdec) video decoder
 #ifeq ($(shell lspci|grep -Ei "VGA|3D" |grep -c NVIDIA),1)
 CUVID ?= $(shell ffmpeg -loglevel quiet -hwaccels | grep -c cuvid)
 FFNVCODEC ?= $(shell pkg-config --exists ffnvcodec && echo 1)

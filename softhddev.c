@@ -2991,7 +2991,7 @@ void StillPicture(const uint8_t * data, int size)
     VideoResetPacket(MyVideoStream);
     old_video_hardware_decoder = VideoHardwareDecoder;
     // enable/disable hardware decoder for still picture
-    if (VideoHardwareDecoder != ConfigStillDecoder || VideoIsDriverCuvid()) {
+    if (VideoHardwareDecoder != ConfigStillDecoder) {
 	VideoHardwareDecoder = ConfigStillDecoder;
 	VideoNextPacket(MyVideoStream, AV_CODEC_ID_NONE);	// close last stream
     }

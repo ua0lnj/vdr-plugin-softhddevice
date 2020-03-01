@@ -6866,7 +6866,7 @@ static void VaapiDisplayHandlerThread(void)
 	    if (err == -1 && decoder->Closing) {
 		decoder->Closing--;
 		if (!decoder->Closing) {
-		    Debug(3, "video/vdpau: closing eof\n");
+		    Debug(3, "video/vaapi: closing eof\n");
 		    decoder->Closing = -1;
 		}
 	    }
@@ -9944,6 +9944,7 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 		data, pitches);
 	    data[1] = frame->data[2];
 	    data[2] = frame->data[1];
+	    sws_freeContext(img_convert_ctx);
 	}
 #endif
 
@@ -12566,7 +12567,6 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
 	CuvidUpdateOutput(decoder);
     }
 
-    decoder->Closing = 0;
     color = frame->colorspace;
     if (color == AVCOL_SPC_UNSPECIFIED)   // if unknown
         color = AVCOL_SPC_BT709;
