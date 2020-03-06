@@ -10689,7 +10689,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    err = VdpauMessage(3, "video: audio/video difference too big\n");
 	} else if (diff > 100 * 90) {
 	    // FIXME: this quicker sync step, did not work with new code!
-	    err = VdpauMessage(2, "video: slow down video, duping frame\n");
+	    err = VdpauMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
 	    if (VideoSoftStartSync) {
 //		decoder->SyncCounter = 1;
