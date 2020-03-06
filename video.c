@@ -11933,7 +11933,7 @@ static int CuvidInit(const char *display_name)
     unsigned int device_count;
     int ret;
 
-    Info(_("video/cuvid: Start NVDEC (CUVID)\n"));
+    Info(_("video/cuvid: Start CUVID\n"));
 
     GlxEnabled = 1;
 
@@ -11968,7 +11968,7 @@ static int CuvidInit(const char *display_name)
 #endif
     GlxCheck();
 
-    Info(_("video/cuvid: Start NVDEC (CUVID) ok\n"));
+    Info(_("video/cuvid: Start CUVID ok\n"));
     return 1;
 }
 

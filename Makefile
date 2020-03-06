@@ -37,9 +37,9 @@ SWRESAMPLE = 0
 #AVRESAMPLE = 0
 endif
 endif
-    # support CUVID (NVdec) video decoder
+    # support CUVID video decoder
 #ifeq ($(shell lspci|grep -Ei "VGA|3D" |grep -c NVIDIA),1)
-CUVID ?= $(shell ffmpeg -loglevel quiet -hwaccels | grep -c cuvid)
+CUVID ?= $(shell ffmpeg -loglevel quiet -decoders | grep -c cuvid)
 FFNVCODEC ?= $(shell pkg-config --exists ffnvcodec && echo 1)
 #endif
     # use opengl for OSD
@@ -154,7 +154,7 @@ CONFIG += -DUSE_AVRESAMPLE
 _CFLAGS += $(shell pkg-config --cflags libavresample)
 LIBS += $(shell pkg-config --libs libavresample)
 endif
-ifeq ($(CUVID),1)
+ifneq ($(CUVID),0)
 ifeq ($(FFNVCODEC),1)
 ifeq ($(OPENGL),1)
 CONFIG += -DUSE_CUVID

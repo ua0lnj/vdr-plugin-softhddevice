@@ -20,8 +20,8 @@ $Id$
 
 A software and GPU emulated HD output device plugin for VDR.
 
-    o Video decoder CPU / VA-API / VDPAU / NVDEC
-    o Video output VDPAU / GLX (VA-API NVDEC)
+    o Video decoder CPU / VA-API / VDPAU / CUVID
+    o Video output VDPAU / GLX (VA-API CUVID)
     o Audio FFMpeg / Alsa / Analog
     o Audio FFMpeg / Alsa / Digital
     o Audio FFMpeg / OSS / Analog
@@ -70,7 +70,7 @@ Install:
 	make
 	make install
 
-	You can edit Makefile to enable/disable VDPAU / VA-API / NVDEC / Alsa / OSS
+	You can edit Makefile to enable/disable VDPAU / VA-API / CUVID / Alsa / OSS
 	support.  The default is to autodetect as much as possible.
 
 Setup:	environment
@@ -407,7 +407,7 @@ Requires:
 		VDPAU wrapper and trace libraries
 		http://www.freedesktop.org/wiki/Software/VDPAU
     or
-	nvdec libs
+	cuvid libs
 	    ffnvcodec and ffmpeg with cuvid support
 	    libs gl glu
 
