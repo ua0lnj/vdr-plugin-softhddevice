@@ -2675,12 +2675,12 @@ void cSoftHdDevice::MakePrimaryDevice(bool on)
 	    SuspendMode = NOT_SUSPENDED;
 	}
     } else if (SuspendMode == NOT_SUSPENDED) {
-	Suspend(1, 1, 0);
-	SuspendMode = SUSPEND_DETACHED;
 #ifdef USE_OPENGLOSD
 	dsyslog("[softhddev]stopping Ogl Thread MakePrimaryDevice");
 	cSoftOsdProvider::StopOpenGlThread();
 #endif
+	Suspend(1, 1, 0);
+	SuspendMode = SUSPEND_DETACHED;
     }
 }
 
@@ -3873,12 +3873,12 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command,
 	}
 	cControl::Launch(new cSoftHdControl);
 	cControl::Attach();
-	Suspend(ConfigSuspendClose, ConfigSuspendClose, ConfigSuspendX11);
-	SuspendMode = SUSPEND_NORMAL;
 #ifdef USE_OPENGLOSD
 	dsyslog("[softhddev]stopping Ogl Thread svdrp STAT");
 	cSoftOsdProvider::StopOpenGlThread();
 #endif
+	Suspend(ConfigSuspendClose, ConfigSuspendClose, ConfigSuspendX11);
+	SuspendMode = SUSPEND_NORMAL;
 	return "SoftHdDevice is suspended";
     }
     if (!strcasecmp(command, "RESU")) {
@@ -3907,12 +3907,12 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command,
 	}
 	cControl::Launch(new cSoftHdControl);
 	cControl::Attach();
-	Suspend(1, 1, 0);
-	SuspendMode = SUSPEND_DETACHED;
 #ifdef USE_OPENGLOSD
 	dsyslog("[softhddev]stopping Ogl Thread svdrp DETA");
 	cSoftOsdProvider::StopOpenGlThread();
 #endif
+	Suspend(1, 1, 0);
+	SuspendMode = SUSPEND_DETACHED;
 	return "SoftHdDevice is detached";
     }
     if (!strcasecmp(command, "ATTA")) {

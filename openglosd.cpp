@@ -564,11 +564,13 @@ bool cOglOutputFb::Init(void) {
     glBindTexture(GL_TEXTURE_2D, texture);
 #ifdef USE_VDPAU
     if (!VideoIsDriverVdpau()) {
+#endif
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+#ifdef USE_VDPAU
     }
 #endif
     glGenFramebuffers(1, &fb);
@@ -759,7 +761,6 @@ cOglCmdDeleteFb::cOglCmdDeleteFb(cOglFb *fb) : cOglCmd(fb) {
 }
 
 bool cOglCmdDeleteFb::Execute(void) {
-if(fb)
     delete fb;
     return true;
 }
@@ -1648,7 +1649,7 @@ bool cOglThread::InitOpenGL(void) {
 #endif
     glewExperimental = GL_TRUE;
     GLenum err = glewInit();
-    if( err != GLEW_OK) {
+    if(err != GLEW_OK) {
         esyslog("[softhddev]glewInit failed, aborting\n");
         return false;
     }
@@ -1705,8 +1706,8 @@ void cOglThread::Cleanup(void) {
     cOglFont::Cleanup();
 #ifdef USE_VDPAU
     if (VideoIsDriverVdpau()) {
-        glVDPAUFiniNV();
         glutExit();
+        glVDPAUFiniNV();
     }
 #endif
 }

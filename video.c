@@ -1026,6 +1026,7 @@ static void GlxOsdInit(int width, int height)
 ///
 static void GlxOsdExit(void)
 {
+    if (OsdGlTexture) return;
     if (OsdGlTextures[0]) {
 	glDeleteTextures(2, OsdGlTextures);
 	OsdGlTextures[0] = 0;
@@ -1421,13 +1422,13 @@ static void GlxExit(void)
     if (GlxContext) {
 	glXDestroyContext(XlibDisplay, GlxContext);
     }
-//    GlxContext = NULL;
+    GlxContext = NULL;
     if (GlxThreadContext) {
 	glXDestroyContext(XlibDisplay, GlxThreadContext);
     }
     if (OsdGlTexture)
         OsdGlTexture = NULL;
-//    GlxThreadContext = NULL;
+    GlxThreadContext = NULL;
 /*    if (GlxVisualInfo) {
 	XFree(GlxVisualInfo);
 	GlxVisualInfo = NULL;
@@ -11442,7 +11443,7 @@ typedef struct _cuvid_decoder_
 
     CUarray cu_array[CODEC_SURFACES_MAX][2];
     CUgraphicsResource cu_res[CODEC_SURFACES_MAX][2];
-    GLuint gl_textures[CODEC_SURFACES_MAX];  // where we will copy the CUDA result
+    GLuint gl_textures[CODEC_SURFACES_MAX][2];  // where we will copy the CUDA result
     CUcontext cu_ctx;			///cuda context
 
     AVCodecContext *video_ctx;
@@ -11565,7 +11566,7 @@ void CuvidCreateGlTexture(CuvidDecoder * decoder, unsigned int size_x, unsigned 
     for (i = 0; i < decoder->SurfacesNeeded; i++) {
         for (n = 0; n < 2; n++) {   // number of planes
 
-            glBindTexture(GL_TEXTURE_2D, decoder->gl_textures[i * 2 + n]);
+            glBindTexture(GL_TEXTURE_2D, decoder->gl_textures[i][n]);
             GlxCheck();
             // set basic parameters
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -11582,7 +11583,7 @@ void CuvidCreateGlTexture(CuvidDecoder * decoder, unsigned int size_x, unsigned 
             GlxCheck();
             // register this texture with CUDA, not need for software decoder YV12
             if (decoder->PixFmt == AV_PIX_FMT_NV12 || decoder->PixFmt == AV_PIX_FMT_P010LE) {
-                ret = CUStatus(cu->cuGraphicsGLRegisterImage(&decoder->cu_res[i][n], decoder->gl_textures[i*2+n],
+                ret = CUStatus(cu->cuGraphicsGLRegisterImage(&decoder->cu_res[i][n], decoder->gl_textures[i][n],
                     GL_TEXTURE_2D, CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD));
                 if (ret < 0)
                     Fatal(_("video/cuvid: cuGraphicsGLRegisterImage failed \n"));
@@ -11611,7 +11612,7 @@ void CuvidCreateGlTexture(CuvidDecoder * decoder, unsigned int size_x, unsigned 
 ///
 static void CuvidCreateSurfaces(CuvidDecoder * decoder, int width, int height)
 {
-    int i, j;
+    int i;
 
 #ifdef DEBUG
     if (!decoder->SurfacesNeeded) {
@@ -11641,10 +11642,12 @@ static void CuvidCreateSurfaces(CuvidDecoder * decoder, int width, int height)
 ///
 static void CuvidDestroySurfaces(CuvidDecoder * decoder)
 {
-    int i, j;
+    int i;
 
-    glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
-    GlxCheck();
+    if(GlxThreadContext){
+        glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
+        GlxCheck();
+    }
 
     glDeleteTextures(CODEC_SURFACES_MAX, &decoder->gl_textures);
     GlxCheck();
@@ -11965,9 +11968,8 @@ static int CuvidInit(const char *display_name)
     pthread_mutex_init(&CuvidGrabMutex, NULL);
 #ifdef USE_GRAB
     glGenBuffers(1,&grab_buffer);
-#endif
     GlxCheck();
-
+#endif
     Info(_("video/cuvid: Start CUVID ok\n"));
     return 1;
 }
@@ -12332,7 +12334,7 @@ static void CuvidAutoCrop(CuvidDecoder * decoder)
     data[2] = base + width * height + width * height / 4;
 
     //we need Y in data[0] only
-    memcpy(base, &decoder->gl_textures[surface*2+0], width * height);
+    memcpy(base, &decoder->gl_textures[surface][0], width * height);
 
     AutoCropDetect(decoder->AutoCrop, width, height, data, pitches);
 
@@ -12584,6 +12586,7 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
         if (video_ctx->pix_fmt != AV_PIX_FMT_CUDA) { // for softdecode
             decoder->PixFmt = video_ctx->pix_fmt;
             ist->hwaccel_pix_fmt = video_ctx->pix_fmt;
+            ist->active_hwaccel_id = HWACCEL_NONE;
         }
         decoder->InputWidth = video_ctx->width;
         decoder->InputHeight = video_ctx->height;
@@ -12650,7 +12653,7 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
             Error(_("video/cuvid: out of memory\n"));
             return;
         }
-
+        //TODO use shader or direct yuv render?
         for (int i = 0; i < quarter; i++) {
             memcpy(outUV + i * 2, frame->data[1] + i, 1); // For NV12, U first
             memcpy(outUV + i * 2 + 1, frame->data[2] + i, 1); // For NV12, V second
@@ -12660,11 +12663,13 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
 
         //Y
         glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[0]);
-        glTextureSubImage2D(decoder->gl_textures[surface * 2 + 0], 0, 0, 0, decoder->InputWidth, decoder->InputHeight, GL_RED, GL_UNSIGNED_BYTE, frame->data[0]);
+        glTextureSubImage2D(decoder->gl_textures[surface][0], 0, 0, 0, decoder->InputWidth,
+            decoder->InputHeight, GL_RED, GL_UNSIGNED_BYTE, frame->data[0]);
         GlxCheck();
         //UV
         glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[1]);
-        glTextureSubImage2D(decoder->gl_textures[surface * 2 + 1], 0, 0, 0, decoder->InputWidth/2, decoder->InputHeight/2, GL_RG, GL_UNSIGNED_BYTE, outUV);
+        glTextureSubImage2D(decoder->gl_textures[surface][1], 0, 0, 0, decoder->InputWidth/2,
+            decoder->InputHeight/2, GL_RG, GL_UNSIGNED_BYTE, outUV);
         GlxCheck();
 
         Debug(4, "video/cuvid: sw render hw surface %#08x\n", surface);
@@ -12726,9 +12731,9 @@ static void CuvidMixVideo(CuvidDecoder * decoder, int level)
     glUniform1i(texLoc, 1);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[current*2+0]);
+    glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[current][0]);
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[current*2+1]);
+    glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[current][1]);
 
     render_pass_quad(0, xcropf, ycropf);
 
@@ -13787,6 +13792,7 @@ void VideoOsdInit(void)
 ///
 void VideoOsdExit(void)
 {
+    VideoOsdClear();
     VideoThreadLock();
     VideoUsedModule->OsdExit();
     VideoThreadUnlock();
