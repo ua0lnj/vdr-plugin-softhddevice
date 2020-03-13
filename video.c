@@ -13426,12 +13426,23 @@ unsigned int *GetCuvidOsdOutputTexture(GLuint texture) {
 }
 
 int CuvidInitGlx(void) {
-    if (/*!GlxContext ||*/ !GlxEnabled /*|| !GlxThreadContext*/) {
+    if (!GlxEnabled) {
         Debug(3,"video/osd: can't create glx context\n");
         return 0;
     }
+    //after run an external player from time to time vdr not set playmode 1
+    //when try start GLX forced.
+    //is it a vdr bug or external player plugin???
+    int a = 0;
     while (!GlxContext || !GlxThreadContext){
         usleep(1000);
+        a++;
+        if (a > 10 && a < 1000) {
+            Debug(3,"Try start GLX forced\n");
+            VideoDisplayWakeup();
+            a = 1000;
+        }
+        if (a > 1010) return 0;
     }
     Debug(3,"Create OSD GLX context\n");
     glXMakeCurrent(XlibDisplay, None, NULL);
