@@ -2242,6 +2242,27 @@ static const AudioModule *AudioModules[] = {
     &NoopModule,
 };
 
+void AudioDelayms(int delayms) //jojo
+{
+    int count;
+    unsigned char *p;
+
+#ifdef DEBUG
+    printf("Try Delay Audio for %d ms  Samplerate %d Channels %d bps %d\n", delayms,
+        AudioRing[AudioRingWrite].HwSampleRate, AudioRing[AudioRingWrite].HwChannels, AudioBytesProSample);
+#endif
+
+    count =
+        delayms * AudioRing[AudioRingWrite].HwSampleRate * AudioRing[AudioRingWrite].HwChannels * AudioBytesProSample /
+        1000;
+
+    if (delayms < 5000 && delayms > 0) {    // not more than 5seconds
+        p = calloc(1, count);
+        RingBufferWrite(AudioRing[AudioRingWrite].RingBuffer, p, count);
+        free(p);
+    }
+}
+
 /**
 **	Place samples in audio output queue.
 **

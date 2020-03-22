@@ -566,6 +566,7 @@ uint32_t mutex_start_time;
 int max_mutex_delay;
 max_mutex_delay = 1;
 
+void AudioDelayms(int);
 //----------------------------------------------------------------------------
 //	Common Functions
 //----------------------------------------------------------------------------
@@ -5983,6 +5984,7 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
     // FIXME: some tv-stations toggle interlace on/off
     // frame->interlaced_frame isn't always correct set
     interlaced = frame->interlaced_frame;
+    if (frame->top_field_first == 1) interlaced = 1; //for buggy providers
 #if 0
     if (video_ctx->height == 720) {
 	if (interlaced && !decoder->WrongInterlacedWarned) {
@@ -6458,8 +6460,7 @@ static int64_t VaapiGetClock(const VaapiDecoder * decoder)
 	    20 * 90 * (2 * atomic_read(&decoder->SurfacesFilled)
 	    - decoder->SurfaceField);
     }
-    return decoder->PTS - 20 * 90 * (atomic_read(&decoder->SurfacesFilled) +
-	2);
+    return decoder->PTS - 20 * 90 * (atomic_read(&decoder->SurfacesFilled) + 2);
 }
 
 ///
@@ -6573,7 +6574,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
     }
     // at start of new video stream, soft or hard sync video to audio
     // FIXME: video waits for audio, audio for video
-    if (!VideoSoftStartSync && decoder->StartCounter < VideoSoftStartFrames
+    if ((!VideoSoftStartSync || IsReplay()) && decoder->StartCounter < VideoSoftStartFrames
 	&& video_clock != (int64_t) AV_NOPTS_VALUE
 	&& (audio_clock == (int64_t) AV_NOPTS_VALUE
 	    || video_clock > audio_clock + VideoAudioDelay + 120 * 90)) {
@@ -6595,35 +6596,33 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 
 	diff = video_clock - audio_clock - VideoAudioDelay;
 	lower_limit = !IsReplay() ? -25 : 32;
-	if (!IsReplay()) {
-	    diff = (decoder->LastAVDiff + diff) / 2;
-	    decoder->LastAVDiff = diff;
-	}
-
+	diff = (decoder->LastAVDiff + diff) / 2;
+	decoder->LastAVDiff = diff;
+	//Debug(4, "video/vaapi: diff %d %d lim %d fill %d\n",diff,diff/90,lower_limit,filled);
 	if (abs(diff) > 5000 * 90) {	// more than 5s
-	    err = VaapiMessage(2, "video: audio/video difference too big\n");
-	} else if (diff > 100 * 90) {
+	    err = VaapiMessage(3, "video: audio/video difference too big\n");
+	}
+	if (diff > 100 * 90) {
 	    // FIXME: this quicker sync step, did not work with new code!
-	    err = VaapiMessage(2, "video: slow down video, duping frame\n");
+	    err = VaapiMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-	    if (VideoSoftStartSync) {
+	    if (VideoSoftStartSync && !IsReplay()) {
 		decoder->SyncCounter = 1;
-		goto out;
 	    }
+		goto out;
 	} else if (diff > 55 * 90) {
-	    err = VaapiMessage(2, "video: slow down video, duping frame\n");
+	    err = VaapiMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-	    if (VideoSoftStartSync) {
 		decoder->SyncCounter = 1;
 		goto out;
-	    }
 	} else if (diff < lower_limit * 90 && filled > 1 + 2 * decoder->Interlaced) {
-	    err = VaapiMessage(2, "video: speed up video, droping frame\n");
+	    err = VaapiMessage(3, "video: speed up video, droping frame\n");
 	    ++decoder->FramesDropped;
 	    VaapiAdvanceDecoderFrame(decoder);
-	    if (VideoSoftStartSync) {
 		decoder->SyncCounter = 1;
-	    }
+	} else if (diff < lower_limit * 90) {
+		err = VaapiMessage(3, "video: speed up audio, delay audio\n");
+		AudioDelayms(abs(diff * 2 / 90));
 	}
 #if defined(DEBUG) || defined(AV_INFO)
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
@@ -6646,7 +6645,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    ++decoder->FramesDuped;
 	    // FIXME: don't warn after stream start, don't warn during pause
 	    err =
-		VaapiMessage(1,
+		VaapiMessage(3,
 		_("video: decoder buffer empty, "
 		    "duping frame (%d/%d) %d v-buf\n"), decoder->FramesDuped,
 		decoder->FrameCounter, VideoGetBuffers(decoder->Stream));
@@ -9797,6 +9796,7 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
     // FIXME: some tv-stations toggle interlace on/off
     // frame->interlaced_frame isn't always correct set
     interlaced = frame->interlaced_frame;
+    if (frame->top_field_first == 1) interlaced = 1; //for buggy providers
 #if 0
     if (video_ctx->height == 720) {
 	if (interlaced && !decoder->WrongInterlacedWarned) {
@@ -10538,8 +10538,7 @@ static int64_t VdpauGetClock(const VdpauDecoder * decoder)
 	    - decoder->SurfaceField - 2 + 2);
     }
     // + 2 in driver queue
-    return decoder->PTS - 20 * 90 * (atomic_read(&decoder->SurfacesFilled) +
-	2);
+    return decoder->PTS - 20 * 90 * (atomic_read(&decoder->SurfacesFilled) + 2);
 }
 
 ///
@@ -10595,7 +10594,6 @@ void VdpauGetStats(VdpauDecoder * decoder, int *missed, int *duped,
     *counter = decoder->FrameCounter;
 }
 
-void AudioFlushBuffers(void);
 ///
 ///	Sync decoder output to audio.
 ///
@@ -10659,7 +10657,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	goto skip_sync;
     }
     // at start of new video stream, soft or hard sync video to audio
-    if (!VideoSoftStartSync && decoder->StartCounter < VideoSoftStartFrames
+    if ((!VideoSoftStartSync || IsReplay()) && decoder->StartCounter < VideoSoftStartFrames
 	&& video_clock != (int64_t) AV_NOPTS_VALUE
 	&& (audio_clock == (int64_t) AV_NOPTS_VALUE
 	    || video_clock > audio_clock + VideoAudioDelay + 120 * 90)) {
@@ -10681,39 +10679,33 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 
 	diff = video_clock - audio_clock - VideoAudioDelay;
 	lower_limit = !IsReplay() ? -25 : 32;
-	if (!IsReplay()) {
-	    diff = (decoder->LastAVDiff + diff) / 2;
-	    decoder->LastAVDiff = diff;
-	}
-
+	diff = (decoder->LastAVDiff + diff) / 2;
+	decoder->LastAVDiff = diff;
+	//Debug(4, "video/vdpau: diff %d %d lim %d fill %d\n",diff,diff/90,lower_limit,filled);
 	if (abs(diff) > 5000 * 90) {	// more than 5s
 	    err = VdpauMessage(3, "video: audio/video difference too big\n");
-	} else if (diff > 100 * 90) {
+	}
+	if (diff > 100 * 90) {
 	    // FIXME: this quicker sync step, did not work with new code!
 	    err = VdpauMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-	    if (VideoSoftStartSync) {
-//		decoder->SyncCounter = 1;
-		goto out;
+	    if (VideoSoftStartSync && !IsReplay()) {
+		decoder->SyncCounter = 1;
 	    }
+		goto out;
 	} else if (diff > 55 * 90) {
 	    err = VdpauMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-	    if (VideoSoftStartSync) {
 		decoder->SyncCounter = 1;
 		goto out;
-	    }
 	} else if (diff < lower_limit * 90 && filled > 1 + 2 * decoder->Interlaced) {
 	    err = VdpauMessage(3, "video: speed up video, droping frame\n");
 	    ++decoder->FramesDropped;
 	    VdpauAdvanceDecoderFrame(decoder);
-	    if (VideoSoftStartSync) {
 		decoder->SyncCounter = 1;
-		goto out;
-	    }
 	} else if (diff < lower_limit * 90) {
-		err = VdpauMessage(3, "video: speed up audio, flush audio\n");
-		AudioFlushBuffers();
+		err = VdpauMessage(3, "video: speed up audio, delay audio\n");
+		AudioDelayms(abs(diff * 2 / 90));
 	}
 #if defined(DEBUG) || defined(AV_INFO)
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
@@ -12548,7 +12540,7 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
     // FIXME: some tv-stations toggle interlace on/off
     // frame->interlaced_frame isn't always correct set
     interlaced = frame->interlaced_frame;
-
+    if (frame->top_field_first == 1) interlaced = 1; //for buggy providers
     // FIXME: should be done by init video_ctx->field_order
     if (decoder->Interlaced != interlaced
 	|| decoder->TopFieldFirst != frame->top_field_first) {
@@ -12943,8 +12935,8 @@ static int64_t CuvidGetClock(const CuvidDecoder * decoder)
 	    20 * 90 * (2 * atomic_read(&decoder->SurfacesFilled)
 	    - decoder->SurfaceField - 2 + 2);
     }
-    // + 4 in driver queue
-    return decoder->PTS - 20 * 90 * (atomic_read(&decoder->SurfacesFilled) +4);
+    // + 2 in driver queue
+    return decoder->PTS - 20 * 90 * (atomic_read(&decoder->SurfacesFilled) + 2);
 }
 
 ///
@@ -13000,7 +12992,6 @@ void CuvidGetStats(CuvidDecoder * decoder, int *missed, int *duped,
     *counter = decoder->FrameCounter;
 }
 
-void AudioFlushBuffers(void);
 ///
 ///	Sync decoder output to audio.
 ///
@@ -13064,7 +13055,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	goto skip_sync;
     }
     // at start of new video stream, soft or hard sync video to audio
-    if (!VideoSoftStartSync && decoder->StartCounter < VideoSoftStartFrames
+    if ((!VideoSoftStartSync || IsReplay()) && decoder->StartCounter < VideoSoftStartFrames
 	&& video_clock != (int64_t) AV_NOPTS_VALUE
 	&& (audio_clock == (int64_t) AV_NOPTS_VALUE
 	    || video_clock > audio_clock + VideoAudioDelay + 120 * 90)) {
@@ -13086,39 +13077,33 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 
 	diff = video_clock - audio_clock - VideoAudioDelay;
 	lower_limit = !IsReplay() ? -25 : 32;
-	if (!IsReplay()) {
-	    diff = (decoder->LastAVDiff + diff) / 2;
-	    decoder->LastAVDiff = diff;
-	}
-
+	diff = (decoder->LastAVDiff + diff) / 2;
+	decoder->LastAVDiff = diff;
+	//Debug(4, "video/cuvid: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, filled);
 	if (abs(diff) > 5000 * 90) {	// more than 5s
 	    err = CuvidMessage(3, "video: audio/video difference too big\n");
-	} else if (diff > 100 * 90) {
+	}
+	if (diff > 100 * 90) {
 	    // FIXME: this quicker sync step, did not work with new code!
-	    err = CuvidMessage(3, "video: slow down video, duping frame %d\n",diff);
+	    err = CuvidMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-	    if (VideoSoftStartSync) {
-//		decoder->SyncCounter = 1;
-		goto out;
+	    if (VideoSoftStartSync && !IsReplay()) {
+		decoder->SyncCounter = 1;
 	    }
+		goto out;
 	} else if (diff > 55 * 90) {
 	    err = CuvidMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-	    if (VideoSoftStartSync) {
 		decoder->SyncCounter = 1;
 		goto out;
-	    }
 	} else if (diff < lower_limit * 90 && filled > 1 + 2 * decoder->Interlaced) {
 	    err = CuvidMessage(3, "video: speed up video, droping frame\n");
 	    ++decoder->FramesDropped;
 	    CuvidAdvanceDecoderFrame(decoder);
-	    if (VideoSoftStartSync) {
 		decoder->SyncCounter = 1;
-		goto out;
-	    }
 	} else if (diff < lower_limit * 90) {
-		err = CuvidMessage(3, "video: speed up audio, flush audio\n");
-		AudioFlushBuffers();
+		err = CuvidMessage(3, "video: speed up audio, delay audio\n");
+		AudioDelayms(abs(diff * 2 / 90));
 	}
 #if defined(DEBUG) || defined(AV_INFO)
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
