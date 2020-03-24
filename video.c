@@ -2542,9 +2542,8 @@ static void VaapiCleanup(VaapiDecoder * decoder)
     decoder->SurfaceRead = 0;
     decoder->SurfaceWrite = 0;
     decoder->SurfaceField = 0;
-
+    decoder->Interlaced = 0;
     decoder->PostProcSurfaceWrite = 0;
-
     decoder->SyncCounter = 0;
     decoder->FrameCounter = 0;
     decoder->FramesDisplayed = 0;
@@ -5984,7 +5983,7 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
     // FIXME: some tv-stations toggle interlace on/off
     // frame->interlaced_frame isn't always correct set
     interlaced = frame->interlaced_frame;
-    if (frame->top_field_first == 1) interlaced = 1; //for buggy providers
+
 #if 0
     if (video_ctx->height == 720) {
 	if (interlaced && !decoder->WrongInterlacedWarned) {
@@ -6002,7 +6001,7 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
 #endif
 
     // FIXME: should be done by init video_ctx->field_order
-    if (decoder->Interlaced != interlaced
+    if (decoder->Interlaced < interlaced
 	|| decoder->TopFieldFirst != frame->top_field_first) {
 
 #if 0
@@ -6014,7 +6013,7 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
 	    frame->top_field_first);
 #endif
 
-	decoder->Interlaced = interlaced;
+	if (decoder->Interlaced < interlaced) decoder->Interlaced = 1; //for wrong interlace detecting
 	decoder->TopFieldFirst = frame->top_field_first;
 	decoder->SurfaceField = 0;
     }
@@ -8068,7 +8067,7 @@ static void VdpauCleanup(VdpauDecoder * decoder)
     decoder->SurfaceRead = 0;
     decoder->SurfaceWrite = 0;
     decoder->SurfaceField = 0;
-
+    decoder->Interlaced = 0;
     decoder->SyncCounter = 0;
     decoder->FrameCounter = 0;
     decoder->FramesDisplayed = 0;
@@ -9796,7 +9795,7 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
     // FIXME: some tv-stations toggle interlace on/off
     // frame->interlaced_frame isn't always correct set
     interlaced = frame->interlaced_frame;
-    if (frame->top_field_first == 1) interlaced = 1; //for buggy providers
+
 #if 0
     if (video_ctx->height == 720) {
 	if (interlaced && !decoder->WrongInterlacedWarned) {
@@ -9814,13 +9813,13 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 #endif
 
     // FIXME: should be done by init video_ctx->field_order
-    if (decoder->Interlaced != interlaced
+    if (decoder->Interlaced < interlaced
 	|| decoder->TopFieldFirst != frame->top_field_first) {
 
 	Debug(3, "video/vdpau: interlaced %d top-field-first %d\n", interlaced,
 	    frame->top_field_first);
 
-	decoder->Interlaced = interlaced;
+	if (decoder->Interlaced < interlaced) decoder->Interlaced = 1; //for wrong interlace detecting
 	decoder->TopFieldFirst = frame->top_field_first;
 	decoder->SurfaceField = 0;
     }
@@ -10681,7 +10680,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	lower_limit = !IsReplay() ? -25 : 32;
 	diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
-	//Debug(4, "video/vdpau: diff %d %d lim %d fill %d\n",diff,diff/90,lower_limit,filled);
+	//Debug(3, "video/vdpau: diff %d %d lim %d fill %d\n",diff,diff/90,lower_limit,filled);
 	if (abs(diff) > 5000 * 90) {	// more than 5s
 	    err = VdpauMessage(3, "video: audio/video difference too big\n");
 	}
@@ -11873,6 +11872,7 @@ static void CuvidCleanup(CuvidDecoder * decoder)
     decoder->SurfaceWrite = 0;
     decoder->SurfaceField = 0;
     decoder->SyncCounter = 0;
+    decoder->Interlaced = 0;
     decoder->FrameCounter = 0;
     decoder->FramesDisplayed = 0;
     decoder->StartCounter = 0;
@@ -12540,7 +12540,7 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
     // FIXME: some tv-stations toggle interlace on/off
     // frame->interlaced_frame isn't always correct set
     interlaced = frame->interlaced_frame;
-    if (frame->top_field_first == 1) interlaced = 1; //for buggy providers
+
     // FIXME: should be done by init video_ctx->field_order
     if (decoder->Interlaced != interlaced
 	|| decoder->TopFieldFirst != frame->top_field_first) {
@@ -12548,7 +12548,7 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
 	Debug(3, "video/cuvid: interlaced %d top-field-first %d\n", interlaced,
 	    frame->top_field_first);
 
-	decoder->Interlaced = interlaced;
+	if (decoder->Interlaced < interlaced) decoder->Interlaced = 1; //for wrong interlace detecting
 	decoder->TopFieldFirst = frame->top_field_first;
 	decoder->SurfaceField = 0;
     }
