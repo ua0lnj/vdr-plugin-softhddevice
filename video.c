@@ -2542,7 +2542,7 @@ static void VaapiCleanup(VaapiDecoder * decoder)
     decoder->SurfaceRead = 0;
     decoder->SurfaceWrite = 0;
     decoder->SurfaceField = 0;
-    decoder->Interlaced = 0;
+
     decoder->PostProcSurfaceWrite = 0;
     decoder->SyncCounter = 0;
     decoder->FrameCounter = 0;
@@ -6001,7 +6001,7 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
 #endif
 
     // FIXME: should be done by init video_ctx->field_order
-    if (decoder->Interlaced < interlaced
+    if (decoder->Interlaced != interlaced
 	|| decoder->TopFieldFirst != frame->top_field_first) {
 
 #if 0
@@ -6013,7 +6013,7 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
 	    frame->top_field_first);
 #endif
 
-	if (decoder->Interlaced < interlaced) decoder->Interlaced = 1; //for wrong interlace detecting
+	decoder->Interlaced = interlaced;
 	decoder->TopFieldFirst = frame->top_field_first;
 	decoder->SurfaceField = 0;
     }
@@ -10680,7 +10680,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	lower_limit = !IsReplay() ? -25 : 32;
 	diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
-	//Debug(3, "video/vdpau: diff %d %d lim %d fill %d\n",diff,diff/90,lower_limit,filled);
+	//Debug(4, "video/vdpau: diff %d %d lim %d fill %d\n",diff,diff/90,lower_limit,filled);
 	if (abs(diff) > 5000 * 90) {	// more than 5s
 	    err = VdpauMessage(3, "video: audio/video difference too big\n");
 	}
