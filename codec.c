@@ -682,7 +682,7 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 	got_frame);
 
     if (got_frame) {			// frame completed
-        if (pkt->pts == (int64_t)AV_NOPTS_VALUE) frame->pts = (int64_t)AV_NOPTS_VALUE; //correct pts for cuvid
+        if (VideoIsDriverCuvid() && pkt->pts == (int64_t)AV_NOPTS_VALUE) frame->pts = (int64_t)AV_NOPTS_VALUE; //correct pts for cuvid
 #ifdef FFMPEG_WORKAROUND_ARTIFACTS
 	if (!CodecUsePossibleDefectFrames && decoder->FirstKeyFrame) {
 	    decoder->FirstKeyFrame++;
