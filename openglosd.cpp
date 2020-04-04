@@ -379,7 +379,7 @@ cOglGlyph* cOglFont::Glyph(uint charCode) const {
     error = FT_Stroker_New( ftLib, &stroker );
     if (error) {
         esyslog("[softhddev]FT_Stroker_New FT_Error (0x%02x) : %s\n", FT_Errors[error].code, FT_Errors[error].message);
-        return NULL;        
+        return NULL;
     }
     float outlineWidth = 0.25f;
     FT_Stroker_Set(stroker,
@@ -388,11 +388,11 @@ cOglGlyph* cOglFont::Glyph(uint charCode) const {
                     FT_STROKER_LINEJOIN_ROUND,
                     0);
 
-    
+
     error = FT_Get_Glyph(face->glyph, &ftGlyph);
     if (error) {
         esyslog("[softhddev]FT_Get_Glyph FT_Error (0x%02x) : %s\n", FT_Errors[error].code, FT_Errors[error].message);
-        return NULL;        
+        return NULL;
     }
 
     error = FT_Glyph_StrokeBorder( &ftGlyph, stroker, 0, 1 );
@@ -405,9 +405,9 @@ cOglGlyph* cOglFont::Glyph(uint charCode) const {
     error = FT_Glyph_To_Bitmap( &ftGlyph, FT_RENDER_MODE_NORMAL, 0, 1);
     if (error) {
         esyslog("[softhddev]FT_Glyph_To_Bitmap FT_Error (0x%02x) : %s\n", FT_Errors[error].code, FT_Errors[error].message);
-        return NULL;        
+        return NULL;
     }
-    
+
     cOglGlyph *Glyph = new cOglGlyph(charCode, (FT_BitmapGlyph)ftGlyph);
     glyphCache.Add(Glyph);
     FT_Done_Glyph(ftGlyph);
@@ -462,10 +462,10 @@ bool cOglFb::Init(void) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    
+
     glGenFramebuffers(1, &fb);
     glBindFramebuffer(GL_FRAMEBUFFER, fb);
-    
+
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         esyslog("[softhddev]ERROR: Framebuffer is not complete! %x\n",glCheckFramebufferStatus(GL_FRAMEBUFFER));
@@ -490,7 +490,7 @@ void cOglFb::BindWrite(void) {
 }
 
 void cOglFb::Unbind(void) {
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);  
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
@@ -604,7 +604,7 @@ void cOglOutputFb::Unbind(void) {
 /****************************************************************************************
 * cOglVb
 ****************************************************************************************/
-static cOglVb *VertexBuffers[vbCount]; 
+static cOglVb *VertexBuffers[vbCount];
 
 cOglVb::cOglVb(int type) {
     this->type = (eVertexBufferType)type;
@@ -668,9 +668,9 @@ bool cOglVb::Init(void) {
     glVertexAttribPointer(0, sizeVertex1, GL_FLOAT, GL_FALSE, (sizeVertex1 + sizeVertex2) * sizeof(GLfloat), (GLvoid*)0);
     if (sizeVertex2 > 0) {
         glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, sizeVertex2, GL_FLOAT, GL_FALSE, (sizeVertex1 + sizeVertex2) * sizeof(GLfloat), (GLvoid*)(sizeVertex1 * sizeof(GLfloat)));        
+        glVertexAttribPointer(1, sizeVertex2, GL_FLOAT, GL_FALSE, (sizeVertex1 + sizeVertex2) * sizeof(GLfloat), (GLvoid*)(sizeVertex1 * sizeof(GLfloat)));
     }
-    
+
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
@@ -827,12 +827,10 @@ cOglCmdCopyBufferToOutputFb::cOglCmdCopyBufferToOutputFb(cOglFb *fb, cOglOutputF
 }
 
 bool cOglCmdCopyBufferToOutputFb::Execute(void) {
-    
     fb->BindRead();
     oFb->BindWrite();
     fb->Blit(x, y + fb->Height(), x + fb->Width(), y);
     oFb->Unbind();
-
     ActivateOsd();
     return true;
 }
@@ -877,7 +875,7 @@ bool cOglCmdDrawRectangle::Execute(void) {
     VertexBuffers[vbRect]->ActivateShader();
     VertexBuffers[vbRect]->SetShaderColor(color);
     VertexBuffers[vbRect]->SetShaderProjectionMatrix(fb->Width(), fb->Height());
-    
+
     fb->Bind();
     VertexBuffers[vbRect]->DisableBlending();
     VertexBuffers[vbRect]->Bind();
@@ -1011,7 +1009,7 @@ GLfloat *cOglCmdDrawEllipse::CreateVerticesQuadrant(int &numVertices) {
             vertices[0] = x + width;
             vertices[1] = y + height;
             startAngle = 270;
-            break;            
+            break;
         default:
             break;
     }
@@ -1160,7 +1158,7 @@ bool cOglCmdDrawSlope::Execute(void) {
 }
 
 //------------------ cOglCmdDrawText --------------------
-cOglCmdDrawText::cOglCmdDrawText( cOglFb *fb, GLint x, GLint y, unsigned int *symbols, GLint limitX, 
+cOglCmdDrawText::cOglCmdDrawText( cOglFb *fb, GLint x, GLint y, unsigned int *symbols, GLint limitX,
                                   const char *name, int fontSize, tColor colorText) : cOglCmd(fb), fontName(name)  {
     this->x = x;
     this->y = y;
@@ -1218,9 +1216,9 @@ bool cOglCmdDrawText::Execute(void) {
 
             x1, y2,   0.0, 1.0,     // left bottom
             x2, y1,   1.0, 0.0,     // right top
-            x2, y2,   1.0, 1.0      // right bottom     
+            x2, y2,   1.0, 1.0      // right bottom
         };
-    
+
         g->BindTexture();
         VertexBuffers[vbText]->SetVertexData(vertices);
         VertexBuffers[vbText]->DrawArrays();
@@ -1354,7 +1352,7 @@ bool cOglCmdDrawTexture::Execute(void) {
 //------------------ cOglCmdStoreImage --------------------
 cOglCmdStoreImage::cOglCmdStoreImage(sOglImage *imageRef, tColor *argb) : cOglCmd(NULL) {
     this->imageRef = imageRef;
-    data = argb;    
+    data = argb;
 }
 
 cOglCmdStoreImage::~cOglCmdStoreImage(void) {
@@ -1519,7 +1517,7 @@ void cOglThread::ClearSlot(int slot) {
     int i = -slot - 1;
     if (i >= 0 && i < OGL_MAX_OSDIMAGES) {
         Lock();
-        imageCache[i].used = false;    
+        imageCache[i].used = false;
         imageCache[i].texture = GL_NONE;
         imageCache[i].width = 0;
         imageCache[i].height = 0;
@@ -1960,6 +1958,7 @@ cOglOsd::cOglOsd(int Left, int Top, uint Level, std::shared_ptr<cOglThread> oglT
 }
 
 cOglOsd::~cOglOsd() {
+    if (!bFb) return;
     oglThread->DoCmd(new cOglCmdFill(bFb, clrTransparent));
     oglThread->DoCmd(new cOglCmdCopyBufferToOutputFb(bFb, oFb, Left(), Top()));
     OsdClose();
@@ -1997,7 +1996,7 @@ cPixmap *cOglOsd::CreatePixmap(int Layer, const cRect &ViewPort, const cRect &Dr
     int height = DrawPort.IsEmpty() ? ViewPort.Height() : DrawPort.Height();
 
     if (width > oglThread->MaxTextureSize() || height > oglThread->MaxTextureSize()) {
-        esyslog("[softhddev] cannot allocate pixmap of %dpx x %dpx, clipped to %dpx x %dpx!", 
+        esyslog("[softhddev] cannot allocate pixmap of %dpx x %dpx, clipped to %dpx x %dpx!",
                     width, height, std::min(width, oglThread->MaxTextureSize()), std::min(height, oglThread->MaxTextureSize()));
         width = std::min(width, oglThread->MaxTextureSize());
         height = std::min(height, oglThread->MaxTextureSize());
@@ -2059,10 +2058,10 @@ void cOglOsd::Flush(void) {
         for (int i = 0; i < oglPixmaps.Size(); i++) {
             if (oglPixmaps[i]) {
                 if (oglPixmaps[i]->Layer() == layer) {
-                    oglThread->DoCmd(new cOglCmdRenderFbToBufferFb( oglPixmaps[i]->Fb(), 
-                                                                    bFb, 
-                                                                    oglPixmaps[i]->ViewPort().X(), 
-                                                                    (!isSubtitleOsd) ? oglPixmaps[i]->ViewPort().Y() : 0,
+                    oglThread->DoCmd(new cOglCmdRenderFbToBufferFb( oglPixmaps[i]->Fb(),
+                                                                    bFb,
+                                                                    isSubtitleOsd ? 0 : oglPixmaps[i]->ViewPort().X(),
+                                                                    isSubtitleOsd ? 0 : oglPixmaps[i]->ViewPort().Y(),
                                                                     oglPixmaps[i]->Alpha(),
                                                                     oglPixmaps[i]->DrawPort().X(),
                                                                     oglPixmaps[i]->DrawPort().Y()));
@@ -2072,14 +2071,18 @@ void cOglOsd::Flush(void) {
         }
     }
     //copy buffer to output framebuffer
-    oglThread->DoCmd(new cOglCmdCopyBufferToOutputFb(bFb, oFb, Left(), Top()));
+    oglThread->DoCmd(new cOglCmdCopyBufferToOutputFb(bFb, oFb, Left() + (isSubtitleOsd ? oglPixmaps[0]->ViewPort().X() : 0),
+        Top() + (isSubtitleOsd ? oglPixmaps[0]->ViewPort().Y() : 0)));
     //dsyslog("[softhddev]End Flush at %" PRIu64 ", duration %d", cTimeMs::Now(), (int)(cTimeMs::Now()-start));
 }
 
 void cOglOsd::DrawScaledBitmap(int x, int y, const cBitmap &Bitmap, double FactorX, double FactorY, bool AntiAlias) {
-    (void)FactorX;
-    (void)FactorY;
-    (void)AntiAlias;
+    int xNew = x - oglPixmaps[0]->ViewPort().X();
     int yNew = y - oglPixmaps[0]->ViewPort().Y();
-    oglPixmaps[0]->DrawBitmap(cPoint(x, yNew), Bitmap);
+    const cBitmap *b = &Bitmap;
+    if (!DoubleEqual(FactorX, 1.0) || !DoubleEqual(FactorY, 1.0))
+        b = b->Scaled(FactorX, FactorY, AntiAlias);
+    oglPixmaps[0]->DrawBitmap(cPoint(xNew, yNew), *b);
+    if (b != &Bitmap)
+        delete b;
 }

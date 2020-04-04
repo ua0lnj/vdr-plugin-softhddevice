@@ -11320,9 +11320,12 @@ void *GetVDPAUProcAdress(void) {
 }
 
 void *GetVDPAUOsdOutputSurface(void) {
+#ifndef USE_BITMAP
     return (void*)VdpauOsdOutputSurface[VdpauOsdSurfaceIndex];
+#else
+    return NULL;
+#endif
 }
-
 
 
 ///
@@ -13416,7 +13419,7 @@ int CuvidInitGlx(void) {
         return 0;
     }
     //after run an external player from time to time vdr not set playmode 1
-    //when try start GLX forced.
+    //then try start GLX forced.
     //is it a vdr bug or external player plugin???
     int a = 0;
     while (!GlxContext || !GlxThreadContext){
