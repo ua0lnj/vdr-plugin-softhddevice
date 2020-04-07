@@ -4143,6 +4143,7 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
     int e;
     int i;
     VAConfigAttrib attrib;
+    VideoDecoder *ist = video_ctx->opaque;
 
     if (!VideoHardwareDecoder || (video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO
 	    && VideoHardwareDecoder == HWmpeg2Off)
@@ -4263,6 +4264,8 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
 	Warning(_("codec: unsupported: slow path\n"));
 	goto slow_path;
     }
+
+    if(ist->GetFormatDone) return *fmt_idx;
     //
     //	prepare decoder config
     //
@@ -4356,7 +4359,7 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
 	VaapiSetupVideoProcessing(decoder);
     }
 #endif
-
+    ist->GetFormatDone = 1;
     Debug(3, "\t%#010x %s\n", fmt_idx[0], av_get_pix_fmt_name(fmt_idx[0]));
     return *fmt_idx;
 
@@ -4373,7 +4376,7 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
     decoder->InputWidth = 0;
     decoder->InputHeight = 0;
     video_ctx->hwaccel_context = NULL;
-
+    ist->GetFormatDone = 1;
     return avcodec_default_get_format(video_ctx, fmt);
 }
 
@@ -9073,6 +9076,8 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	goto slow_path;
     }
 
+    if(ist->GetFormatDone) return *fmt_idx;
+
     max_refs = CODEC_SURFACES_DEFAULT;
     // check profile
 
@@ -9210,6 +9215,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	}
 
 	Debug(3, "HWACCEL init ok\n");
+        ist->GetFormatDone = 1;
 	return AV_PIX_FMT_VDPAU;
     }
     else {
@@ -9245,7 +9251,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
     }
 #endif
     }
-
+    ist->GetFormatDone = 1;
     Debug(3, "\t%#010x %s\n", fmt_idx[0], av_get_pix_fmt_name(fmt_idx[0]));
     return *fmt_idx;
 
@@ -9259,7 +9265,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
     decoder->InputWidth = 0;
     decoder->InputHeight = 0;
     video_ctx->hwaccel_context = NULL;
-
+    ist->GetFormatDone = 1;
     return avcodec_default_get_format(video_ctx, fmt);
 }
 
@@ -12116,9 +12122,12 @@ static enum AVPixelFormat Cuvid_get_format(CuvidDecoder * decoder,
 	goto slow_path;
     }
 
+    if(ist->GetFormatDone) return AV_PIX_FMT_CUDA;
+
     decoder->PixFmt = *fmt_idx;
     ist->active_hwaccel_id = HWACCEL_CUVID;
     ist->hwaccel_pix_fmt = AV_PIX_FMT_CUDA;
+    ist->hwaccel_get_buffer = NULL;
     video_ctx->draw_horiz_band = NULL;
     video_ctx->slice_flags = 0;
     decoder->video_ctx = video_ctx;
@@ -12133,7 +12142,7 @@ static enum AVPixelFormat Cuvid_get_format(CuvidDecoder * decoder,
     }
 
     Debug(3,"CUVID Init ok %dx%d\n",video_ctx->width,video_ctx->height);
-
+    ist->GetFormatDone = 1;
     return AV_PIX_FMT_CUDA;
 
   slow_path:
@@ -12141,7 +12150,7 @@ static enum AVPixelFormat Cuvid_get_format(CuvidDecoder * decoder,
 
     ist->active_hwaccel_id = HWACCEL_NONE;
     ist->hwaccel_pix_fmt   = AV_PIX_FMT_NONE;
-
+    ist->hwaccel_get_buffer = NULL;
     decoder->SurfacesNeeded = VIDEO_SURFACES_MAX * 2 + 2;
     decoder->PixFmt = AV_PIX_FMT_NONE;
     video_ctx->thread_count = 0;
@@ -12152,7 +12161,7 @@ static enum AVPixelFormat Cuvid_get_format(CuvidDecoder * decoder,
 
     CUcontext dummy;
     cu->cuCtxPopCurrent(&dummy);
-
+    ist->GetFormatDone = 1;
     return avcodec_default_get_format(video_ctx, fmt);
 }
 

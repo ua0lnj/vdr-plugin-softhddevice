@@ -43,7 +43,6 @@ video:
     check start with 24Hz display rate
     crash with ffmpeg without vaapi and vdpau.
     still-picture of PES recordings should use VideoMpegEnqueue.
-    convert PIX_FMT_... PixelFormat to new names AV_PIX_FMT_..., AVPixelFormat.
     atmo service support 3D grab
     no warnings during still picture
 
@@ -112,7 +111,6 @@ playback of recording
     replay/pause need 100% cpu (fixed?)
 
 plugins:
-    mp3 plugin needs 100% cpu (bad ::Poll)
 
 setup:
     Setup of decoder type.

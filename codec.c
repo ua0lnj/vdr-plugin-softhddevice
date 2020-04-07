@@ -164,7 +164,6 @@ static enum AVPixelFormat Codec_get_format(AVCodecContext * video_ctx,
 	Error("codec/video: ffmpeg/libav buggy: width or height zero\n");
     }
 
-    decoder->GetFormatDone = 1;
     return Video_get_format(decoder->HwDecoder, video_ctx, fmt);
 }
 
@@ -196,7 +195,7 @@ static int Codec_get_buffer2(AVCodecContext * video_ctx, AVFrame * frame, int fl
 	fmts[1] = AV_PIX_FMT_NONE;
 	Codec_get_format(video_ctx, fmts);
     }
-    if (decoder->hwaccel_get_buffer && (AV_PIX_FMT_VDPAU == decoder->hwaccel_pix_fmt || AV_PIX_FMT_CUDA == decoder->hwaccel_pix_fmt)) {
+    if (decoder->hwaccel_get_buffer && AV_PIX_FMT_VDPAU == decoder->hwaccel_pix_fmt) {
            //Debug(3,"hwaccel get_buffer\n");
            return decoder->hwaccel_get_buffer(video_ctx, frame, flags);
     }
@@ -682,7 +681,8 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 	got_frame);
 
     if (got_frame) {			// frame completed
-        if (VideoIsDriverCuvid() && pkt->pts == (int64_t)AV_NOPTS_VALUE) frame->pts = (int64_t)AV_NOPTS_VALUE; //correct pts for cuvid
+        if (VideoIsDriverCuvid() && pkt->pts == (int64_t)AV_NOPTS_VALUE && decoder->active_hwaccel_id != HWACCEL_NONE)
+            frame->pts = (int64_t)AV_NOPTS_VALUE; //correct pts for cuvid
 #ifdef FFMPEG_WORKAROUND_ARTIFACTS
 	if (!CodecUsePossibleDefectFrames && decoder->FirstKeyFrame) {
 	    decoder->FirstKeyFrame++;
