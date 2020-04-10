@@ -6576,7 +6576,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
     }
     // at start of new video stream, soft or hard sync video to audio
     // FIXME: video waits for audio, audio for video
-    if ((!VideoSoftStartSync || IsReplay()) && decoder->StartCounter < VideoSoftStartFrames
+    if (!VideoSoftStartSync && decoder->StartCounter < VideoSoftStartFrames
 	&& video_clock != (int64_t) AV_NOPTS_VALUE
 	&& (audio_clock == (int64_t) AV_NOPTS_VALUE
 	    || video_clock > audio_clock + VideoAudioDelay + 120 * 90)) {
@@ -6608,7 +6608,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    // FIXME: this quicker sync step, did not work with new code!
 	    err = VaapiMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-	    if (VideoSoftStartSync && !IsReplay()) {
+	    if (VideoSoftStartSync) {
 		decoder->SyncCounter = diff > 100 * 90 ? diff % 2 : 1; //softsync :)
 	    }
 		goto out;
@@ -10662,7 +10662,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	goto skip_sync;
     }
     // at start of new video stream, soft or hard sync video to audio
-    if ((!VideoSoftStartSync || IsReplay()) && decoder->StartCounter < VideoSoftStartFrames
+    if (!VideoSoftStartSync && decoder->StartCounter < VideoSoftStartFrames
 	&& video_clock != (int64_t) AV_NOPTS_VALUE
 	&& (audio_clock == (int64_t) AV_NOPTS_VALUE
 	    || video_clock > audio_clock + VideoAudioDelay + 120 * 90)) {
@@ -10694,7 +10694,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    // FIXME: this quicker sync step, did not work with new code!
 	    err = VdpauMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-	    if (VideoSoftStartSync && !IsReplay()) {
+	    if (VideoSoftStartSync) {
 		decoder->SyncCounter = diff > 100 * 90 ? diff % 2 : 1; //softsync :)
 	    }
 		goto out;
@@ -13067,7 +13067,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	goto skip_sync;
     }
     // at start of new video stream, soft or hard sync video to audio
-    if ((!VideoSoftStartSync || IsReplay()) && decoder->StartCounter < VideoSoftStartFrames
+    if (!VideoSoftStartSync && decoder->StartCounter < VideoSoftStartFrames
 	&& video_clock != (int64_t) AV_NOPTS_VALUE
 	&& (audio_clock == (int64_t) AV_NOPTS_VALUE
 	    || video_clock > audio_clock + VideoAudioDelay + 120 * 90)) {
@@ -13099,7 +13099,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    // FIXME: this quicker sync step, did not work with new code!
 	    err = CuvidMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-	    if (VideoSoftStartSync && !IsReplay()) {
+	    if (VideoSoftStartSync) {
 		decoder->SyncCounter = diff > 100 * 90 ? diff % 2 : 1; //softsync :)
 	    }
 		goto out;
