@@ -2228,6 +2228,7 @@ static void AudioExitThread(void)
 
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
+int Dupped = 0;
 
     /**
     **	Table of all audio modules.
@@ -2244,23 +2245,12 @@ static const AudioModule *AudioModules[] = {
 
 void AudioDelayms(int delayms) //jojo
 {
-    int count;
-    unsigned char *p;
-
-#ifdef DEBUG
-    printf("Try Delay Audio for %d ms  Samplerate %d Channels %d bps %d\n", delayms,
+    Debug(3,"Try Delay Audio for %d ms  Samplerate %d Channels %d bps %d\n", delayms,
         AudioRing[AudioRingWrite].HwSampleRate, AudioRing[AudioRingWrite].HwChannels, AudioBytesProSample);
-#endif
 
-    count =
+    Dupped =
         delayms * AudioRing[AudioRingWrite].HwSampleRate * AudioRing[AudioRingWrite].HwChannels * AudioBytesProSample /
         1000;
-
-    if (delayms < 5000 && delayms > 0) {    // not more than 5seconds
-        p = calloc(1, count);
-        RingBufferWrite(AudioRing[AudioRingWrite].RingBuffer, p, count);
-        free(p);
-    }
 }
 
 /**
@@ -2337,7 +2327,19 @@ void AudioEnqueue(const void *samples, int count)
     }
 
     pthread_mutex_lock(&PTS_mutex);
-    n = RingBufferWrite(AudioRing[AudioRingWrite].RingBuffer, buffer, count);
+    //write RingBuffer some times for delay audio
+    int times_delay = count ? Dupped / count : 0;
+    int times_count = 0;
+    if (times_delay) {
+        times_delay++;
+        Debug(3, "audio: dupped frame %d times\n", times_delay);
+    }
+    while(times_count <= times_delay){
+        n = RingBufferWrite(AudioRing[AudioRingWrite].RingBuffer, buffer, count);
+        times_count++;
+    }
+    Dupped = 0;
+
     if (n != (size_t) count) {
 	Error(_("audio: can't place %d samples in ring buffer\n"), count);
 	// too many bytes are lost

@@ -6622,9 +6622,9 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    ++decoder->FramesDropped;
 	    VaapiAdvanceDecoderFrame(decoder);
 		decoder->SyncCounter = 1;
-	} else if (diff < lower_limit * 90) {
+	} else if (diff < lower_limit * 90 * 2 && !filled) {
 		err = VaapiMessage(3, "video: speed up audio, delay audio\n");
-		AudioDelayms(abs(diff * 2 / 90));
+		AudioDelayms(-diff / 90);
 	}
 #if defined(DEBUG) || defined(AV_INFO)
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
@@ -10451,7 +10451,7 @@ static void VdpauDisplayFrame(void)
 
 	filled = atomic_read(&decoder->SurfacesFilled);
 	// need 1 frame for progressive, 3 frames for interlaced
-	if (filled < 1 + 2 * decoder->Interlaced) {
+	if (filled < 1 + 2 * decoder->Interlaced && decoder->StartCounter < 1000) {
 	    // FIXME: rewrite MixVideo to support less surfaces
 	    if ((VideoShowBlackPicture && !decoder->TrickSpeed)
 		|| (VideoShowBlackPicture && decoder->Closing < -300)) {
@@ -10708,9 +10708,9 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    ++decoder->FramesDropped;
 	    VdpauAdvanceDecoderFrame(decoder);
 		decoder->SyncCounter = 1;
-	} else if (diff < lower_limit * 90) {
+	} else if (diff < lower_limit * 90 * 2 && !filled) {
 		err = VdpauMessage(3, "video: speed up audio, delay audio\n");
-		AudioDelayms(abs(diff * 2 / 90));
+		AudioDelayms(-diff / 90);
 	}
 #if defined(DEBUG) || defined(AV_INFO)
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
@@ -12850,7 +12850,7 @@ static void CuvidDisplayFrame(void)
 
 	filled = atomic_read(&decoder->SurfacesFilled);
 	// need 1 frame for progressive, 3 frames for interlaced
-	if (filled < 1 + 2 * decoder->Interlaced) {
+	if (filled < 1 + 2 * decoder->Interlaced && decoder->StartCounter < 1000) {
 	    // FIXME: rewrite MixVideo to support less surfaces
 	    if ((VideoShowBlackPicture && !decoder->TrickSpeed)
 		|| (VideoShowBlackPicture && decoder->Closing < -300)) {
@@ -13113,9 +13113,9 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    ++decoder->FramesDropped;
 	    CuvidAdvanceDecoderFrame(decoder);
 		decoder->SyncCounter = 1;
-	} else if (diff < lower_limit * 90) {
+	} else if (diff < lower_limit * 90 && !filled) {
 		err = CuvidMessage(3, "video: speed up audio, delay audio\n");
-		AudioDelayms(abs(diff * 2 / 90));
+		AudioDelayms(-diff / 90);
 	}
 #if defined(DEBUG) || defined(AV_INFO)
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
