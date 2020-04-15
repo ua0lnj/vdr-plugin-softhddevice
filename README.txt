@@ -369,7 +369,6 @@ Warning:
 Known Bugs:
 -----------
 	VA-API doesn't v-sync h264 interlaced streams
-	vdr-image not working
 
 Requires:
 ---------

@@ -4265,7 +4265,7 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
 	goto slow_path;
     }
 
-    if(ist->GetFormatDone) return *fmt_idx;
+    if (ist->GetFormatDone) return *fmt_idx;
     //
     //	prepare decoder config
     //
@@ -9053,7 +9053,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
     for (fmt_idx = fmt; *fmt_idx != AV_PIX_FMT_NONE; fmt_idx++) {
 	// check supported pixel format with entry point
 	switch (*fmt_idx) {
-#if LIBAVUTIL_VERSION_MAJOR < 56
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,89,100)
 	    case AV_PIX_FMT_VDPAU_H264:
 	    case AV_PIX_FMT_VDPAU_MPEG1:
 	    case AV_PIX_FMT_VDPAU_MPEG2:
@@ -9076,7 +9076,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	goto slow_path;
     }
 
-    if(ist->GetFormatDone) return *fmt_idx;
+    if (ist->GetFormatDone) return *fmt_idx;
 
     max_refs = CODEC_SURFACES_DEFAULT;
     // check profile
@@ -12122,7 +12122,7 @@ static enum AVPixelFormat Cuvid_get_format(CuvidDecoder * decoder,
 	goto slow_path;
     }
 
-    if(ist->GetFormatDone) return AV_PIX_FMT_CUDA;
+    if (ist->GetFormatDone) return AV_PIX_FMT_CUDA;
 
     decoder->PixFmt = *fmt_idx;
     ist->active_hwaccel_id = HWACCEL_CUVID;
