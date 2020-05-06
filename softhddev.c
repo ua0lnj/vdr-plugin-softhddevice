@@ -2390,6 +2390,7 @@ int PlayVideo3(VideoStream * stream, const uint8_t * data, int size)
     int n;
     int z;
     int l;
+    int i;
 
     if (!stream->Decoder) {		// no x11 video started
 	return size;
@@ -2410,6 +2411,11 @@ int PlayVideo3(VideoStream * stream, const uint8_t * data, int size)
 	stream->CodecID = AV_CODEC_ID_NONE;
 	stream->ClosingStream = 1;
 	stream->NewStream = 0;
+        for (i = 0; VideoGetBuffers(stream) && i < 100; ++i) {
+	    usleep(10 * 1000);
+        }
+        Debug(3, "[softhddev]%s: buffers %d %dms\n", __FUNCTION__,
+	    VideoGetBuffers(stream), i * 10);
     }
     // must be a PES start code
     // FIXME: Valgrind-3.8.1 has a problem with this code
@@ -2465,7 +2471,7 @@ int PlayVideo3(VideoStream * stream, const uint8_t * data, int size)
     z = 0;
     while (!*check) {			// count leading zeros
 	if (l < 3) {
-	    Warning(_("[softhddev] empty video packet %d bytes\n"), size);
+//	    Warning(_("[softhddev] empty video packet %d bytes\n"), size);
 	    z = 0;
 	    break;
 	}
@@ -2799,6 +2805,7 @@ int SetPlayMode(int play_mode)
 		}
 		if (MyVideoStream->CodecID != AV_CODEC_ID_NONE) {
 		    MyVideoStream->NewStream = 1;
+
 		    MyVideoStream->InvalidPesCounter = 0;
 		    // tell hw decoder we are closing stream
 		    VideoSetClosing(MyVideoStream->HwDecoder);
@@ -2987,6 +2994,15 @@ void StillPicture(const uint8_t * data, int size)
 #ifdef STILL_DEBUG
     InStillPicture = 1;
 #endif
+    if (MyVideoStream->NewStream) {
+        // wait for empty buffers
+        for (i = 0; VideoGetBuffers(MyVideoStream) && i < 200; ++i) {
+	    usleep(10 * 1000);
+        }
+        Debug(3, "[softhddev]%s: in buffers %d %dms\n", __FUNCTION__,
+	    VideoGetBuffers(MyVideoStream), i * 10);
+        VideoNextPacket(MyVideoStream, AV_CODEC_ID_NONE);	// close last stream
+    }
     VideoSetTrickSpeed(MyVideoStream->HwDecoder, 1);
     VideoResetPacket(MyVideoStream);
     old_video_hardware_decoder = VideoHardwareDecoder;
@@ -3051,7 +3067,8 @@ void StillPicture(const uint8_t * data, int size)
 		VideoNextPacket(MyVideoStream, AV_CODEC_ID_NONE);	// close last stream
 		MyVideoStream->CodecID = AV_CODEC_ID_MPEG2VIDEO;
 	    }
-	    VideoEnqueue(MyVideoStream, AV_NOPTS_VALUE, data, size);
+            //use pts=0 for cuvid still frame, because cuvid use internal timestamp when pts=AV_NOPTS_VALUE
+	    VideoEnqueue(MyVideoStream, 0, data, size);
 	}
 	if (MyVideoStream->CodecID == AV_CODEC_ID_H264) {
 	    VideoEnqueue(MyVideoStream, AV_NOPTS_VALUE, seq_end_h264,
@@ -3070,7 +3087,7 @@ void StillPicture(const uint8_t * data, int size)
     for (i = 0; VideoGetBuffers(MyVideoStream) && i < 100; ++i) {
 	usleep(10 * 1000);
     }
-    Debug(3, "[softhddev]%s: buffers %d %dms\n", __FUNCTION__,
+    Debug(3, "[softhddev]%s: out buffers %d %dms\n", __FUNCTION__,
 	VideoGetBuffers(MyVideoStream), i * 10);
 #ifdef STILL_DEBUG
     InStillPicture = 0;
