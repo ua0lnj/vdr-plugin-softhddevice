@@ -1826,9 +1826,13 @@ void cOglPixmap::DrawBitmap(const cPoint &Point, const cBitmap &Bitmap, tColor C
                         (index == 0 ? ColorBg : index == 1 ? ColorFg :
                                 Bitmap.Color(index)) : Bitmap.Color(index));
         }
-    oglThread->DoCmd(new cOglCmdDrawImage(fb, argb, Bitmap.Width(), Bitmap.Height(), Point.X(), Point.Y(), Overlay));
+
+    int xNew = Point.X() - ViewPort().X();
+    int yNew = Point.Y() - ViewPort().Y();
+
+    oglThread->DoCmd(new cOglCmdDrawImage(fb, argb, Bitmap.Width(), Bitmap.Height(), xNew, yNew, Overlay));
     SetDirty();
-    MarkDrawPortDirty(cRect(Point, cSize(Bitmap.Width(), Bitmap.Height())).Intersected(DrawPort().Size()));
+    MarkDrawPortDirty(cRect(cPoint(xNew,yNew), cSize(Bitmap.Width(), Bitmap.Height())).Intersected(DrawPort().Size()));
 }
 
 void cOglPixmap::DrawText(const cPoint &Point, const char *s, tColor ColorFg, tColor ColorBg, const cFont *Font, int Width, int Height, int Alignment) {
@@ -1960,7 +1964,8 @@ cOglOsd::cOglOsd(int Left, int Top, uint Level, std::shared_ptr<cOglThread> oglT
 cOglOsd::~cOglOsd() {
     if (!bFb) return;
     oglThread->DoCmd(new cOglCmdFill(bFb, clrTransparent));
-    oglThread->DoCmd(new cOglCmdCopyBufferToOutputFb(bFb, oFb, Left(), Top()));
+    oglThread->DoCmd(new cOglCmdCopyBufferToOutputFb(bFb, oFb, Left() + (isSubtitleOsd ? oglPixmaps[0]->ViewPort().X() : 0),
+        Top() + (isSubtitleOsd ? oglPixmaps[0]->ViewPort().Y() : 0)));
     OsdClose();
     SetActive(false);
     oglThread->DoCmd(new cOglCmdDeleteFb(bFb));
@@ -1972,6 +1977,8 @@ eOsdError cOglOsd::SetAreas(const tArea *Areas, int NumAreas) {
         isSubtitleOsd = true;
     for (int i = 0; i < NumAreas; i++)
         r.Combine(cRect(Areas[i].x1, Areas[i].y1, Areas[i].Width(), Areas[i].Height()));
+
+    if(r.Left() && r.Top() && !isSubtitleOsd) isSubtitleOsd = true; //for DVD plugin
 
     tArea area = { r.Left(), r.Top(), r.Right(), r.Bottom(), 32 };
 
@@ -2077,12 +2084,10 @@ void cOglOsd::Flush(void) {
 }
 
 void cOglOsd::DrawScaledBitmap(int x, int y, const cBitmap &Bitmap, double FactorX, double FactorY, bool AntiAlias) {
-    int xNew = x - oglPixmaps[0]->ViewPort().X();
-    int yNew = y - oglPixmaps[0]->ViewPort().Y();
     const cBitmap *b = &Bitmap;
     if (!DoubleEqual(FactorX, 1.0) || !DoubleEqual(FactorY, 1.0))
         b = b->Scaled(FactorX, FactorY, AntiAlias);
-    oglPixmaps[0]->DrawBitmap(cPoint(xNew, yNew), *b);
+    oglPixmaps[0]->DrawBitmap(cPoint(x, y), *b);
     if (b != &Bitmap)
         delete b;
 }
