@@ -233,12 +233,14 @@ extern void VideoOsdDrawARGB(int, int, int, int, int, const uint8_t *, int,
 
     /// Activate displaying OSD
 void ActivateOsd(void);
+#ifdef USE_VDPAU
     /// Get VDPAU DEVICE
 extern void *GetVDPAUDevice(void);
     /// Get VDPAU GetProcAddress
 extern void *GetVDPAUProcAdress(void);
     /// Get VDPAU OSD Output Surface
 extern void *GetVDPAUOsdOutputSurface(void);
+#endif
 #ifdef USE_CUVID
 extern unsigned int *GetCuvidOsdOutputTexture(unsigned int);
 extern int CuvidInitGlx(void);
@@ -283,6 +285,9 @@ extern void VideoGetVideoSize(VideoHwDecoder *, int *, int *, int *, int *);
 
 extern void VideoOsdInit(void);		///< Setup osd.
 extern void VideoOsdExit(void);		///< Cleanup osd.
+#ifdef USE_OPENGLOSD
+extern int VideoOsdNeedRestart(void);
+#endif
 
 extern void VideoInit(const char *);	///< Setup video module.
 extern void VideoExit(void);		///< Cleanup and exit video module.

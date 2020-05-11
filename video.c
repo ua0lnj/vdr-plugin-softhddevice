@@ -553,6 +553,7 @@ static int OsdDirtyHeight;		///< osd dirty area height
 
 #ifdef USE_OPENGLOSD
 static void (*VideoEventCallback)(void) = NULL;  /// callback function to notify VDR about Video Events
+static int OsdNeedRestart = 0;		/// osd restart flag for openglosd, use for VDPAU
 #endif
 
 static int64_t VideoDeltaPTS;		///< FIXME: fix pts
@@ -1000,6 +1001,11 @@ static void GlxOsdInit(int width, int height)
 
     Debug(3, "video/glx: osd init context %p <-> %p\n", glXGetCurrentContext(),
 	GlxContext);
+
+    if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxContext)) {
+	Error(_("video/glx: can't make glx context current\n"));
+	return;
+    }
 
     //
     //	create a RGBA texture.
@@ -11241,6 +11247,7 @@ static void VdpauOsdInit(int width, int height)
 	Debug(3, "video/vdpau: vdpau not setup\n");
 	return;
     }
+
     //
     //	create bitmap/surface for osd
     //
@@ -11316,6 +11323,9 @@ static void VdpauOsdExit(void)
 	}
     }
 #endif
+#ifdef USE_OPENGLOSD
+    OsdNeedRestart = 1;
+#endif
 }
 
 void *GetVDPAUDevice(void) {
@@ -11326,6 +11336,9 @@ void *GetVDPAUProcAdress(void) {
 }
 
 void *GetVDPAUOsdOutputSurface(void) {
+#ifdef USE_OPENGLOSD
+    OsdNeedRestart = 0;
+#endif
 #ifndef USE_BITMAP
     return (void*)VdpauOsdOutputSurface[VdpauOsdSurfaceIndex];
 #else
@@ -13807,6 +13820,16 @@ void VideoOsdExit(void)
     OsdDirtyWidth = 0;
     OsdDirtyHeight = 0;
 }
+
+#ifdef USE_OPENGLOSD
+///
+///	Restat OpenGL
+///
+int VideoOsdNeedRestart(void)
+{
+    return OsdNeedRestart;
+}
+#endif
 
 //----------------------------------------------------------------------------
 //	Events

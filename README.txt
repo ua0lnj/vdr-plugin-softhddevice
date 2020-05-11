@@ -2,7 +2,7 @@
 
 Copyright (c) 2011 - 2013 by Johns.  All Rights Reserved.
 
-Contributor(s):
+Contributor(s): ua0lnj
 
 License: AGPLv3
 
@@ -18,10 +18,11 @@ GNU Affero General Public License for more details.
 
 $Id$
 
-A software and GPU emulated HD output device plugin for VDR.
+A software and GPU emulated UHD output device plugin for VDR.
 
     o Video decoder CPU / VA-API / VDPAU / CUVID
-    o Video output VDPAU / GLX (VA-API CUVID)
+    o Video output VA-API / VDPAU / GLX (VA-API CUVID)
+    o OSD accelerated by GPU VDPAU / CUVID
     o Audio FFMpeg / Alsa / Analog
     o Audio FFMpeg / Alsa / Digital
     o Audio FFMpeg / OSS / Analog
@@ -36,6 +37,7 @@ A software and GPU emulated HD output device plugin for VDR.
     o atmo light support with plugin http://github.com/durchflieger/DFAtmo
     o PIP (Picture-in-Picture) (VDPAU only)
 
+    o planned: OSD accelerated by GPU VA-API
     o planned: Video output Opengl / Xv
     o planned: Improved software deinterlacer (yadif or/and ffmpeg filters)
     o XvBa support is no longer planned (use future Radeon UVD VDPAU)
@@ -70,7 +72,7 @@ Install:
 	make
 	make install
 
-	You can edit Makefile to enable/disable VDPAU / VA-API / CUVID / Alsa / OSS
+	You can edit Makefile to enable/disable VDPAU / VA-API / CUVID / Alsa / OSS / OPENGL OSD
 	support.  The default is to autodetect as much as possible.
 
 Setup:	environment
@@ -312,7 +314,7 @@ Commandline:
 
     -w workaround 	enable/disable workarounds:
 	no-hw-decoder			disable hw decoder, use software decoder only
-	no-mpeg-hw-decoder		disable hw decoder for mpeg only
+	no-mpeg-hw-decoder		disable hw decoder for mpeg2 only
 	still-hw-decoder		enable hardware decoder for still-pictures
 	still-h264-hw-decoder		enable h264 hw decoder for still-pictures
 	alsa-driver-broken		disable broken alsa driver message
@@ -320,7 +322,7 @@ Commandline:
 	alsa-close-open-delay		enable close open delay to fix no sound bug
 	ignore-repeat-pict		disable repeat pict message
 	use-possible-defect-frames	prefer faster channel switch
-	disable-ogl-osd			disable openGL osd
+	disable-ogl-osd			disable openGL accelerated osd
 
     -D 			start in detached mode
 

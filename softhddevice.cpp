@@ -806,6 +806,8 @@ cOsd *cSoftOsdProvider::CreateOsd(int left, int top, uint level)
         dsyslog("[softhddev]No hw driver or OpenGL Osd disabled - use soft OSD");
         return Osd = new cSoftOsd(left, top, level);
     }
+    if (VideoOsdNeedRestart())
+        StopOpenGlThread();
     if (StartOpenGlThread())
         return Osd = new cOglOsd(left, top, level, oglThread);
     //return dummy osd if shd is detached
