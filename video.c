@@ -3635,7 +3635,12 @@ static void VaapiSetup(VaapiDecoder * decoder,
     VaapiCreateSurfaces(decoder, width, height);
 
 #ifdef USE_GLX
-    if (GlxEnabled) {
+    if (GlxEnabled && GlxThreadContext) {
+
+        if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext)) {
+	    Error(_("video/glx: can't make glx context current\n"));
+	    return;
+        }
 	// FIXME: destroy old context
 /*	GLXContext prevcontext = glXGetCurrentContext();
 
@@ -5057,7 +5062,7 @@ static void VaapiBlackSurface(VaapiDecoder * decoder)
 	    } else if (u % 2 == 0) {
 		va_image_data[u] = 0x80;	// U
 	    } else {
-#ifdef DEBUG
+#if 0
 		// make black surface visible
 		va_image_data[u] = 0xFF;	// V
 #else
