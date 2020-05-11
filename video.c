@@ -13823,7 +13823,7 @@ void VideoOsdExit(void)
 
 #ifdef USE_OPENGLOSD
 ///
-///	Restat OpenGL
+///	Need Restart OpenGL OSD
 ///
 int VideoOsdNeedRestart(void)
 {
