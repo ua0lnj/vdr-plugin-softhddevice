@@ -967,6 +967,7 @@ class cMenuSetupSoft:public cMenuSetupPage
     int AudioPassthroughPCM;
     int AudioPassthroughAC3;
     int AudioPassthroughEAC3;
+    int AudioPassthroughDTS;
     int AudioDownmix;
     int AudioSoftvol;
     int AudioNormalize;
@@ -1255,6 +1256,8 @@ void cMenuSetupSoft::Create(void)
 		&AudioPassthroughEAC3, trVDR("no"), trVDR("yes")));
 	Add(new cMenuEditBoolItem(tr("Enable (E-)AC-3 (decoder) downmix"),
 		&AudioDownmix, trVDR("no"), trVDR("yes")));
+	Add(new cMenuEditBoolItem(tr("\040\040DTS pass-through"),
+		&AudioPassthroughDTS, trVDR("no"), trVDR("yes")));
 	Add(new cMenuEditBoolItem(tr("Volume control"), &AudioSoftvol,
 		tr("Hardware"), tr("Software")));
 	Add(new cMenuEditBoolItem(tr("Enable normalize volume"),
@@ -1485,6 +1488,7 @@ cMenuSetupSoft::cMenuSetupSoft(void)
     AudioPassthroughPCM = ConfigAudioPassthrough & CodecPCM;
     AudioPassthroughAC3 = ConfigAudioPassthrough & CodecAC3;
     AudioPassthroughEAC3 = ConfigAudioPassthrough & CodecEAC3;
+    AudioPassthroughDTS = ConfigAudioPassthrough & CodecDTS;
     AudioDownmix = ConfigAudioDownmix;
     AudioSoftvol = ConfigAudioSoftvol;
     AudioNormalize = ConfigAudioNormalize;
@@ -1676,6 +1680,7 @@ void cMenuSetupSoft::Store(void)
     }
     ConfigAudioPassthrough = (AudioPassthroughPCM ? CodecPCM : 0)
 	| (AudioPassthroughAC3 ? CodecAC3 : 0)
+	| (AudioPassthroughDTS ? CodecDTS : 0)
 	| (AudioPassthroughEAC3 ? CodecEAC3 : 0);
     AudioPassthroughState = AudioPassthroughDefault;
     if (AudioPassthroughState) {

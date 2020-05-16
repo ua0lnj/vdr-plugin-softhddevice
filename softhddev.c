@@ -50,6 +50,7 @@
 #define AV_CODEC_ID_AAC CODEC_ID_AAC
 #define AV_CODEC_ID_AAC_LATM CODEC_ID_AAC_LATM
 #define AV_CODEC_ID_AC3 CODEC_ID_AC3
+#define AV_CODEC_ID_DTS CODEC_ID_DTS
 #define AV_CODEC_ID_EAC3 CODEC_ID_EAC3
 #define AV_CODEC_ID_H264 CODEC_ID_H264
 #define AV_CODEC_ID_MP2 CODEC_ID_MP2
@@ -418,6 +419,63 @@ static int Ac3Check(const uint8_t * data, int size)
 	return frame_size;
     }
 
+    return 0;
+}
+
+///
+///	Fast check for DTS audio.
+///
+///	4 bytes 0x7FFE8001 DTS audio
+///
+static inline int FastDtsCheck(const uint8_t * p)
+{
+    if (p[0] != 0x7F) {
+	return 0;
+    }
+    if (p[1] != 0xFE) {
+	return 0;
+    }
+    if (p[2] != 0x80) {
+	return 0;
+    }
+    if (p[3] != 0x01) {
+	return 0;
+    }
+    return 1;
+}
+
+///
+///	Check for DTS audio.
+///
+///	0x7FFE8001 already checked.
+///
+///	@param data	incomplete PES packet
+///	@param size	number of bytes
+///
+static int DtsCheck(const uint8_t * data, int size)
+{
+    int frame_size;
+
+    if (size < 8) {			// need 8 bytes
+	return -8;
+    }
+
+    frame_size =
+        (((data[5] & 0x03) << 12) |
+        ((data[6] & 0xff) <<  4) |
+        ((data[7] & 0xf0) >>  4)) + 1;
+
+    if(frame_size < 80 || frame_size > 8191) // invalid frame size
+       return 0;
+
+    if (frame_size + 4 > size) {
+	return -frame_size - 4;
+    }
+    // FIXME: relaxed checks if codec is already detected
+    // check if after this frame a new DTS frame starts
+    if (FastDtsCheck(data + frame_size)) {
+	return frame_size;
+    }
     return 0;
 }
 
@@ -1555,6 +1613,7 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 			    // 4 bytes 0xFFExxxxx Mpeg audio
 			    // 5 bytes 0x0B77xxxxxx AC-3 audio
 			    // 6 bytes 0x0B77xxxxxxxx E-AC-3 audio
+			    // 8 bytes 0x7FFE8001xxxxxxxx DTS audio
 			    // 3 bytes 0x56Exxx AAC LATM audio
 			    // 7/9 bytes 0xFFFxxxxxxxxxxx ADTS audio
 			    // PCM audio can't be found
@@ -1570,6 +1629,10 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 				if (r > 0 && q[5] > (10 << 3)) {
 				    codec_id = AV_CODEC_ID_EAC3;
 				}
+			    }
+			    if (!r && FastDtsCheck(q)) {
+				r = DtsCheck(q, n);
+				codec_id = AV_CODEC_ID_DTS;
 			    }
 			    if (!r && FastLatmCheck(q)) {
 				r = LatmCheck(q, n);
@@ -2258,6 +2321,7 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 	// 3 bytes 0x56Exxx AAC LATM audio
 	// 5 bytes 0x0B77xxxxxx AC-3 audio
 	// 6 bytes 0x0B77xxxxxxxx E-AC-3 audio
+	// 8 bytes 0x7FFE8001xxxxxxxx DTS audio
 	// 7/9 bytes 0xFFFxxxxxxxxxxx ADTS audio
 	// PCM audio can't be found
 	r = 0;
@@ -2282,6 +2346,10 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 	       }
 	     */
 	}
+	if (id != 0xbd && !r && FastDtsCheck(p)) {
+	    r = DtsCheck(p, n);
+	    codec_id = AV_CODEC_ID_DTS;
+	}
 	if (id != 0xbd && !r && FastAdtsCheck(p)) {
 	    r = AdtsCheck(p, n);
 	    codec_id = AV_CODEC_ID_AAC;
@@ -2291,7 +2359,6 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 	}
 	if (r > 0) {
 	    AVPacket avpkt[1];
-
 	    // new codec id, close and open new
 	    if (AudioCodecID != codec_id) {
 		CodecAudioClose(MyAudioDecoder);
