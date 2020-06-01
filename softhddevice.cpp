@@ -802,8 +802,8 @@ cOsd *cSoftOsdProvider::CreateOsd(int left, int top, uint level)
 #endif
 
 #ifdef USE_OPENGLOSD
-    if ((!VideoIsDriverVdpau() && !VideoIsDriverCuvid()) || DisableOglOsd) {
-        dsyslog("[softhddev]No hw driver or OpenGL Osd disabled - use soft OSD");
+    if (DisableOglOsd) {
+        dsyslog("[softhddev]OpenGL Osd disabled - use soft OSD");
         return Osd = new cSoftOsd(left, top, level);
     }
     if (VideoOsdNeedRestart())
@@ -838,6 +838,7 @@ void cSoftOsdProvider::OsdSizeChanged(void) {
     cSoftOsdProvider::StopOpenGlThread();
     cOsdProvider::UpdateOsdSize();
 }
+
 
 bool cSoftOsdProvider::StartOpenGlThread(void) {
     if (DisableOglOsd)

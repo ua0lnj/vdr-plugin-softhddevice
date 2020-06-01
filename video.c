@@ -6381,6 +6381,16 @@ static void VaapiDisplayFrame(void)
 	//	add OSD
 	//
 	if (OsdShown) {
+#ifdef USE_OPENGLOSD
+            if(!DisableOglOsd && OsdGlTexture) {
+                glViewport(0, 0, VideoWindowWidth, VideoWindowHeight);
+                glMatrixMode(GL_PROJECTION);
+                glLoadIdentity();
+                glOrtho(0.0, VideoWindowWidth, VideoWindowHeight, 0.0, -1.0, 1.0);
+                GlxCheck();
+                GlxRenderTexture(OsdGlTexture, 0,0, VideoWindowWidth, VideoWindowHeight);
+            } else
+#endif
 	    GlxRenderTexture(OsdGlTextures[OsdIndex], 0, 0, VideoWindowWidth,
 		VideoWindowHeight);
 	    // FIXME: toggle osd
@@ -7167,6 +7177,37 @@ static const VideoModule VaapiModule = {
 };
 
 #ifdef USE_GLX
+
+#ifdef USE_OPENGLOSD
+unsigned int *GetVaapiGlxOsdOutputTexture(GLuint texture) {
+    OsdGlTexture = texture;
+}
+
+int VaapiInitGlx(void) {
+    if (!GlxEnabled) {
+        Debug(3,"video/osd: can't create glx context\n");
+        return 0;
+    }
+    //after run an external player from time to time vdr not set playmode 1
+    //then try start GLX forced.
+    //is it a vdr bug or external player plugin???
+    int a = 0;
+    while (!GlxContext || !GlxThreadContext){
+        usleep(1000);
+        a++;
+        if (a > 10 && a < 1000) {
+            Debug(3,"Try start GLX forced\n");
+            VideoDisplayWakeup();
+            a = 1000;
+        }
+        if (a > 1010) return 0;
+    }
+    Debug(3,"Create OSD GLX context\n");
+    glXMakeCurrent(XlibDisplay, None, NULL);
+    glXMakeCurrent(XlibDisplay, VideoWindow, GlxContext);
+    return 1;
+}
+#endif
 
 ///
 ///	VA-API module.

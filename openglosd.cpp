@@ -1,6 +1,7 @@
 #define __STL_CONFIG_H
 #include <algorithm>
 #include "openglosd.h"
+#include "misc.h"
 
 extern "C"
 {
@@ -21,10 +22,13 @@ void ConvertColor(const GLint &colARGB, glm::vec4 &col) {
 /****************************************************************************************
 * cShader
 ****************************************************************************************/
-
+const char *ShaderVersions[] {
+"#version 330 core ",
+"#version 300 es  ",
+};
 
 const char *rectVertexShader =
-"#version 330 core \n\
+"\n\
 \
 layout (location = 0) in vec2 position; \
 out vec4 rectCol; \
@@ -39,8 +43,9 @@ void main() \
 ";
 
 const char *rectFragmentShader =
-"#version 330 core \n\
+"\n\
 \
+precision highp float;\
 in vec4 rectCol; \
 out vec4 color; \
 \
@@ -51,7 +56,7 @@ void main() \
 ";
 
 const char *textureVertexShader =
-"#version 330 core \n\
+"\n\
 \
 layout (location = 0) in vec2 position; \
 layout (location = 1) in vec2 texCoords; \
@@ -71,7 +76,8 @@ void main() \
 ";
 
 const char *textureFragmentShader =
-"#version 330 core \n\
+"\n\
+precision highp float;\
 in vec2 TexCoords; \
 in vec4 alphaValue; \
 out vec4 color; \
@@ -85,7 +91,7 @@ void main() \
 ";
 
 const char *textVertexShader =
-"#version 330 core \n\
+"\n\
 \
 layout (location = 0) in vec2 position; \
 layout (location = 1) in vec2 texCoords; \
@@ -105,7 +111,8 @@ void main() \
 ";
 
 const char *textFragmentShader =
-"#version 330 core \n\
+"\n\
+precision highp float;\
 in vec2 TexCoords; \
 in vec4 textColor; \
 \
@@ -188,15 +195,27 @@ void cShader::SetMatrix4(const GLchar *name, const glm::mat4 &matrix) {
 
 bool cShader::Compile(const char *vertexCode, const char *fragmentCode) {
     GLuint sVertex, sFragment;
-    // Vertex Shader
-    sVertex = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(sVertex, 1, &vertexCode, NULL);
-    glCompileShader(sVertex);
-    if (!CheckCompileErrors(sVertex))
-        return false;
+    std::string vertexCodeStr, fragmentCodeStr;
+    const GLchar *vertexCodeChr, *fragmentCodeChr;
+    // try compile shaders
+    for (int a = 0; a < 2; a++) {
+        dsyslog("[softhddev]:SHADER: Try compile %s\n",ShaderVersions[a]);
+        vertexCodeStr = std::string(ShaderVersions[a]) + vertexCode;
+        fragmentCodeStr = std::string(ShaderVersions[a]) + fragmentCode;
+        vertexCodeChr = (const GLchar *)vertexCodeStr.c_str();
+        fragmentCodeChr = (const GLchar *)fragmentCodeStr.c_str();
+        // Vertex Shader
+        sVertex = glCreateShader(GL_VERTEX_SHADER);
+        glShaderSource(sVertex, 1, &vertexCodeChr, NULL);
+        glCompileShader(sVertex);
+        if (CheckCompileErrors(sVertex)) break; //compiled ok
+        else if (a != 0) return false;          //no supported shaders
+        glDeleteShader(sVertex);                //try yet
+    }
+    dsyslog("[softhddev]:SHADER: Compiled ok\n");
     // Fragment Shader
     sFragment = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(sFragment, 1, &fragmentCode, NULL);
+    glShaderSource(sFragment, 1, &fragmentCodeChr, NULL);
     glCompileShader(sFragment);
     if (!CheckCompileErrors(sFragment))
         return false;
@@ -561,18 +580,21 @@ bool cOglOutputFb::Init(void) {
         GetCuvidOsdOutputTexture(texture);
     }
 #endif
-    glBindTexture(GL_TEXTURE_2D, texture);
-#ifdef USE_VDPAU
-    if (!VideoIsDriverVdpau()) {
+#ifdef USE_VAAPI
+    if (!strcasecmp(VideoGetDriverName(), "va-api-glx")) {
+        GetVaapiGlxOsdOutputTexture(texture);
+    }
 #endif
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    if (!VideoIsDriverVdpau()) {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-#ifdef USE_VDPAU
     }
-#endif
+
     glGenFramebuffers(1, &fb);
     glBindFramebuffer(GL_FRAMEBUFFER, fb);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
@@ -1643,6 +1665,11 @@ bool cOglThread::InitOpenGL(void) {
 #ifdef USE_CUVID
     if (VideoIsDriverCuvid()) {
         if (!CuvidInitGlx()) return false;
+    }
+#endif
+#ifdef USE_VAAPI
+    if (!strcasecmp(VideoGetDriverName(), "va-api-glx")) {
+        if (!VaapiInitGlx()) return false;
     }
 #endif
     glewExperimental = GL_TRUE;

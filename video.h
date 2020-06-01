@@ -245,6 +245,10 @@ extern void *GetVDPAUOsdOutputSurface(void);
 extern unsigned int *GetCuvidOsdOutputTexture(unsigned int);
 extern int CuvidInitGlx(void);
 #endif
+#ifdef USE_VAAPI
+extern unsigned int *GetVaapiGlxOsdOutputTexture(unsigned int);
+extern int VaapiInitGlx(void);
+#endif
 extern int DisableOglOsd;
 
     /// Get OSD size.
