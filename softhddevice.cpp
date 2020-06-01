@@ -839,8 +839,9 @@ void cSoftOsdProvider::OsdSizeChanged(void) {
     cOsdProvider::UpdateOsdSize();
 }
 
-
 bool cSoftOsdProvider::StartOpenGlThread(void) {
+    if (DisableOglOsd)
+        return false;
     //only try to start worker thread if shd is attached
     //otherwise glutInit() crashes
     if (SuspendMode != NOT_SUSPENDED) {

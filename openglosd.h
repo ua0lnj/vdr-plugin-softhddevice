@@ -29,9 +29,9 @@ const struct {
 #include <memory>
 #include <queue>
 
-#include <vdr/plugin.h>
+//#include <vdr/plugin.h>
 #include <vdr/osd.h>
-#include <vdr/thread.h>
+//#include <vdr/thread.h>
 
 #include "softhddev.h"
 

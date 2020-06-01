@@ -2891,7 +2891,7 @@ static int VaapiGlxInit(const char *display_name)
     GlxInit();
     if (GlxEnabled) {
 	GlxSetupWindow(VideoWindow, VideoWindowWidth, VideoWindowHeight,
-	    GlxContext);
+	    GlxSharedContext);
     }
     if (!GlxEnabled) {
 	Error(_("video/glx: glx error\n"));
@@ -3635,58 +3635,19 @@ static void VaapiSetup(VaapiDecoder * decoder,
     VaapiCreateSurfaces(decoder, width, height);
 
 #ifdef USE_GLX
-    if (GlxEnabled && GlxThreadContext) {
-
+    if (GlxEnabled) {
         if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext)) {
 	    Error(_("video/glx: can't make glx context current\n"));
 	    return;
         }
-	// FIXME: destroy old context
-/*	GLXContext prevcontext = glXGetCurrentContext();
-
-	if (!prevcontext) {
-#ifdef USE_VIDEO_THREAD
-	    if (GlxThreadContext) {
-		Debug(3, "video/glx: no glx context in %s. Forcing GlxThreadContext (%p)",
-			__FUNCTION__, GlxThreadContext);
-		if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext)) {
-		    Fatal(_("video/glx: can't make glx context current\n"));
-		}
-	    } else
-#endif
-	    if (GlxContext) {
-		Debug(3, "video/glx: no glx context in %s. Forcing GlxContext (%p)",
-			__FUNCTION__, GlxThreadContext);
-		if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxContext)) {
-		    Fatal(_("video/glx: can't make glx context current\n"));
-		}
-	    }
-	}
-*/
 	GlxSetupDecoder(decoder->InputWidth, decoder->InputHeight,
 	    decoder->GlTextures);
-	// FIXME: try two textures
-/*	status = vaCreateSurfaceGLX(decoder->VaDisplay, GL_TEXTURE_2D,
-			decoder->GlTextures[0], &decoder->GlxSurfaces[0]);
-	if (status != VA_STATUS_SUCCESS) {
-	    Fatal(_("video/glx: can't create glx surfaces (0x%X): %s\n"), status, vaErrorStr(status));
-*/
 	if (vaCreateSurfaceGLX(decoder->VaDisplay, GL_TEXTURE_2D,
 		decoder->GlTextures[0], &decoder->GlxSurfaces[0])
 	    != VA_STATUS_SUCCESS) {
 	    Fatal(_("video/glx: can't create glx surfaces\n"));
 	    // FIXME: no fatal here
 	}
-
-	/*
-	   if (vaCreateSurfaceGLX(decoder->VaDisplay, GL_TEXTURE_2D,
-	   decoder->GlTextures[1], &decoder->GlxSurfaces[1])
-	   != VA_STATUS_SUCCESS) {
-	   Fatal(_("video/glx: can't create glx surfaces\n"));
-	   }
-	 */
-//	if (!prevcontext)
-//	    glXMakeCurrent(XlibDisplay, None, NULL);
     }
 #endif
     VaapiUpdateOutput(decoder);
@@ -6305,7 +6266,17 @@ static void VaapiDisplayFrame(void)
 	    }
 	}
 #endif
-
+	if (GlxEnabled) {
+	    if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext)) {
+		Error(_("video/glx: can't make glx context current\n"));
+		return;
+	    }
+	    glClear(GL_COLOR_BUFFER_BIT);
+	    glViewport(0, 0, VideoWindowWidth, VideoWindowHeight);
+	    glMatrixMode(GL_PROJECTION);
+	    glLoadIdentity();
+	    glOrtho(0.0, VideoWindowWidth, VideoWindowHeight, 0.0, -1.0, 1.0);
+	}
 	filled = atomic_read(&decoder->SurfacesFilled);
 	// no surface availble show black with possible osd
 	if (!filled) {
@@ -6406,27 +6377,6 @@ static void VaapiDisplayFrame(void)
 
 #ifdef USE_GLX
     if (GlxEnabled) {
-/*        GLXContext prevcontext = glXGetCurrentContext();
-
-        if (!prevcontext) {
-#ifdef USE_VIDEO_THREAD
-            if (GlxThreadContext) {
-		Debug(3, "video/glx: no glx context in %s. Forcing GlxThreadContext (%p)",
-			__FUNCTION__, GlxThreadContext);
-                if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext)) {
-                    Fatal(_("video/glx: can't make glx context current\n"));
-                }
-            } else
-#endif
-            if (GlxContext) {
-		Debug(3, "video/glx: no glx context in %s. Forcing GlxContext (%p)",
-			__FUNCTION__, GlxContext);
-                if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxContext)) {
-                    Fatal(_("video/glx: can't make glx context current\n"));
-                }
-            }
-        }
-*/
 	//
 	//	add OSD
 	//
@@ -6437,10 +6387,12 @@ static void VaapiDisplayFrame(void)
 	}
 	//glFinish();
 	glXSwapBuffers(XlibDisplay, VideoWindow);
-
+	glXMakeCurrent(XlibDisplay, None, NULL);
 	GlxCheck();
 	//glClearColor(1.0f, 0.0f, 0.0f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
+
+	xcb_flush(Connection);
     }
 #endif
 }
@@ -11767,7 +11719,7 @@ static void CuvidMixerSetup(CuvidDecoder * decoder)
     int mode, drop;
 
     if (decoder->video_ctx) {
-        if (decoder->PixFmt == AV_PIX_FMT_NV12) {
+        if (decoder->PixFmt == AV_PIX_FMT_NV12 || decoder->PixFmt == AV_PIX_FMT_P010LE) {
             if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceWeave) {
                 Debug(3, "video/cuvid: set weave");
                 mode = 0;
@@ -16233,7 +16185,7 @@ void VideoInit(const char *display_name)
     Debug(3, "video: window prepared\n");
 
     //
-    //	prepare hardware decoder VA-API/VDPAU
+    //	prepare hardware decoder VA-API/VDPAU/CUVID
     //
     for (i = 0; i < (int)(sizeof(VideoModules) / sizeof(*VideoModules)); ++i) {
 	// FIXME: support list of drivers and include display name
