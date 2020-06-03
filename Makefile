@@ -33,8 +33,9 @@ ifeq ($(SWRESAMPLE),1)
 ifeq ($(AVRESAMPLE),1)
 $(info WARNING, you have libavresample and libswresample together!!!)
     # if you got a segfault, try changing the comment in following lines
-SWRESAMPLE = 0
-#AVRESAMPLE = 0
+#SWRESAMPLE = 0
+#avresample is deprecated
+AVRESAMPLE = 0
 endif
 endif
     # support CUVID video decoder
@@ -199,6 +200,7 @@ SRCS = $(wildcard $(OBJS:.o=.c)) $(PLUGIN).cpp
 
 all: $(SOFILE) i18n
 
+
 ### Dependencies:
 
 MAKEDEP = $(CXX) -MM -MG
@@ -217,15 +219,18 @@ I18Nmsgs  = $(addprefix $(DESTDIR)$(LOCDIR)/, $(addsuffix /LC_MESSAGES/vdr-$(PLU
 I18Npot	  = $(PODIR)/$(PLUGIN).pot
 
 %.mo: %.po
-	msgfmt -c -o $@ $<
+	@echo MO $@
+	$(Q)msgfmt -c -o $@ $<
 
 $(I18Npot): $(SRCS)
-	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP \
+	@echo GT $@
+	$(Q)xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP \
 	-k_ -k_N --package-name=vdr-$(PLUGIN) --package-version=$(VERSION) \
 	--msgid-bugs-address='<see README>' -o $@ `ls $^`
 
 %.po: $(I18Npot)
-	msgmerge -U --no-wrap --no-location --backup=none -q -N $@ $<
+	@echo PO $@
+	$(Q)msgmerge -U --no-wrap --no-location --backup=none -q -N $@ $<
 	@touch $@
 
 $(I18Nmsgs): $(DESTDIR)$(LOCDIR)/%/LC_MESSAGES/vdr-$(PLUGIN).mo: $(PODIR)/%.mo
@@ -241,7 +246,8 @@ install-i18n: $(I18Nmsgs)
 $(OBJS): Makefile
 
 $(SOFILE): $(OBJS)
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) $(LIBS) -o $@
+	@echo LD $@
+	$(Q)$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) $(LIBS) -o $@
 
 install-lib: $(SOFILE)
 	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)

@@ -242,11 +242,11 @@ extern void *GetVDPAUProcAdress(void);
 extern void *GetVDPAUOsdOutputSurface(void);
 #endif
 #ifdef USE_CUVID
-extern unsigned int *GetCuvidOsdOutputTexture(unsigned int);
+extern void *GetCuvidOsdOutputTexture(unsigned int);
 extern int CuvidInitGlx(void);
 #endif
 #ifdef USE_VAAPI
-extern unsigned int *GetVaapiGlxOsdOutputTexture(unsigned int);
+extern void *GetVaapiGlxOsdOutputTexture(unsigned int);
 extern int VaapiInitGlx(void);
 #endif
 extern int DisableOglOsd;

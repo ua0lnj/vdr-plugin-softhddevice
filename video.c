@@ -126,10 +126,12 @@ typedef enum
 #endif
 
 #ifdef USE_GLX
+#define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>			// For GL_COLOR_BUFFER_BIT
 #include <GL/glx.h>
 // only for gluErrorString
 #include <GL/glu.h>
+#include <GL/glext.h>
 #endif
 
 #ifdef USE_VAAPI
@@ -160,6 +162,7 @@ typedef enum
 #endif
 
 #include <libavcodec/avcodec.h>
+#include <libavutil/opt.h>
 #ifdef USE_SWSCALE
 #include <libswscale/swscale.h>
 #endif
@@ -564,8 +567,7 @@ static char EnableDPMSatBlackScreen;	///< flag we should enable dpms at black sc
 #endif
 
 uint32_t mutex_start_time;
-int max_mutex_delay;
-max_mutex_delay = 1;
+unsigned int max_mutex_delay = 1;
 
 void AudioDelayms(int);
 //----------------------------------------------------------------------------
@@ -620,7 +622,7 @@ static void VideoSetPts(int64_t * pts_p, int interlaced,
 	duration = interlaced ? 40 : 20;	// 50Hz -> 20ms default
     }
     Debug(4, "video: %d/%d %" PRIx64 " -> %d\n", video_ctx->framerate.den,
-	video_ctx->framerate.num, av_frame_get_pkt_duration(frame), duration);
+	video_ctx->framerate.num, frame->pkt_duration, duration);
 #endif
 
     // update video clock
@@ -842,7 +844,7 @@ static GLXContext GlxThreadContext;	///< our gl context for the thread
 static XVisualInfo *GlxVisualInfo;	///< our gl visual
 
 static GLuint OsdGlTextures[2];		///< gl texture for OSD
-static GLuint *OsdGlTexture = NULL;		///< texture for openglosd
+static GLuint OsdGlTexture = 0;		///< texture for openglosd
 static int OsdIndex;			///< index into OsdGlTextures
 
 ///
@@ -1346,7 +1348,6 @@ static void GlxInit(void)
     //
     if (glx_GLX_EXT_swap_control) {
 	unsigned tmp;
-
 	tmp = -1;
 	glXQueryDrawable(XlibDisplay, DefaultRootWindow(XlibDisplay),
 	    GLX_SWAP_INTERVAL_EXT, &tmp);
@@ -1434,7 +1435,7 @@ static void GlxExit(void)
 	glXDestroyContext(XlibDisplay, GlxThreadContext);
     }
     if (OsdGlTexture)
-        OsdGlTexture = NULL;
+        OsdGlTexture = 0;
     GlxThreadContext = NULL;
 /*    if (GlxVisualInfo) {
 	XFree(GlxVisualInfo);
@@ -3599,7 +3600,7 @@ static void VaapiSetup(VaapiDecoder * decoder,
 {
     int width;
     int height;
-    VAStatus status;
+
     VAImageFormat format[1];
 
     // create initial black surface and display
@@ -4214,17 +4215,21 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
     Debug(3, "codec: %d entrypoints\n", entrypoint_n);
     //	look through formats
     for (fmt_idx = fmt; *fmt_idx != AV_PIX_FMT_NONE; fmt_idx++) {
-	Debug(3, "\t%#010x %s\n", *fmt_idx, av_get_pix_fmt_name(*fmt_idx));
+	Debug(3,"\t%#010x %s\n", *fmt_idx, av_get_pix_fmt_name(*fmt_idx));
 	// check supported pixel format with entry point
 	switch (*fmt_idx) {
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(54,31,100)
 	    case AV_PIX_FMT_VAAPI_VLD:
+#else
+	    case AV_PIX_FMT_VAAPI:
+#endif
 		e = VaapiFindEntrypoint(entrypoints, entrypoint_n,
 		    VAEntrypointVLD);
 		break;
 	    case AV_PIX_FMT_VAAPI_MOCO:
 	    case AV_PIX_FMT_VAAPI_IDCT:
-		Debug(3, "codec: this VA-API pixel format is not supported\n");
 	    default:
+		Debug(3,"codec: this VA-API pixel format is not supported\n");
 		continue;
 	}
 	if (e != -1) {
@@ -7179,11 +7184,14 @@ static const VideoModule VaapiModule = {
 #ifdef USE_GLX
 
 #ifdef USE_OPENGLOSD
-unsigned int *GetVaapiGlxOsdOutputTexture(GLuint texture) {
+void *GetVaapiGlxOsdOutputTexture(GLuint texture) {
     OsdGlTexture = texture;
+    return 0;
 }
 
 int VaapiInitGlx(void) {
+    int a = 0;
+
     if (!GlxEnabled) {
         Debug(3,"video/osd: can't create glx context\n");
         return 0;
@@ -7191,7 +7199,6 @@ int VaapiInitGlx(void) {
     //after run an external player from time to time vdr not set playmode 1
     //then try start GLX forced.
     //is it a vdr bug or external player plugin???
-    int a = 0;
     while (!GlxContext || !GlxThreadContext){
         usleep(1000);
         a++;
@@ -9798,8 +9805,8 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 {
     VdpStatus status;
     VdpVideoSurface surface;
-    VideoDecoder        *ist = video_ctx->opaque;
-    AVFrame *output;
+//    VideoDecoder        *ist = video_ctx->opaque;
+//    AVFrame *output;
     int interlaced;
 
     // FIXME: some tv-stations toggle interlace on/off
@@ -9864,7 +9871,7 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 	struct vdpau_render_state *vrs;
 #endif
 	if (video_ctx->pix_fmt == AV_PIX_FMT_VDPAU) {
-	    surface = (VdpVideoSurface *)frame->data[3];
+	    surface = (VdpVideoSurface)(uintptr_t)frame->data[3];
 	    Debug(4, "video/vdpau: hw render VDPAU surface from frame %#08x\n", surface);
 #if LIBAVUTIL_VERSION_MAJOR < 56
 	} else {
@@ -10813,11 +10820,13 @@ static void VdpauSyncRenderFrame(VdpauDecoder * decoder,
     // FIXME: temp debug
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,61,100)
     if (0 && frame->pkt_pts != (int64_t) AV_NOPTS_VALUE) {
-#else
-    if (0 && frame->pts != (int64_t) AV_NOPTS_VALUE) {
-#endif
 	Debug(3, "video: render frame pts %s\n",
 	    Timestamp2String(frame->pkt_pts));
+#else
+    if (0 && frame->pts != (int64_t) AV_NOPTS_VALUE) {
+	Debug(3, "video: render frame pts %s\n",
+	    Timestamp2String(frame->pts));
+#endif
     }
 #ifdef DEBUG
     if (!atomic_read(&decoder->SurfacesFilled)) {
@@ -11327,10 +11336,10 @@ static void VdpauOsdExit(void)
 }
 
 void *GetVDPAUDevice(void) {
-    return (void*)VdpauDevice;
+    return (void*)(uintptr_t)VdpauDevice;
 }
 void *GetVDPAUProcAdress(void) {
-    return (void*)VdpauGetProcAddress;
+    return (void*)(uintptr_t)VdpauGetProcAddress;
 }
 
 void *GetVDPAUOsdOutputSurface(void) {
@@ -11338,7 +11347,7 @@ void *GetVDPAUOsdOutputSurface(void) {
     OsdNeedRestart = 0;
 #endif
 #ifndef USE_BITMAP
-    return (void*)VdpauOsdOutputSurface[VdpauOsdSurfaceIndex];
+    return (void*)(uintptr_t)VdpauOsdOutputSurface[VdpauOsdSurfaceIndex];
 #else
     return NULL;
 #endif
@@ -11757,7 +11766,8 @@ static void CuvidPrintFrames(const CuvidDecoder * decoder)
 
 static void CuvidMixerSetup(CuvidDecoder * decoder)
 {
-    int mode, drop;
+    int mode = 0;
+    int drop = 0;
 
     if (decoder->video_ctx) {
         if (decoder->PixFmt == AV_PIX_FMT_NV12 || decoder->PixFmt == AV_PIX_FMT_P010LE) {
@@ -11792,9 +11802,9 @@ static void CuvidMixerSetup(CuvidDecoder * decoder)
 static CuvidDecoder *CuvidNewHwDecoder(VideoStream * stream)
 {
     CuvidDecoder *decoder;
-    Debug(3, "video/cuvid: %s\n", __FUNCTION__);
     int i;
-    int version;
+
+    Debug(3, "video/cuvid: %s\n", __FUNCTION__);
     if ((unsigned)CuvidDecoderN >=
 	sizeof(CuvidDecoders) / sizeof(*CuvidDecoders)) {
     	Error(_("video/cuvid: out of decoders\n"));
@@ -11945,7 +11955,6 @@ static void CuvidDelHwDecoder(CuvidDecoder * decoder)
 ///
 static int CuvidInit(const char *display_name)
 {
-    unsigned int device_count;
     int ret;
 
     Info(_("video/cuvid: Start CUVID\n"));
@@ -11983,6 +11992,8 @@ static int CuvidInit(const char *display_name)
     GlxCheck();
 #endif
     Info(_("video/cuvid: Start CUVID ok\n"));
+
+    (void)display_name;
     return 1;
 }
 
@@ -12005,7 +12016,7 @@ static void CuvidExit(void)
 #ifdef USE_GRAB
     glDeleteBuffers(1, &grab_buffer);
 #endif
-    CuvidDevice = NULL;
+    CuvidDevice = (CUdevice)(uintptr_t)NULL;
     cuda_free_functions(&cu);
 }
 
@@ -12037,9 +12048,6 @@ static void CuvidUpdateOutput(CuvidDecoder * decoder)
 ///
 static void CuvidSetupOutput(CuvidDecoder * decoder)
 {
-    uint32_t width;
-    uint32_t height;
-
     // FIXME: need only to create and destroy surfaces for size changes
     //		or when number of needed surfaces changed!
     decoder->Resolution =
@@ -12094,8 +12102,7 @@ static enum AVPixelFormat Cuvid_get_format(CuvidDecoder * decoder,
     AVCodecContext * video_ctx, const enum AVPixelFormat *fmt)
 {
     const enum AVPixelFormat *fmt_idx;
-    int ret;
-
+    CUcontext dummy;
     VideoDecoder *ist = video_ctx->opaque;
 
     Debug(3,"get format  %dx%d\n",video_ctx->width,video_ctx->height);
@@ -12170,7 +12177,6 @@ static enum AVPixelFormat Cuvid_get_format(CuvidDecoder * decoder,
     video_ctx->hwaccel_context = NULL;
     video_ctx->draw_horiz_band = NULL;
 
-    CUcontext dummy;
     cu->cuCtxPopCurrent(&dummy);
     ist->GetFormatDone = 1;
     return avcodec_default_get_format(video_ctx, fmt);
@@ -12321,7 +12327,7 @@ static void CuvidAutoCrop(CuvidDecoder * decoder)
     int crop14;
     int crop16;
     int next_state;
-    int format;
+    //int format;
 
     surface = decoder->SurfacesRb[(decoder->SurfaceRead + 1) %  (VIDEO_SURFACES_MAX * 2)];
 
@@ -12555,7 +12561,6 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
 {
     int surface;
     VideoDecoder        *ist = video_ctx->opaque;
-    AVFrame *output;
     int interlaced;
     enum AVColorSpace color;
     int n;
@@ -12704,11 +12709,9 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
 ///
 static void *CuvidGetHwAccelContext(CuvidDecoder * decoder)
 {
-    unsigned int version;
-
     Debug(3, "Initializing cuvid hwaccel\n");
-
     cu->cuCtxPushCurrent(decoder->cu_ctx);
+    (void)decoder;
 
     return decoder->cu_ctx;
 }
@@ -12755,8 +12758,8 @@ static void CuvidMixVideo(CuvidDecoder * decoder, int level)
     glUseProgram(0);
     glActiveTexture(GL_TEXTURE0);
 
-    Debug(4, "video/cuvid: yy video surface %p displayed\n", current, decoder->SurfaceRead);
-
+    Debug(4,"video/cuvid: yy video surface %d displayed\n", current);
+    (void)level;
 }
 
 ///
@@ -12770,7 +12773,7 @@ static void CuvidMixVideo(CuvidDecoder * decoder, int level)
 static void CuvidBlackSurface(CuvidDecoder * decoder)
 {
     glClear(GL_COLOR_BUFFER_BIT);
-
+    (void)decoder;
     return;
 }
 
@@ -12806,6 +12809,7 @@ static void CuvidAdvanceDecoderFrame(CuvidDecoder * decoder)
     }
     // next field
     decoder->SurfaceField = 1;
+    (void)decoder;
 }
 
 ///
@@ -12813,13 +12817,10 @@ static void CuvidAdvanceDecoderFrame(CuvidDecoder * decoder)
 ///
 static void CuvidDisplayFrame(void)
 {
-    uint64_t first_time;
+    uint64_t first_time = 0;
     static uint64_t last_time;
     int i;
     static unsigned int Count;
-    int filled;
-    CuvidDecoder *decoder;
-    int RTS_flag;
 
     if (VideoSurfaceModesChanged) {	// handle changed modes
 	VideoSurfaceModesChanged = 0;
@@ -13225,11 +13226,13 @@ static void CuvidSyncRenderFrame(CuvidDecoder * decoder,
     // FIXME: temp debug
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,61,100)
     if (0 && frame->pkt_pts != (int64_t) AV_NOPTS_VALUE) {
-#else
-    if (0 && frame->pts != (int64_t) AV_NOPTS_VALUE) {
-#endif
 	Debug(3, "video: render frame pts %s\n",
 	    Timestamp2String(frame->pkt_pts));
+#else
+    if (0 && frame->pts != (int64_t) AV_NOPTS_VALUE) {
+	Debug(3, "video: render frame pts %s\n",
+	    Timestamp2String(frame->pts));
+#endif
     }
 #ifdef DEBUG
     if (!atomic_read(&decoder->SurfacesFilled)) {
@@ -13429,11 +13432,14 @@ static void CuvidSetOutputPosition(CuvidDecoder * decoder, int x, int y,
 //	CUVID OSD USE GLX
 //----------------------------------------------------------------------------
 #ifdef USE_OPENGLOSD
-unsigned int *GetCuvidOsdOutputTexture(GLuint texture) {
+void *GetCuvidOsdOutputTexture(GLuint texture) {
     OsdGlTexture = texture;
+    return 0;
 }
 
 int CuvidInitGlx(void) {
+    int a = 0;
+
     if (!GlxEnabled) {
         Debug(3,"video/osd: can't create glx context\n");
         return 0;
@@ -13441,7 +13447,6 @@ int CuvidInitGlx(void) {
     //after run an external player from time to time vdr not set playmode 1
     //then try start GLX forced.
     //is it a vdr bug or external player plugin???
-    int a = 0;
     while (!GlxContext || !GlxThreadContext){
         usleep(1000);
         a++;
