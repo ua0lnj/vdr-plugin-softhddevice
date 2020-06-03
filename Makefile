@@ -45,8 +45,8 @@ FFNVCODEC ?= $(shell pkg-config --exists ffnvcodec && echo 1)
 OPENGLOSD ?= $(shell pkg-config --exists glew glu freetype2 && echo 1)
 
 
-CONFIG += -DDEBUG
-CONFIG += -DOSD_DEBUG		# enable debug output+functions
+#CONFIG += -DDEBUG
+#CONFIG += -DOSD_DEBUG		# enable debug output+functions
 #CONFIG += -DSTILL_DEBUG=2		# still picture debug verbose level
 
 CONFIG += -DAV_INFO -DAV_INFO_TIME=3000	# info/debug a/v sync
