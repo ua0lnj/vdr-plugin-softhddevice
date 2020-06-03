@@ -2261,8 +2261,11 @@ void AudioDelayms(int delayms) //jojo
 */
 void AudioEnqueue(const void *samples, int count)
 {
-    size_t n;
+    size_t n = 0;
     int16_t *buffer;
+    int times_delay;
+    int times_count;
+
 
 #ifdef noDEBUG
     static uint32_t last_tick;
@@ -2328,8 +2331,8 @@ void AudioEnqueue(const void *samples, int count)
 
     pthread_mutex_lock(&PTS_mutex);
     //write RingBuffer some times for delay audio
-    int times_delay = count ? Dupped / count : 0;
-    int times_count = 0;
+    times_delay = count ? Dupped / count : 0;
+    times_count = 0;
     if (times_delay) {
         times_delay++;
         Debug(3, "audio: dupped frame %d times\n", times_delay);
@@ -3003,28 +3006,28 @@ void AudioInit(void)
 		    case 3:
 			if (AudioChannelsInHw[4]) {
 			    AudioChannelMatrix[u][chan] = 4;
-			    break;
 			}
+			break;
 		    case 4:
 			if (AudioChannelsInHw[5]) {
 			    AudioChannelMatrix[u][chan] = 5;
-			    break;
 			}
+			break;
 		    case 5:
 			if (AudioChannelsInHw[6]) {
 			    AudioChannelMatrix[u][chan] = 6;
-			    break;
 			}
+			break;
 		    case 6:
 			if (AudioChannelsInHw[7]) {
 			    AudioChannelMatrix[u][chan] = 7;
-			    break;
 			}
+			break;
 		    case 7:
 			if (AudioChannelsInHw[8]) {
 			    AudioChannelMatrix[u][chan] = 8;
-			    break;
 			}
+			break;
 		    case 8:
 			if (AudioChannelsInHw[6]) {
 			    AudioChannelMatrix[u][chan] = 6;

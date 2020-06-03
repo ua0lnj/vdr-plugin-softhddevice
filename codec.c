@@ -78,8 +78,8 @@
 #endif
 #ifdef USE_AVRESAMPLE
 #include <libavresample/avresample.h>
-#include <libavutil/opt.h>
 #endif
+#include <libavutil/opt.h>
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,7,100)
 #define CODEC_CAP_HWACCEL_VDPAU AV_CODEC_CAP_HWACCEL_VDPAU
@@ -332,6 +332,8 @@ static void Codec_draw_horiz_band(AVCodecContext * video_ctx,
     int type, __attribute__ ((unused))
     int height)
 {
+	(void)video_ctx;
+	(void)frame;
 #ifdef USE_VDPAU
 #if LIBAVUTIL_VERSION_MAJOR < 56
     // VDPAU: AV_PIX_FMT_VDPAU_H264 .. AV_PIX_FMT_VDPAU_VC1 AV_PIX_FMT_VDPAU_MPEG4
@@ -354,9 +356,6 @@ static void Codec_draw_horiz_band(AVCodecContext * video_ctx,
 	return;
     }
 #endif
-#else
-    (void)video_ctx;
-    (void)frame;
 #endif
 }
 
@@ -2210,7 +2209,9 @@ void CodecInit(void)
 #else
     (void)CodecNoopCallback;
 #endif
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,10,100)
     avcodec_register_all();		// register all formats and codecs
+#endif
 }
 
 /**

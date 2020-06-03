@@ -72,7 +72,7 @@
 #include "video.h"
 #include "codec.h"
 
-#ifdef DEBUG
+#ifdef noDEBUG
 static int DumpH264(const uint8_t * data, int size);
 static void DumpMpeg(const uint8_t * data, int size);
 #endif
@@ -1236,7 +1236,7 @@ int VideoDecodeInput(VideoStream * stream)
 #ifdef USE_PIP
     //fprintf(stderr, "[");
     //DumpMpeg(avpkt->data, avpkt->size);
-#ifdef STILL_DEBUG
+#ifdef noSTILL_DEBUG
     if (InStillPicture) {
 	DumpMpeg(avpkt->data, avpkt->size);
     }
@@ -1331,7 +1331,7 @@ static void StopVideo(void)
     VideoExit();
 }
 
-#ifdef DEBUG
+#ifdef noDEBUG
 
 /**
 **	Dump mpeg video packet.
@@ -3039,7 +3039,7 @@ void StillPicture(const uint8_t * data, int size)
     // H265 NAL End of Sequence
     static uint8_t seq_end_h265[] = { 0x00, 0x00, 0x00, 0x01, 0x48, 0x01 }; //0x48 = end of seq   0x4a = end of stream
     int i;
-    int old_video_hardware_decoder;
+    unsigned int old_video_hardware_decoder;
 
     // might be called in Suspended Mode
     if (!MyVideoStream->Decoder || MyVideoStream->SkipStream) {
