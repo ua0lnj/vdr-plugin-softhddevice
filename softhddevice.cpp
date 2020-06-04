@@ -44,9 +44,9 @@
 extern "C"
 {
 #include <stdint.h>
-//#include <libavcodec/avcodec.h>
+#include <libavcodec/avcodec.h>
 
-//#include "audio.h"
+#include "audio.h"
 #include "video.h"
 #include "codec.h"
 #include "misc.h"
