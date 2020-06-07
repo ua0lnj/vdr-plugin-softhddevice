@@ -2,6 +2,7 @@
 #include <algorithm>
 #include "openglosd.h"
 #include "misc.h"
+#include <string>
 
 extern "C"
 {
