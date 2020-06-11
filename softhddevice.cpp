@@ -1842,7 +1842,6 @@ cSoftHdControl::~cSoftHdControl()
 
 extern "C" void DelPip(void);		///< remove PIP
 static int PipAltPosition;		///< flag alternative position
-static uint8_t *pes_buf;
 
 //////////////////////////////////////////////////////////////////////////////
 //	cReceiver
