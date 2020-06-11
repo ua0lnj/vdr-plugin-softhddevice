@@ -1842,6 +1842,7 @@ cSoftHdControl::~cSoftHdControl()
 
 extern "C" void DelPip(void);		///< remove PIP
 static int PipAltPosition;		///< flag alternative position
+static uint8_t *pes_buf;
 
 //////////////////////////////////////////////////////////////////////////////
 //	cReceiver
@@ -1936,10 +1937,16 @@ void cSoftReceiver::Activate(bool on)
 ///
 static void PipPesParse(const uint8_t * data, int size, int is_start)
 {
-    static uint8_t *pes_buf;
     static int pes_size;
     static int pes_index;
 
+    if (!data) {
+	if (pes_buf) {
+	    free(pes_buf);
+	    pes_buf = NULL;
+	}
+	return;
+    }
     // FIXME: quick&dirty
 
     if (!pes_buf) {
@@ -1974,10 +1981,10 @@ static void PipPesParse(const uint8_t * data, int size, int is_start)
 	if (pes_index + size > pes_size) {
 	    pes_size = (pes_index + size) * 2;
 	}
-	pes_buf = (uint8_t *) realloc(pes_buf, pes_size);
-	if (!pes_buf) {			// out of memory, should never happen
+	void *res = (uint8_t *) realloc(pes_buf, pes_size);
+	if (!res) {			// out of memory, should never happen
 	    return;
-	}
+	} else pes_buf = (uint8_t *)res;
     }
     memcpy(pes_buf + pes_index, data, size);
     pes_index += size;
@@ -2063,6 +2070,7 @@ extern "C" void DelPip(void)
 {
     delete PipReceiver;
 
+    PipPesParse(NULL, 0, 0);
     PipReceiver = NULL;
     PipChannel = NULL;
 }
