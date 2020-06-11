@@ -1936,6 +1936,7 @@ void cSoftReceiver::Activate(bool on)
 ///
 static void PipPesParse(const uint8_t * data, int size, int is_start)
 {
+    static uint8_t *pes_buf;
     static int pes_size;
     static int pes_index;
 
