@@ -227,7 +227,8 @@ static int Codec_get_buffer2(AVCodecContext * video_ctx, AVFrame * frame, int fl
 #endif
 #endif
     // VA-API:
-    if (video_ctx->hwaccel_context) {
+    if (video_ctx->hw_frames_ctx) {
+
 	unsigned surface;
 
 	surface = VideoGetSurface(decoder->HwDecoder, video_ctx);
@@ -295,14 +296,15 @@ static void Codec_free_buffer(void *opaque, uint8_t *data)
 #endif
 #endif
     // VA-API and new VDPAU
-    if (video_ctx->hwaccel_context) {
+    if (video_ctx->hw_frames_ctx) {
+
 	VideoDecoder *decoder;
 	unsigned surface;
 
 	decoder = video_ctx->opaque;
 	surface = (unsigned)(size_t) data;
 
-	Debug(4, "codec: release surface %#010x\n", surface);
+	//Debug(3, "codec: release surface %#010x\n", surface);
 	VideoReleaseSurface(decoder->HwDecoder, surface);
 
 	return;
@@ -582,7 +584,7 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 */
 void CodecVideoClose(VideoDecoder * video_decoder)
 {
-Debug(3, "codec: video codec close\n");
+    Debug(3, "codec: video codec close\n");
     // FIXME: play buffered data
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(56,28,1)
     av_frame_free(&video_decoder->Frame);	// callee does checks
