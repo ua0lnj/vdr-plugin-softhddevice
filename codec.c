@@ -227,7 +227,7 @@ static int Codec_get_buffer2(AVCodecContext * video_ctx, AVFrame * frame, int fl
 #endif
 #endif
     // VA-API:
-    if (video_ctx->hw_frames_ctx) {
+    if (video_ctx->hw_frames_ctx || video_ctx->hwaccel_context) {
 
 	unsigned surface;
 
@@ -296,7 +296,7 @@ static void Codec_free_buffer(void *opaque, uint8_t *data)
 #endif
 #endif
     // VA-API and new VDPAU
-    if (video_ctx->hw_frames_ctx) {
+    if (video_ctx->hw_frames_ctx || video_ctx->hwaccel_context) {
 
 	VideoDecoder *decoder;
 	unsigned surface;
