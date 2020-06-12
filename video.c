@@ -178,12 +178,19 @@ typedef enum
 #define AV_CODEC_ID_VC1 CODEC_ID_VC1
 #define AV_CODEC_ID_WMV3 CODEC_ID_WMV3
 #endif
+#ifdef USE_VAAPI
 #include <libavcodec/vaapi.h>
+#endif
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55,50,100)
 #include <libavutil/imgutils.h>
 #endif
 #include <libavutil/pixdesc.h>
 #include <libavutil/hwcontext.h>
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57,74,100)
+#ifdef USE_VAAPI
+#include <libavutil/hwcontext_vaapi.h>
+#endif
+#endif
 
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(54,86,100) && \
     LIBAVCODEC_VERSION_INT < AV_VERSION_INT(56,60,100)
@@ -1739,8 +1746,9 @@ struct _vaapi_decoder_
     VAProfile Profile;			///< VA-API profile
     VAEntrypoint Entrypoint;		///< VA-API entrypoint
     VAEntrypoint VppEntrypoint;		///< VA-API postprocessing entrypoint
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,74,100)
     struct vaapi_context VaapiContext[1];	///< ffmpeg VA-API context
-
+#endif
     VAConfigID VppConfig;		///< VPP Config
     VAContextID	vpp_ctx;		///< VPP Context
 
@@ -2382,9 +2390,11 @@ static VaapiDecoder *VaapiNewHwDecoder(VideoStream * stream)
     decoder->VppEntrypoint = VA_INVALID_ID;
     decoder->VppConfig = VA_INVALID_ID;
     decoder->vpp_ctx = VA_INVALID_ID;
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,74,100)
     decoder->VaapiContext->display = VaDisplay;
     decoder->VaapiContext->config_id = VA_INVALID_ID;
     decoder->VaapiContext->context_id = VA_INVALID_ID;
+#endif
 
 #ifdef USE_GLX
     decoder->GlxSurfaces[0] = NULL;
@@ -2507,6 +2517,7 @@ static void VaapiCleanup(VaapiDecoder * decoder)
 	}
 	decoder->Image->image_id = VA_INVALID_ID;
     }
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,74,100)
     //	cleanup context and config
     if (decoder->VaapiContext) {
 
@@ -2526,7 +2537,7 @@ static void VaapiCleanup(VaapiDecoder * decoder)
 	    decoder->VaapiContext->config_id = VA_INVALID_ID;
 	}
     }
-
+#endif
     if (vaDestroyContext(VaDisplay, decoder->vpp_ctx) != VA_STATUS_SUCCESS) {
         Error(_("video/vaapi: can't destroy postproc context!\n"));
     }
@@ -2925,6 +2936,85 @@ static void VaapiExit(void)
 	VaDisplay = NULL;
     }
 }
+
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57,74,100)
+void vaapi_uninit(AVCodecContext *s)
+{
+    VideoDecoder *ist = s->opaque;
+
+    ist->hwaccel_uninit = NULL;
+    av_buffer_unref(&s->hw_frames_ctx);
+}
+
+static int vaapi_alloc(AVCodecContext *s)
+{
+    VideoDecoder *ist = s->opaque;
+    int ret;
+
+    AVHWDeviceContext *device_ctx;
+    AVVAAPIDeviceContext *device_hwctx;
+    AVHWFramesContext *frames_ctx;
+    AVBufferRef *hw_device_ctx;
+
+    Debug(3, "vaapi_alloc\n");
+
+    ist->hwaccel_uninit = vaapi_uninit;
+
+    hw_device_ctx = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_VAAPI);
+    if (!hw_device_ctx) {
+	Debug(3, "VAAPI init failed for av_hwdevice_ctx_alloc\n");
+	goto fail;
+    }
+
+    s->hw_device_ctx = av_buffer_ref(hw_device_ctx);
+
+    device_ctx = (AVHWDeviceContext*)s->hw_device_ctx->data;
+    device_hwctx = device_ctx->hwctx;
+    device_hwctx->display = VaDisplay;
+
+    ret = av_hwdevice_ctx_init(s->hw_device_ctx);
+    if (ret < 0) {
+	Debug(3, "VAAPI init failed for av_hwdevice_ctx_init\n");
+	goto fail;
+    }
+
+    s->hw_frames_ctx = av_hwframe_ctx_alloc(s->hw_device_ctx);
+    if (!s->hw_frames_ctx) {
+	Debug(3, "VAAPI init failed for av_hwframe_ctx_alloc\n");
+	goto fail;
+    }
+
+    frames_ctx = (AVHWFramesContext*)s->hw_frames_ctx->data;
+    frames_ctx->format = AV_PIX_FMT_VAAPI;
+    frames_ctx->sw_format = s->sw_pix_fmt;
+    frames_ctx->width = s->width;
+    frames_ctx->height = s->height;
+
+    ret = av_hwframe_ctx_init(s->hw_frames_ctx);
+    if (ret < 0) {
+	Debug(3, "VAAPI init failed for av_hwframe_ctx_init\n");
+	goto fail;
+    }
+
+    return 0;
+fail:
+    Debug(3, "VAAPI init failed for stream #\n");
+    vaapi_uninit(s);
+    return AVERROR(EINVAL);
+}
+
+int vaapi_init(AVCodecContext *s)
+{
+    if (s->hw_frames_ctx)
+	vaapi_uninit(s);
+    if (!s->hw_frames_ctx) {
+	int ret = vaapi_alloc(s);
+	if (ret < 0)
+	    return ret;
+    }
+    return 0;
+}
+#endif
 
 //----------------------------------------------------------------------------
 
@@ -4003,7 +4093,7 @@ static VASurfaceID VaapiGetSurface(VaapiDecoder * decoder,
 	decoder->InputAspect = video_ctx->sample_aspect_ratio;
 
 	VaapiSetup(decoder, video_ctx);
-
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,74,100)
 	// create a configuration for the decode pipeline
 	if ((status =
 		vaCreateConfig(decoder->VaDisplay, decoder->Profile,
@@ -4021,7 +4111,7 @@ static VASurfaceID VaapiGetSurface(VaapiDecoder * decoder,
 	    Error(_("video/vaapi: can't create context '%s'\n"),
 		vaErrorStr(status));
 	}
-
+#endif
         status = vaCreateConfig(decoder->VaDisplay, VAProfileNone,
                                 decoder->VppEntrypoint, NULL, 0,
                                 &decoder->VppConfig);
@@ -4115,6 +4205,7 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
     int p;
     int e;
     int i;
+    int ret;
     VAConfigAttrib attrib;
     VideoDecoder *ist = video_ctx->opaque;
 
@@ -4295,11 +4386,18 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
 	decoder->InputWidth = video_ctx->width;
 	decoder->InputHeight = video_ctx->height;
 	decoder->InputAspect = video_ctx->sample_aspect_ratio;
+	ist->hwaccel_pix_fmt = AV_PIX_FMT_VAAPI;
+
+	ret = vaapi_init(video_ctx);  // init HWACCEL
+	if (ret < 0) {
+	    Debug(3, "vaapi_init failed\n");
+	    goto slow_path;
+	}
 
 	VaapiSetup(decoder, video_ctx);
-
 	// FIXME: move the following into VaapiSetup
 	// create a configuration for the decode pipeline
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,74,100)
 	if ((status =
 		vaCreateConfig(decoder->VaDisplay, p, e, &attrib, 1,
 		    &decoder->VaapiContext->config_id))) {
@@ -4316,7 +4414,7 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
 	    Error(_("codec: can't create context '%s'\n"), vaErrorStr(status));
 	    goto slow_path;
 	}
-
+#endif
 	status = vaCreateConfig(decoder->VaDisplay, VAProfileNone,
 				decoder->VppEntrypoint, NULL, 0,
 				&decoder->VppConfig);
@@ -4346,13 +4444,16 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
     decoder->Entrypoint = VA_INVALID_ID;
     decoder->VppEntrypoint = VA_INVALID_ID;
     decoder->VppConfig = VA_INVALID_ID;
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,74,100)
     decoder->VaapiContext->config_id = VA_INVALID_ID;
+#endif
     decoder->SurfacesNeeded = VIDEO_SURFACES_MAX + 2;
     decoder->PixFmt = AV_PIX_FMT_NONE;
 
     decoder->InputWidth = 0;
     decoder->InputHeight = 0;
     video_ctx->hwaccel_context = NULL;
+    ist->hwaccel_pix_fmt = AV_PIX_FMT_NONE;
     ist->GetFormatDone = 1;
     return avcodec_default_get_format(video_ctx, fmt);
 }
@@ -6019,8 +6120,11 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
     //
     // Hardware render
     //
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,74,100)
     if (video_ctx->hwaccel_context) {
-
+#else
+    if (video_ctx->hw_frames_ctx) {
+#endif
 	if (video_ctx->height != decoder->InputHeight
 	    || video_ctx->width != decoder->InputWidth) {
 	    Error(_("video/vaapi: stream <-> surface size mismatch\n"));
@@ -6195,7 +6299,12 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
 ///
 static void *VaapiGetHwAccelContext(VaapiDecoder * decoder)
 {
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,74,100)
     return decoder->VaapiContext;
+#else
+    (void)decoder;
+    return NULL;
+#endif
 }
 
 ///
@@ -9170,7 +9279,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	    }
 	    ret = vdpau_init(video_ctx);  // init HWACCEL
 	    if (ret < 0) {
-		Debug(3, "vdpu_init failed\n");
+		Debug(3, "vdpau_init failed\n");
 		goto slow_path;
 	    }
 	    decoder->InputWidth = video_ctx->coded_width;
@@ -9189,7 +9298,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
     else {
 
 	VdpauChromaType = VDP_CHROMA_TYPE_420;
-	ist->hwaccel_pix_fmt = 0;
+	ist->hwaccel_pix_fmt = AV_PIX_FMT_NONE;
 	ist->hwaccel_get_buffer = NULL;
 	ist->hwaccel_uninit = NULL;
 	ist->hwaccel_retrieve_data = NULL;
