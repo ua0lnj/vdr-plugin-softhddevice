@@ -227,11 +227,8 @@ static int Codec_get_buffer2(AVCodecContext * video_ctx, AVFrame * frame, int fl
 #endif
 #endif
     // VA-API:
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,74,100)
-    if (video_ctx->hwaccel_context) {
-#else
-    if (video_ctx->hw_frames_ctx) {
-#endif
+    if (video_ctx->hw_frames_ctx || video_ctx->hwaccel_context) {
+
 	unsigned surface;
 
 	surface = VideoGetSurface(decoder->HwDecoder, video_ctx);
@@ -299,11 +296,8 @@ static void Codec_free_buffer(void *opaque, uint8_t *data)
 #endif
 #endif
     // VA-API and new VDPAU
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,74,100)
-    if (video_ctx->hwaccel_context) {
-#else
-    if (video_ctx->hw_frames_ctx) {
-#endif
+    if (video_ctx->hw_frames_ctx || video_ctx->hwaccel_context) {
+
 	VideoDecoder *decoder;
 	unsigned surface;
 
