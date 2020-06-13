@@ -2560,7 +2560,7 @@ static void VaapiCleanup(VaapiDecoder * decoder)
     decoder->SurfaceRead = 0;
     decoder->SurfaceWrite = 0;
     decoder->SurfaceField = 0;
-
+    decoder->Interlaced = 0;
     decoder->PostProcSurfaceWrite = 0;
     decoder->SyncCounter = 0;
     decoder->FrameCounter = 0;
@@ -6082,7 +6082,7 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
 #endif
 
     // FIXME: should be done by init video_ctx->field_order
-    if (decoder->Interlaced != interlaced
+    if (decoder->Interlaced < interlaced
 	|| decoder->TopFieldFirst != frame->top_field_first) {
 
 #if 0
@@ -6094,7 +6094,7 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
 	    frame->top_field_first);
 #endif
 
-	decoder->Interlaced = interlaced;
+	if (decoder->Interlaced < interlaced) decoder->Interlaced = 1; //for wrong interlace detecting
 	decoder->TopFieldFirst = frame->top_field_first;
 	decoder->SurfaceField = 0;
     }
@@ -6134,7 +6134,7 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
 	surface = (unsigned)(size_t) frame->data[3];
 	Debug(4, "video/vaapi: hw render hw surface %#010x\n", surface);
 
-	if (interlaced
+	if (decoder->Interlaced
 	    && VideoDeinterlace[decoder->Resolution] >=
 	    VideoDeinterlaceSoftBob) {
 	    VaapiCpuDeinterlace(decoder, surface);
@@ -10045,7 +10045,7 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 	VdpauQueueSurface(decoder, surface, 1);
     }
 
-    if (frame->interlaced_frame) {
+    if (decoder->Interlaced) {
 	++decoder->FrameCounter;
     }
 }
@@ -12763,7 +12763,7 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
         CuvidQueueSurface(decoder, surface, 1);
         free(outUV);
     }
-    if (frame->interlaced_frame) {
+    if (decoder->Interlaced) {
 	++decoder->FrameCounter;
     }
 }
