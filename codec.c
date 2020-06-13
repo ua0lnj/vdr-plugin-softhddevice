@@ -533,9 +533,8 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 #else
     if (avcodec_get_hw_config(video_codec, 0) &&
 #endif
-    VideoHardwareDecoder && (codec_id == AV_CODEC_ID_MPEG2VIDEO
-    && VideoHardwareDecoder != HWmpeg2Off)) {
-
+    VideoHardwareDecoder && !(codec_id == AV_CODEC_ID_MPEG2VIDEO
+    && VideoHardwareDecoder == HWmpeg2Off)) {
 	Debug(3, "codec: can export data for HW decoding\n");
 	// FIXME: get_format never called.
 	decoder->VideoCtx->get_format = Codec_get_format;
