@@ -529,7 +529,7 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
     //decoder->VideoCtx->debug = FF_DEBUG_STARTCODE;
     //decoder->VideoCtx->err_recognition |= AV_EF_EXPLODE;
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,00,100)
-    if (video_codec->capabilities & AV_CODEC_CAP_HWACCEL_VDPAU | CODEC_CAP_HWACCEL) &&
+    if ((video_codec->capabilities & AV_CODEC_CAP_HWACCEL_VDPAU | CODEC_CAP_HWACCEL) &&
 #else
     if (avcodec_get_hw_config(video_codec, 0) &&
 #endif
@@ -665,10 +665,7 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 
     *pkt = *avpkt;			// use copy
 
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,37,100)
-  next_part:
-    used = avcodec_decode_video2(video_ctx, frame, &got_frame, pkt);
-#else
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57,37,100)
     used = avcodec_send_packet(video_ctx, pkt);
     if (used < 0 && used != AVERROR(EAGAIN) && used != AVERROR_EOF)
         return;
@@ -680,6 +677,9 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
         if (used>=0)
             got_frame = 1;
         else got_frame = 0;
+#else
+  next_part:
+    used = avcodec_decode_video2(video_ctx, frame, &got_frame, pkt);
 #endif
     Debug(4, "%s: %p %d -> %d %d\n", __FUNCTION__, pkt->data, pkt->size, used,
 	got_frame);
@@ -1655,10 +1655,7 @@ int myavcodec_decode_audio3(AVCodecContext *avctx, int16_t *samples, int *frame_
 
     if (!frame)
 	return AVERROR(ENOMEM);
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,37,100)
-    ret = avcodec_decode_audio4(avctx, frame, &got_frame, avpkt);
-    if (ret < 0) return ret;
-#else
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57,37,100)
 //  SUGGESTION
 //  Now that avcodec_decode_audio4 is deprecated and replaced
 //  by 2 calls (receive frame and send packet), this could be optimized
@@ -1676,6 +1673,9 @@ int myavcodec_decode_audio3(AVCodecContext *avctx, int16_t *samples, int *frame_
         if (ret>=0)
             got_frame = 1;
         else got_frame = 0;
+#else
+    ret = avcodec_decode_audio4(avctx, frame, &got_frame, avpkt);
+    if (ret < 0) return ret;
 #endif
         if (got_frame) {
 	    int i, ch;
@@ -2067,13 +2067,8 @@ void CodecAudioDecode(AudioDecoder * audio_decoder, const AVPacket * avpkt)
     frame = audio_decoder->Frame;
     av_frame_unref(frame);
 #endif
-
     got_frame = 0;
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,37,100)
-    ret = avcodec_decode_audio4(audio_ctx, frame, &got_frame,
-        (AVPacket *) avpkt);
-    if (ret < 0) return;
-#else
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57,37,100)
 //  SUGGESTION
 //  Now that avcodec_decode_audio4 is deprecated and replaced
 //  by 2 calls (receive frame and send packet), this could be optimized
@@ -2091,6 +2086,10 @@ void CodecAudioDecode(AudioDecoder * audio_decoder, const AVPacket * avpkt)
         if (ret>=0)
             got_frame = 1;
         else got_frame = 0;
+#else
+    ret = avcodec_decode_audio4(audio_ctx, frame, &got_frame,
+        (AVPacket *) avpkt);
+    if (ret < 0) return;
 #endif
         if(got_frame) {
             // update audio clock
