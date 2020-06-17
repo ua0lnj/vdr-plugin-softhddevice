@@ -2986,7 +2986,7 @@ static int vaapi_alloc(AVCodecContext *s)
 
     frames_ctx = (AVHWFramesContext*)s->hw_frames_ctx->data;
     frames_ctx->format = AV_PIX_FMT_VAAPI;
-    frames_ctx->sw_format = s->sw_pix_fmt;
+    frames_ctx->sw_format = AV_PIX_FMT_NV12;
     frames_ctx->width = s->width;
     frames_ctx->height = s->height;
 
