@@ -1986,6 +1986,7 @@ cOglOsd::cOglOsd(int Left, int Top, uint Level, std::shared_ptr<cOglThread> oglT
     if (!oFb) {
         oFb = new cOglOutputFb(osdWidth, osdHeight);
         oglThread->DoCmd(new cOglCmdInitOutputFb(oFb));
+        oglThread->DoCmd(new cOglCmdFill(oFb, clrTransparent));
     }
 }
 
