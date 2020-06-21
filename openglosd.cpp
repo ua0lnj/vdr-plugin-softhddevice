@@ -544,6 +544,31 @@ cOglOutputFb::~cOglOutputFb(void) {
 
 bool cOglOutputFb::Init(void) {
     glGenTextures(1, &texture);
+#ifdef USE_CUVID
+    if (VideoIsDriverCuvid()) {
+        GetCuvidOsdOutputTexture(texture);
+    }
+#endif
+#ifdef USE_VAAPI
+    if (!strcasecmp(VideoGetDriverName(), "va-api-glx")) {
+        GetVaapiGlxOsdOutputTexture(texture);
+    }
+#endif
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+
+    glGenFramebuffers(1, &fb);
+    glBindFramebuffer(GL_FRAMEBUFFER, fb);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        esyslog("[softhddev]ERROR::cOglOutputFb: Framebuffer is not complete! %x\n",glCheckFramebufferStatus(GL_FRAMEBUFFER));
+        return false;
+    }
 #ifdef USE_VDPAU
     if (VideoIsDriverVdpau()) {
         //fetching osd vdpau output surface from softhddevice
@@ -560,7 +585,7 @@ bool cOglOutputFb::Init(void) {
         }
 
         //set write access to surface
-        glVDPAUSurfaceAccessNV(surface, GL_WRITE_DISCARD_NV);
+        glVDPAUSurfaceAccessNV(surface, GL_READ_ONLY);
         if (glGetError() != GL_NO_ERROR)
         {
             esyslog("[softhddev]ERROR::cOglOutputFb: error set access\n");
@@ -576,33 +601,6 @@ bool cOglOutputFb::Init(void) {
         }
     }
 #endif
-#ifdef USE_CUVID
-    if (VideoIsDriverCuvid()) {
-        GetCuvidOsdOutputTexture(texture);
-    }
-#endif
-#ifdef USE_VAAPI
-    if (!strcasecmp(VideoGetDriverName(), "va-api-glx")) {
-        GetVaapiGlxOsdOutputTexture(texture);
-    }
-#endif
-    glBindTexture(GL_TEXTURE_2D, texture);
-
-    if (!VideoIsDriverVdpau()) {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    }
-
-    glGenFramebuffers(1, &fb);
-    glBindFramebuffer(GL_FRAMEBUFFER, fb);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
-    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        esyslog("[softhddev]ERROR::cOglOutputFb: Framebuffer is not complete! %x\n",glCheckFramebufferStatus(GL_FRAMEBUFFER));
-        return false;
-    }
     return true;
 }
 
@@ -1651,7 +1649,7 @@ bool cOglThread::InitOpenGL(void) {
         buffer[2] = strdup(displayName);
         char **argv = buffer;
         glutInitContextVersion (3, 3);
-        glutInitContextProfile(GLUT_COMPATIBILITY_PROFILE);
+        glutInitContextProfile(GLUT_CORE_PROFILE);
         glutInit(&argc, argv);
         glutInitDisplayMode (GLUT_SINGLE | GLUT_RGBA | GLUT_ALPHA);
         glutInitWindowSize (1, 1);
