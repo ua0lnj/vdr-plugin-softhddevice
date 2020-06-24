@@ -127,6 +127,7 @@ typedef enum
 
 #ifdef USE_GLX
 #define GL_GLEXT_PROTOTYPES
+#define GLX_GLXEXT_PROTOTYPES
 #include <GL/gl.h>			// For GL_COLOR_BUFFER_BIT
 #include <GL/glx.h>
 // only for gluErrorString
@@ -10064,10 +10065,10 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 		Fatal(_("Cannot initialize the conversion context!\n"));
 		exit(1);
 	    }
-	    sws_scale(img_convert_ctx, frame->data,
+	    sws_scale(img_convert_ctx, (const uint8_t * const*)frame->data,
 		frame->linesize, 0,
 		h,
-		data, pitches);
+		(uint8_t * const*)data, (const int *)pitches);
 	    data[1] = frame->data[2];
 	    data[2] = frame->data[1];
 	    sws_freeContext(img_convert_ctx);
@@ -11608,10 +11609,6 @@ GLint gl_colormatrix, gl_colormatrix_c;
 
 static struct timespec CuvidFrameTime;	///< time of last display
 
-static int CuvidOsdSurfaceIndex;	///< index into double buffered osd
-
-/// grab render output surface
-//static VdpOutputSurface CuvidGrabRenderSurface = VDP_INVALID_HANDLE;
 static pthread_mutex_t CuvidGrabMutex;
 
 unsigned int size_tex_data;
@@ -11686,9 +11683,10 @@ void CuvidCreateGlTexture(CuvidDecoder * decoder, unsigned int size_x, unsigned 
     glGenBuffers(1,&vao_buffer);
     GlxCheck();
     // create texture planes
-    glGenTextures(CODEC_SURFACES_MAX, decoder->gl_textures);
-    GlxCheck();
-
+    for (n = 0; n < 2; n++) {       // number of planes
+        glGenTextures(CODEC_SURFACES_MAX, decoder->gl_textures[n]);
+        GlxCheck();
+    }
     Debug(3,"video/cuvid: create %d Textures Format %s w %d h %d \n",
         decoder->SurfacesNeeded, decoder->PixFmt != AV_PIX_FMT_P010LE ? "NV12/YV12" : "P010", size_x, size_y);
 
@@ -11778,9 +11776,10 @@ static void CuvidDestroySurfaces(CuvidDecoder * decoder)
         GlxCheck();
     }
 
-    glDeleteTextures(CODEC_SURFACES_MAX, &decoder->gl_textures);
-    GlxCheck();
-
+    for (i = 0; i < 2; i++) {       // number of planes
+        glDeleteTextures(CODEC_SURFACES_MAX, decoder->gl_textures[i]);
+       GlxCheck();
+    }
     if (decoder == CuvidDecoders[0]) {   // only when last decoder closes
         Debug(3,"Last decoder closes\n");
         glDeleteBuffers(1, &vao_buffer);
@@ -11894,9 +11893,9 @@ static void CuvidMixerSetup(CuvidDecoder * decoder)
                 drop = 0;
             }
             if (av_opt_set_int(decoder->video_ctx->priv_data, "deint", mode, 0) < 0)
-                Debug(3,"Can't set deinterlace mode\n");
+                Error(_("Can't set deinterlace mode\n"));
             if (av_opt_set(decoder->video_ctx->priv_data, "drop_second_field", drop ? "true" : "false", 0) < 0)
-                Debug(3,"Can't set drop second field to false\n");
+                Error(_("Can't set drop second field to false\n"));
         }//else soft deinterlace
     }
 }
@@ -12291,7 +12290,7 @@ static enum AVPixelFormat Cuvid_get_format(CuvidDecoder * decoder,
     return avcodec_default_get_format(video_ctx, fmt);
 }
 
-
+#ifdef DEBUG
 #ifdef USE_GRAB
 ///
 ///	Grab output surface already locked.
@@ -12415,6 +12414,7 @@ static uint8_t *CuvidGrabOutputSurface(int *ret_size, int *ret_width,  int *ret_
     return img;
 }
 
+#endif
 #endif
 
 #ifdef USE_AUTOCROP
@@ -13598,8 +13598,8 @@ static const VideoModule CuvidModule = {
     .ResetStart = (void (*const) (const VideoHwDecoder *))CuvidResetStart,
     .SetTrickSpeed =
 	(void (*const) (const VideoHwDecoder *, int))CuvidSetTrickSpeed,
-#ifdef USE_GRAB
-//    .GrabOutput = CuvidGrabOutputSurface,
+#ifdef USE_GRAB_TODO
+    .GrabOutput = CuvidGrabOutputSurface,
 #endif
     .GetStats = (void (*const) (VideoHwDecoder *, int *, int *, int *,
 	    int *))CuvidGetStats,

@@ -182,7 +182,7 @@ DEFINES += -DPLUGIN_NAME_I18N='"$(PLUGIN)"' -D_GNU_SOURCE $(CONFIG) \
 ### Make it standard
 
 override CXXFLAGS += $(_CFLAGS) $(DEFINES) $(INCLUDES) \
-    -g -W -Wall -Wextra -Winit-self -Werror=overloaded-virtual -std=c++0x
+    -g -W -Wall -Wextra -Winit-self -Werror=overloaded-virtual -Wno-unused-parameter
 override CFLAGS	  += $(_CFLAGS) $(DEFINES) $(INCLUDES) \
     -g -W -Wall -Wextra -Winit-self -Wdeclaration-after-statement
 
@@ -200,6 +200,15 @@ SRCS = $(wildcard $(OBJS:.o=.c)) $(PLUGIN).cpp
 
 all: $(SOFILE) i18n
 
+### Implicit rules:
+
+%.o: %.cpp
+	@echo CXX $@
+	$(Q)$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+
+%.o: %.c
+	@echo CC $@
+	$(Q)$(CC) $(CFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
 
 ### Dependencies:
 
