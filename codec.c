@@ -469,7 +469,7 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
     decoder->VideoCtx->pkt_timebase.den = 90000;
 
     if (strstr(decoder->VideoCodec->name, "cuvid"))
-        av_opt_set_int(decoder->VideoCtx->priv_data, "surfaces", codec_id == AV_CODEC_ID_MPEG2VIDEO ? 10 : 12, 0);
+        av_opt_set_int(decoder->VideoCtx->priv_data, "surfaces", codec_id == AV_CODEC_ID_MPEG2VIDEO ? 10 : 13, 0);
 
     pthread_mutex_lock(&CodecLockMutex);
 
