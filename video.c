@@ -4380,7 +4380,6 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
     decoder->InputWidth = 0;
     decoder->InputHeight = 0;
 
-#ifndef FFMPEG_BUG1_WORKAROUND
     if (video_ctx->width && video_ctx->height) {
 	VAStatus status;
 
@@ -4388,13 +4387,13 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
 	decoder->InputHeight = video_ctx->height;
 	decoder->InputAspect = video_ctx->sample_aspect_ratio;
 	ist->hwaccel_pix_fmt = AV_PIX_FMT_VAAPI;
-
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57,74,100)
 	ret = vaapi_init(video_ctx);  // init HWACCEL
 	if (ret < 0) {
 	    Debug(3, "vaapi_init failed\n");
 	    goto slow_path;
 	}
-
+#endif
 	VaapiSetup(decoder, video_ctx);
 	// FIXME: move the following into VaapiSetup
 	// create a configuration for the decode pipeline
@@ -4434,7 +4433,7 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
 
 	VaapiSetupVideoProcessing(decoder);
     }
-#endif
+
     ist->GetFormatDone = 1;
     Debug(3, "\t%#010x %s\n", fmt_idx[0], av_get_pix_fmt_name(fmt_idx[0]));
     return *fmt_idx;
@@ -6240,7 +6239,7 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
 	    picture->linesize[1] = decoder->Image->pitches[2];
 	    picture->data[2] = va_image_data + decoder->Image->offsets[2];
 	    picture->linesize[2] = decoder->Image->pitches[1];
-#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(55,50,100)
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(51,63,100)
 	    av_picture_copy(picture, (AVPicture *) frame, video_ctx->pix_fmt, width, height);
 #else
 	    av_image_copy(picture->data, picture->linesize, (const uint8_t **)frame->data, frame->linesize,
@@ -6253,7 +6252,7 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
 	    picture->linesize[1] = decoder->Image->pitches[2];
 	    picture->data[2] = va_image_data + decoder->Image->offsets[1];
 	    picture->linesize[2] = decoder->Image->pitches[1];
-#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(55,50,100)
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(51,63,100)
 	    av_picture_copy(picture, (AVPicture *) frame, video_ctx->pix_fmt, width, height);
 #else
 	    av_image_copy(picture->data, picture->linesize, (const uint8_t **)frame->data, frame->linesize,
