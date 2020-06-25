@@ -529,7 +529,7 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
     //decoder->VideoCtx->debug = FF_DEBUG_STARTCODE;
     //decoder->VideoCtx->err_recognition |= AV_EF_EXPLODE;
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,00,100)
-    if ((video_codec->capabilities & AV_CODEC_CAP_HWACCEL_VDPAU | CODEC_CAP_HWACCEL) &&
+    if ((video_codec->capabilities & (AV_CODEC_CAP_HWACCEL_VDPAU | CODEC_CAP_HWACCEL)) &&
 #else
     if (avcodec_get_hw_config(video_codec, 0) &&
 #endif
