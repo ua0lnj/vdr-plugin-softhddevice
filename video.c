@@ -12841,6 +12841,7 @@ static void CuvidMixVideo(CuvidDecoder * decoder, int level)
 
     current = decoder->SurfacesRb[decoder->SurfaceRead];
 
+    if (!decoder->gl_textures[current][0] || !decoder->gl_textures[current][1]) return;
     // Render Progressive frame and simple interlaced
     y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
     if (y <0 )
