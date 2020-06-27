@@ -6758,7 +6758,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	}
 	Info("video: %s%+5" PRId64 " %4" PRId64 " %3d/\\ms %3d%+d v-buf\n",
 	    Timestamp2String(video_clock),
-	    abs((video_clock - audio_clock) / 90) <
+	    abs((int)(video_clock - audio_clock) / 90) <
 	    8888 ? ((video_clock - audio_clock) / 90) : 8888,
 	    AudioGetDelay() / 90, (int)VideoDeltaPTS / 90,
 	    VideoGetBuffers(decoder->Stream),
@@ -10877,7 +10877,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	}
 	Info("video: %s%+5" PRId64 " %4" PRId64 " %3d/\\ms %3d%+d%+d v-buf\n",
 	    Timestamp2String(video_clock),
-	    abs((video_clock - audio_clock) / 90) <
+	    abs((int)(video_clock - audio_clock) / 90) <
 	    8888 ? ((video_clock - audio_clock) / 90) : 8888,
 	    AudioGetDelay() / 90, (int)VideoDeltaPTS / 90,
 	    VideoGetBuffers(decoder->Stream),
@@ -13282,7 +13282,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	}
 	Info("video: %s%+5" PRId64 " %4" PRId64 " %3d/\\ms %3d%+d%+d v-buf\n",
 	    Timestamp2String(video_clock),
-	    abs((video_clock - audio_clock) / 90) <
+	    abs((int)(video_clock - audio_clock) / 90) <
 	    8888 ? ((video_clock - audio_clock) / 90) : 8888,
 	    AudioGetDelay() / 90, (int)VideoDeltaPTS / 90,
 	    VideoGetBuffers(decoder->Stream),
