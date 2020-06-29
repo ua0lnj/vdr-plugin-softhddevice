@@ -2538,6 +2538,11 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 	    if (SuspendMode == NOT_SUSPENDED && !cSoftHdControl::Player) {
 		cControl::Launch(new cSoftHdControl);
 		cControl::Attach();
+#ifdef USE_OPENGLOSD
+		Debug(3, "[softhddev]%s stopping Ogl Thread osUser1",
+			__FUNCTION__);
+		cSoftOsdProvider::StopOpenGlThread();
+#endif
 		if (ConfigDetachFromMainMenu) {
 		    Suspend(1, 1, 0);
 		    SuspendMode = SUSPEND_DETACHED;
@@ -2546,11 +2551,6 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 			ConfigSuspendX11);
 		    SuspendMode = SUSPEND_NORMAL;
 		}
-#ifdef USE_OPENGLOSD
-		Debug(3, "[softhddev]%s stopping Ogl Thread osUser1",
-			__FUNCTION__);
-		cSoftOsdProvider::StopOpenGlThread();
-#endif
 		if (ShutdownHandler.GetUserInactiveTime()) {
 		    Debug(3, "[softhddev]%s: set user inactive\n",
 			__FUNCTION__);
@@ -3313,12 +3313,12 @@ void cPluginSoftHdDevice::Housekeeping(void)
 	// don't overwrite already suspended suspend mode
 	cControl::Launch(new cSoftHdControl);
 	cControl::Attach();
-	Suspend(ConfigSuspendClose, ConfigSuspendClose, ConfigSuspendX11);
-	SuspendMode = SUSPEND_NORMAL;
 #ifdef USE_OPENGLOSD
 	dsyslog("[softhddev]stopping Ogl Thread Housekeeping");
 	cSoftOsdProvider::StopOpenGlThread();
 #endif
+	Suspend(ConfigSuspendClose, ConfigSuspendClose, ConfigSuspendX11);
+	SuspendMode = SUSPEND_NORMAL;
     }
 
     ::Housekeeping();
