@@ -10528,7 +10528,7 @@ static void VdpauDisplayFrame(void)
 
 	filled = atomic_read(&decoder->SurfacesFilled);
 	// need 1 frame for progressive, 3 frames for interlaced
-	if (filled < 1 + 2 * decoder->Interlaced && decoder->StartCounter < 1000) {
+	if (filled < 1 + 2 * decoder->Interlaced && decoder->Closing) {
 	    // FIXME: rewrite MixVideo to support less surfaces
 	    if ((VideoShowBlackPicture && !decoder->TrickSpeed)
 		|| (VideoShowBlackPicture && decoder->Closing < -300)) {
@@ -12859,7 +12859,7 @@ static void CuvidAdvanceDecoderFrame(CuvidDecoder * decoder)
 	// need 2 frames for progressive
 	// need 4 frames for interlaced
 	filled = atomic_read(&decoder->SurfacesFilled);
-	if (filled <  1 + 2 * decoder->Interlaced) {
+	if (filled < 1 + 2 * decoder->Interlaced) {
 	    // keep use of last surface
 	    ++decoder->FramesDuped;
 	    // FIXME: don't warn after stream start, don't warn during pause
@@ -12928,7 +12928,7 @@ static void CuvidDisplayFrame(void)
 
 	filled = atomic_read(&decoder->SurfacesFilled);
 	// need 1 frame for progressive, 3 frames for interlaced
-	if (filled < 1 + 2 * decoder->Interlaced && decoder->StartCounter < 1000) {
+	if (filled < 1 + 2 * decoder->Interlaced && decoder->Closing) {
 	    // FIXME: rewrite MixVideo to support less surfaces
 	    if ((VideoShowBlackPicture && !decoder->TrickSpeed)
 		|| (VideoShowBlackPicture && decoder->Closing < -300)) {
