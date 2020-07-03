@@ -35,7 +35,7 @@ A software and GPU emulated UHD output device plugin for VDR.
     o Suspend / Dettach
     o Letterbox, Stretch and Center cut-out video display modes
     o atmo light support with plugin http://github.com/durchflieger/DFAtmo
-    o PIP (Picture-in-Picture) (VDPAU only)
+    o PIP (Picture-in-Picture) (VDPAU and CUVID)
 
     o planned: OSD accelerated by GPU VA-API
     o planned: Video output Opengl / Xv
