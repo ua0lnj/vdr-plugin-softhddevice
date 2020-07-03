@@ -905,6 +905,7 @@ static int GlxIsExtensionSupported(const char *ext)
     return 0;
 }
 
+#ifdef USE_VAAPI
 ///
 ///	Setup GLX decoder
 ///
@@ -933,6 +934,7 @@ static void GlxSetupDecoder(int width, int height, GLuint * textures)
     glDisable(GL_TEXTURE_2D);
     GlxCheck();
 }
+#endif
 
 ///
 ///	Render texture.
