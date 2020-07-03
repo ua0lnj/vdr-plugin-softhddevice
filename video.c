@@ -459,9 +459,6 @@ enum VideoHardwareDecoderMode VideoHardwareDecoder = HWOn;	///< flag use hardwar
 
 static char VideoSurfaceModesChanged;	///< flag surface modes changed
 
-    /// flag use transparent OSD.
-static const char VideoTransparentOsd = 1;
-
 static uint32_t VideoBackground;	///< video background color
 static char VideoStudioLevels;		///< flag use studio levels
 
@@ -470,10 +467,13 @@ static int VideoSkinToneEnhancement = 0;
 
     /// Default deinterlace mode.
 static VideoDeinterlaceModes VideoDeinterlace[VideoResolutionMax];
+#ifdef USE_VDPAU
+    /// flag use transparent OSD.
+static const char VideoTransparentOsd = 1;
 
     /// Default number of deinterlace surfaces
 static const int VideoDeinterlaceSurfaces = 4;
-
+#endif
     /// Default skip chroma deinterlace flag (VDPAU only).
 static char VideoSkipChromaDeinterlace[VideoResolutionMax];
 
@@ -6380,6 +6380,7 @@ static void VaapiDisplayFrame(void)
 	    }
 	}
 #endif
+#ifdef USE_GLX
 	if (GlxEnabled) {
 	    if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext)) {
 		Error(_("video/glx: can't make glx context current\n"));
@@ -6391,6 +6392,7 @@ static void VaapiDisplayFrame(void)
 	    glLoadIdentity();
 	    glOrtho(0.0, VideoWindowWidth, VideoWindowHeight, 0.0, -1.0, 1.0);
 	}
+#endif
 	filled = atomic_read(&decoder->SurfacesFilled);
 	// no surface availble show black with possible osd
 	if (!filled) {
