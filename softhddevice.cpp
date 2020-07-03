@@ -64,7 +64,7 @@ extern "C"
     /// vdr-plugin version number.
     /// Makefile extracts the version number for generating the file name
     /// for the distribution archive.
-static const char *const VERSION = "0.7.0"
+static const char *const VERSION = "1.0.0"
 #ifdef GIT_REV
     "-GIT" GIT_REV
 #endif
@@ -72,7 +72,7 @@ static const char *const VERSION = "0.7.0"
 
     /// vdr-plugin description.
 static const char *const DESCRIPTION =
-trNOOP("A software and GPU emulated HD device");
+trNOOP("A software and GPU emulated UHD device");
 
     /// vdr-plugin text of main menu entry
 static const char *MAINMENUENTRY = trNOOP("SoftHdDevice");
@@ -1059,7 +1059,7 @@ inline cOsdItem *cMenuSetupSoft::CollapsedItem(const char *label, int &flag,
 void cMenuSetupSoft::Create(void)
 {
     static const char *const osd_size[] = {
-	"auto", "3840x2160", "1920x1080", "1280x720", "custom",
+	tr("auto"), "3840x2160", "1920x1080", "1280x720", tr("custom"),
     };
     static const char *const video_display_formats_4_3[] = {
 	"pan&scan", "letterbox", "center cut-out",
@@ -1068,7 +1068,7 @@ void cMenuSetupSoft::Create(void)
 	"pan&scan", "pillarbox", "center cut-out",
     };
     static const char *const audiodrift[] = {
-	"None", "PCM", "AC-3", "PCM + AC-3"
+	tr("None"), "PCM", "AC-3", "PCM + AC-3"
     };
     static const char *const resolution[RESOLUTIONS] = {
 	"576i", "720p", "fake 1080i", "1080i", "UHD"
