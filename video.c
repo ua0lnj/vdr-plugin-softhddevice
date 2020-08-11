@@ -290,6 +290,7 @@ typedef struct _video_module_
     void (*const DelHwDecoder) (VideoHwDecoder *);
     unsigned (*const GetSurface) (VideoHwDecoder *, const AVCodecContext *);
     void (*const ReleaseSurface) (VideoHwDecoder *, unsigned);
+    void (*const UnregisterSurface) (VideoHwDecoder *);
     enum AVPixelFormat (*const get_format) (VideoHwDecoder *, AVCodecContext *,
 	const enum AVPixelFormat *);
     void (*const RenderFrame) (VideoHwDecoder *, const AVCodecContext *,
@@ -11766,6 +11767,28 @@ static void CuvidCreateSurfaces(CuvidDecoder * decoder, int width, int height)
 }
 
 ///
+///	You need to unregister the CUVID resource before closing the codec
+//	otherwise you will get a video memory leak
+///
+static void CuvidUnregisterSurface(CuvidDecoder * decoder)
+{
+    int i,n;
+
+    //not need for softdecoder
+    if (decoder->PixFmt != AV_PIX_FMT_NV12 && decoder->PixFmt != AV_PIX_FMT_P010LE) return;
+
+    if(GlxThreadContext){
+        glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
+        GlxCheck();
+    }
+    for (i = 0; i < decoder->SurfacesNeeded; i++) {
+        for (n = 0; n < 2; n++) {   // number of planes
+            CUStatus(cu->cuGraphicsUnregisterResource(decoder->cu_res[i][n]));
+        }
+    }
+}
+
+///
 ///	Destroy surfaces of CUVID decoder.
 ///
 ///	@param decoder	CUVID hw decoder
@@ -13590,6 +13613,8 @@ static const VideoModule CuvidModule = {
 	    const AVCodecContext *))CuvidGetSurface,
     .ReleaseSurface =
 	(void (*const) (VideoHwDecoder *, unsigned))CuvidReleaseSurface,
+    .UnregisterSurface =
+        (void (*const) (VideoHwDecoder *))CuvidUnregisterSurface,
     .get_format = (enum AVPixelFormat(*const) (VideoHwDecoder *,
 	    AVCodecContext *, const enum AVPixelFormat *))Cuvid_get_format,
     .RenderFrame = (void (*const) (VideoHwDecoder *,
@@ -14355,6 +14380,11 @@ void VideoReleaseSurface(VideoHwDecoder * hw_decoder, unsigned surface)
 {
     // FIXME: must be guarded against calls, after VideoExit
     VideoUsedModule->ReleaseSurface(hw_decoder, surface);
+}
+
+void VideoUnregisterSurface(VideoHwDecoder * hw_decoder)
+{
+    VideoUsedModule->UnregisterSurface(hw_decoder);
 }
 
 ///

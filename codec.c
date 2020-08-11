@@ -595,6 +595,8 @@ void CodecVideoClose(VideoDecoder * video_decoder)
 #endif
 
     if (video_decoder->VideoCtx) {
+        if (VideoIsDriverCuvid())
+            VideoUnregisterSurface(video_decoder->HwDecoder);
 	pthread_mutex_lock(&CodecLockMutex);
 #if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(55,63,100)
 	avcodec_close(video_decoder->VideoCtx);

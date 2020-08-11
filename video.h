@@ -73,6 +73,7 @@ extern unsigned VideoGetSurface(VideoHwDecoder *, const AVCodecContext *);
     /// Release a video hardware surface
 extern void VideoReleaseSurface(VideoHwDecoder *, unsigned);
 
+extern void VideoUnregisterSurface(VideoHwDecoder *);
     /// Callback to negotiate the PixelFormat.
 extern enum AVPixelFormat Video_get_format(VideoHwDecoder *, AVCodecContext *,
     const enum AVPixelFormat *);
