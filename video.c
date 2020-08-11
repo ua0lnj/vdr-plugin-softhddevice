@@ -11783,7 +11783,10 @@ static void CuvidUnregisterSurface(CuvidDecoder * decoder)
     }
     for (i = 0; i < decoder->SurfacesNeeded; i++) {
         for (n = 0; n < 2; n++) {   // number of planes
-            CUStatus(cu->cuGraphicsUnregisterResource(decoder->cu_res[i][n]));
+            if (decoder->cu_res[i][n]) {
+                CUStatus(cu->cuGraphicsUnregisterResource(decoder->cu_res[i][n]));
+                decoder->cu_res[i][n] = NULL;
+            }
         }
     }
 }
