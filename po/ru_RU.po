@@ -590,7 +590,7 @@ msgid "Autocrop delay (n * interval)"
 msgstr "Задержка автообрезки (n * интервал)"
 
 msgid "Autocrop tolerance (pixel)"
-msgstr "Чуствительность автообрезки (пикс)"
+msgstr "Чувствительность автообрезки (пикс)"
 
 msgid "Audio"
 msgstr "Звук"

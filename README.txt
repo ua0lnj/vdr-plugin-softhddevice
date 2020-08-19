@@ -2,7 +2,7 @@
 
 Copyright (c) 2011 - 2013 by Johns.  All Rights Reserved.
 
-Contributor(s): ua0lnj
+Contributor(s): 2019 - 2020 ua0lnj
 
 License: AGPLv3
 
@@ -66,9 +66,13 @@ Install:
 
 	Download original version from:
 	    http://projects.vdr-developer.org/projects/plg-softhddevice/files
+	Download latest version from:
+	    https://github.com/ua0lnj/vdr-plugin-softhddevice/releases
 
-	tar vxf vdr-softhddevice-*.tar.bz2
+	tar vxf *-softhddevice-*.tar.*
 	cd softhddevice-*
+	or
+	cd vdr-plugin-softhddevice-*
 	make
 	make install
 
@@ -133,7 +137,7 @@ Setup: /etc/vdr/setup.conf
 	(only 0, 1, 4 supported with VA-API)
 
 	softhddevice.<res>.SkipChromaDeinterlace = 0
-	0 = disabled, 1 = enabled (for slower cards, poor qualität)
+	0 = disabled, 1 = enabled (for slower cards, poor quality)
 
 	softhddevice.<res>.InverseTelecine = 0
 	0 = disabled, 1 = enabled
@@ -156,17 +160,17 @@ Setup: /etc/vdr/setup.conf
 	delay audio or delay video
 
 	softhddevice.AudioPassthrough = 0
-	0 = none, 1 = PCM, 2 = MPA, 4 = AC-3, 8 = EAC-3, -X disable
+	0 = none, 1 = PCM, 2 = MPA, 4 = AC-3, 8 = EAC-3, 10 = DTS -X disable
 
-	for PCM/AC-3/EAC-3 the pass-through device is used and the audio
+	for PCM/AC-3/EAC-3/DTS the pass-through device is used and the audio
 	stream is passed undecoded to the output device.
-	z.b. 12 = AC-3+EAC-3, 13 = PCM+AC-3+EAC-3
-	note: MPA/DTS/TrueHD/... aren't supported yet
+	z.b. 12 = AC-3+EAC-3, 13 = PCM+AC-3+EAC-3, 23 = PCM+AC-3+EAC-3+DTS
+	note: MPA/TrueHD/... aren't supported yet
 	negative values disable passthrough
 
 	softhddevice.AudioDownmix = 0
 	0 = none, 1 = downmix
-	Use ffmpeg/libav downmix of AC-3/EAC-3 audio to stereo.
+	Use ffmpeg/libav downmix of AC-3/EAC-3/DTS audio to stereo.
 
 	softhddevice.AudioSoftvol = 0
 	0 = off, use hardware volume control
@@ -430,6 +434,6 @@ Requires:
 		http://www.gnu.org/software/make/make.html
 
 Optional:
-	for openGL osd need
+	for openGL accelerated OSD need
 	    libs gl glu glew freetype2
 
