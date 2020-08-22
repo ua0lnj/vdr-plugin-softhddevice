@@ -9333,8 +9333,8 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	    decoder->InputWidth = video_ctx->coded_width;
 	    decoder->InputHeight = video_ctx->coded_height;
 	    decoder->InputAspect = video_ctx->sample_aspect_ratio;
-	    if(decoder->InputHeight == 1088 && VideoWindowHeight == 1080) // fix 1080i/1088i
-	        decoder->VideoHeight = 1088;
+	    if(video_ctx->coded_height == 1088)                         // fix 1080i/1088i
+	        decoder->VideoHeight += 8 * decoder->VideoHeight / 1080;
 
 	    VdpauSetupOutput(decoder);
 	}
@@ -15547,6 +15547,7 @@ void VideoSetOutputPosition(VideoHwDecoder * hw_decoder, int x, int y,
 	// check values to be able to avoid
 	// interfering with the video thread if possible
 
+	if (hw_decoder->Vdpau.InputHeight == 1088) height += 8 * hw_decoder->Vdpau.VideoHeight / 1080; //fix 1080i/1088i
 	if (x == hw_decoder->Vdpau.VideoX && y == hw_decoder->Vdpau.VideoY
 	    && width == hw_decoder->Vdpau.VideoWidth
 	    && height == hw_decoder->Vdpau.VideoHeight) {
