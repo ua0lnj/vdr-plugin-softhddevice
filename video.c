@@ -9290,10 +9290,10 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	    decoder->InputWidth = video_ctx->coded_width;
 	    decoder->InputHeight = video_ctx->coded_height;
 	    decoder->InputAspect = video_ctx->sample_aspect_ratio;
-	    if(video_ctx->coded_height == 1088 && (unsigned)decoder->VideoHeight == VideoWindowHeight)           // fix 1080i/1088i
-	        decoder->VideoHeight += 8 * decoder->VideoHeight / 1080;
-	    else if ((unsigned)decoder->VideoHeight > VideoWindowHeight) decoder->VideoHeight = VideoWindowHeight;
-
+	    if(video_ctx->coded_height == 1088) {                                                // fix 1080i/1088i
+		if((unsigned)decoder->VideoHeight == VideoWindowHeight)
+		    decoder->VideoHeight += 8 * decoder->VideoHeight / 1080;
+	    } else if ((unsigned)decoder->VideoHeight > VideoWindowHeight) decoder->VideoHeight = VideoWindowHeight;
 	    VdpauSetupOutput(decoder);
 	}
 
