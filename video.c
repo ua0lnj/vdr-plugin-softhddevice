@@ -4831,12 +4831,19 @@ static void VaapiCheckAutoCrop(VaapiDecoder * decoder)
 
 	tmp_ratio.num = 4;
 	tmp_ratio.den = 3;
-	// only 4:3 with 16:9/14:9 inside supported
+	// 4:3 with 16:9/14:9 inside
 	if (!av_cmp_q(input_aspect_ratio, tmp_ratio)) {
 	    VaapiAutoCrop(decoder);
 	} else {
-	    decoder->AutoCrop->Count = 0;
-	    decoder->AutoCrop->State = 0;
+	// 15:11 with 16:9/14:9 inside
+	    tmp_ratio.num = 15;
+	    tmp_ratio.den = 11;
+	    if (!av_cmp_q(input_aspect_ratio, tmp_ratio)) {
+	        VaapiAutoCrop(decoder);
+	    } else {
+	        decoder->AutoCrop->Count = 0;
+	        decoder->AutoCrop->State = 0;
+	    }
 	}
     }
 }
@@ -9690,6 +9697,7 @@ static void VdpauAutoCrop(VdpauDecoder * decoder)
 		free(base);
 		decoder->AutoCropBuffer = malloc(size);
 		base = decoder->AutoCropBuffer;
+		decoder->AutoCropBufferSize = size;
 	    }
 	    if (!base) {
 		Error(_("video/vdpau: out of memory\n"));
@@ -9824,12 +9832,19 @@ static void VdpauCheckAutoCrop(VdpauDecoder * decoder)
 
 	tmp_ratio.num = 4;
 	tmp_ratio.den = 3;
-	// only 4:3 with 16:9/14:9 inside supported
+	// 4:3 with 16:9/14:9 inside
 	if (!av_cmp_q(input_aspect_ratio, tmp_ratio)) {
 	    VdpauAutoCrop(decoder);
 	} else {
-	    decoder->AutoCrop->Count = 0;
-	    decoder->AutoCrop->State = 0;
+	// 15:11 with 16:9/14:9 inside
+	    tmp_ratio.num = 15;
+	    tmp_ratio.den = 11;
+	    if (!av_cmp_q(input_aspect_ratio, tmp_ratio)) {
+	        VdpauAutoCrop(decoder);
+	    } else {
+	        decoder->AutoCrop->Count = 0;
+	        decoder->AutoCrop->State = 0;
+	    }
 	}
     }
 }
@@ -11808,7 +11823,7 @@ static void CuvidDestroySurfaces(CuvidDecoder * decoder)
 
     for (i = 0; i < 2; i++) {       // number of planes
         glDeleteTextures(CODEC_SURFACES_MAX, decoder->gl_textures[i]);
-       GlxCheck();
+        GlxCheck();
     }
     if (decoder == CuvidDecoders[0]) {   // only when last decoder closes
         Debug(3,"Last decoder closes\n");
@@ -12481,6 +12496,7 @@ static void CuvidAutoCrop(CuvidDecoder * decoder)
 	free(base);
 	decoder->AutoCropBuffer = malloc(size);
 	base = decoder->AutoCropBuffer;
+	decoder->AutoCropBufferSize = size;
     }
     if (!base) {
 	Error(_("video/cuvid: out of memory\n"));
@@ -12494,9 +12510,14 @@ static void CuvidAutoCrop(CuvidDecoder * decoder)
     data[2] = base + width * height + width * height / 4;
 
     //we need Y in data[0] only
-    memcpy(base, &decoder->gl_textures[surface][0], width * height);
+    glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[surface][0]);
+    glGetTexImage(GL_TEXTURE_2D,0,GL_RED, GL_UNSIGNED_BYTE,base);
+    //glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[surface][1]);
+    //glGetTexImage(GL_TEXTURE_2D,0,GL_RG, GL_UNSIGNED_BYTE,base + width * height);
 
     AutoCropDetect(decoder->AutoCrop, width, height, data, pitches);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
 
     // ignore black frames
     if (decoder->AutoCrop->Y1 >= decoder->AutoCrop->Y2) {
@@ -12604,12 +12625,19 @@ static void CuvidCheckAutoCrop(CuvidDecoder * decoder)
 
 	tmp_ratio.num = 4;
 	tmp_ratio.den = 3;
-	// only 4:3 with 16:9/14:9 inside supported
+	// 4:3 with 16:9/14:9 inside
 	if (!av_cmp_q(input_aspect_ratio, tmp_ratio)) {
 	    CuvidAutoCrop(decoder);
 	} else {
-	    decoder->AutoCrop->Count = 0;
-	    decoder->AutoCrop->State = 0;
+	// 15:11 with 16:9/14:9 inside
+	    tmp_ratio.num = 15;
+	    tmp_ratio.den = 11;
+	    if (!av_cmp_q(input_aspect_ratio, tmp_ratio)) {
+	        CuvidAutoCrop(decoder);
+	    } else {
+	        decoder->AutoCrop->Count = 0;
+	        decoder->AutoCrop->State = 0;
+	    }
 	}
     }
 }
@@ -12933,7 +12961,7 @@ static void CuvidAdvanceDecoderFrame(CuvidDecoder * decoder)
 	// need 2 frames for progressive
 	// need 4 frames for interlaced
 	filled = atomic_read(&decoder->SurfacesFilled);
-	if (filled <  1 + 2 * decoder->Interlaced) {
+	if (filled < 1 + 2 * decoder->Interlaced) {
 	    // keep use of last surface
 	    ++decoder->FramesDuped;
 	    // FIXME: don't warn after stream start, don't warn during pause
@@ -13618,7 +13646,7 @@ static const VideoModule CuvidModule = {
     .ReleaseSurface =
 	(void (*const) (VideoHwDecoder *, unsigned))CuvidReleaseSurface,
     .UnregisterSurface =
-        (void (*const) (VideoHwDecoder *))CuvidUnregisterSurface,
+	(void (*const) (VideoHwDecoder *))CuvidUnregisterSurface,
     .get_format = (enum AVPixelFormat(*const) (VideoHwDecoder *,
 	    AVCodecContext *, const enum AVPixelFormat *))Cuvid_get_format,
     .RenderFrame = (void (*const) (VideoHwDecoder *,

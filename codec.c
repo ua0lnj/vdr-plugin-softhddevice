@@ -593,7 +593,6 @@ void CodecVideoClose(VideoDecoder * video_decoder)
 #else
     av_freep(&video_decoder->Frame);
 #endif
-
     if (video_decoder->VideoCtx) {
         if (VideoIsDriverCuvid())
             VideoUnregisterSurface(video_decoder->HwDecoder);
