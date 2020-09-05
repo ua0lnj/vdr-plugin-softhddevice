@@ -1882,6 +1882,9 @@ void cOglPixmap::DrawText(const cPoint &Point, const char *s, tColor ColorFg, tC
     int limitX = 0;
     int cw = Width ? Width : w;
     int ch = Height ? Height : h;
+
+    if(Width > ViewPort().Width() && !x) x = ViewPort().Width() - w; //For skinelchihd, but other skins not need this...
+
     cRect r(x, y, cw, ch);
 
     if (ColorBg != clrTransparent)
