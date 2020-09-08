@@ -3006,28 +3006,33 @@ void AudioInit(void)
 		    case 3:
 			if (AudioChannelsInHw[4]) {
 			    AudioChannelMatrix[u][chan] = 4;
-			}
 			break;
+			}
+			__attribute__ ((fallthrough));
 		    case 4:
 			if (AudioChannelsInHw[5]) {
 			    AudioChannelMatrix[u][chan] = 5;
-			}
 			break;
+			}
+			__attribute__ ((fallthrough));
 		    case 5:
 			if (AudioChannelsInHw[6]) {
 			    AudioChannelMatrix[u][chan] = 6;
-			}
 			break;
+			}
+			__attribute__ ((fallthrough));
 		    case 6:
 			if (AudioChannelsInHw[7]) {
 			    AudioChannelMatrix[u][chan] = 7;
-			}
 			break;
+			}
+			__attribute__ ((fallthrough));
 		    case 7:
 			if (AudioChannelsInHw[8]) {
 			    AudioChannelMatrix[u][chan] = 8;
-			}
 			break;
+			}
+			__attribute__ ((fallthrough));
 		    case 8:
 			if (AudioChannelsInHw[6]) {
 			    AudioChannelMatrix[u][chan] = 6;
