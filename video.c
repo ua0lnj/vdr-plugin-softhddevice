@@ -12292,7 +12292,6 @@ static enum AVPixelFormat Cuvid_get_format(CuvidDecoder * decoder,
     return avcodec_default_get_format(video_ctx, fmt);
 }
 
-#ifdef DEBUG
 #ifdef USE_GRAB
 ///
 ///	Grab output surface already locked.
@@ -12307,6 +12306,8 @@ static uint8_t *CuvidGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int 
     uint32_t width;
     uint32_t height;
     uint8_t *base;
+    size_t i, j, k, cur_gl, cur_rgb;
+    GLubyte *pixels;
 
     typedef struct {
         uint32_t x0;
@@ -12316,19 +12317,17 @@ static uint8_t *CuvidGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int 
     } CuRect;
     CuRect source_rect;
 
-	CuvidDecoder *decoder;
+    CuvidDecoder *decoder;
 
-	decoder = CuvidDecoders[0];
-	if (decoder == NULL)   // no video aktiv
-		return NULL;
-	
-//    surface = CuvidSurfacesRb[CuvidOutputSurfaceIndex];
-	
-	//	get real surface size
-	width = decoder->InputWidth;
-	height = decoder->InputHeight;
+    decoder = CuvidDecoders[0];
+    if (decoder == NULL)   // no video aktiv
+	return NULL;
 
-    
+    //get real surface size
+    width = VideoWindowWidth;
+    height = VideoWindowHeight;
+
+
     Debug(3, "video/cuvid: grab %dx%d\n", width, height);
 
     source_rect.x0 = 0;
@@ -12337,58 +12336,66 @@ static uint8_t *CuvidGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int 
     source_rect.y1 = height;
 
     if (ret_width && ret_height) {
-		if (*ret_width <= -64) {	// this is an Atmo grab service request
-			int overscan;
+	if (*ret_width <= -64) {	// this is an Atmo grab service request
+	    int overscan;
 
-			// calculate aspect correct size of analyze image
-			width = *ret_width * -1;
-			height = (width * source_rect.y1) / source_rect.x1;
+	    // calculate aspect correct size of analyze image
+	    width = *ret_width * -1;
+	    height = (width * source_rect.y1) / source_rect.x1;
 
-			// calculate size of grab (sub) window
-			overscan = *ret_height;
+	    // calculate size of grab (sub) window
+	    overscan = *ret_height;
 
-			if (overscan > 0 && overscan <= 200) {
-			source_rect.x0 = source_rect.x1 * overscan / 1000;
-			source_rect.x1 -= source_rect.x0;
-			source_rect.y0 = source_rect.y1 * overscan / 1000;
-			source_rect.y1 -= source_rect.y0;
-			}
-		} else {
-			if (*ret_width > 0 && (unsigned)*ret_width < width) {
-				width = *ret_width;
-			}
-			if (*ret_height > 0 && (unsigned)*ret_height < height) {
-				height = *ret_height;
-			}
-		}
-
-		Debug(3, "video/cuvid: grab source rect %d,%d:%d,%d dest dim %dx%d\n",
-			source_rect.x0, source_rect.y0, source_rect.x1, source_rect.y1,
-			width, height);
-
-		size = width * height * sizeof(uint32_t);
-		
-		base = malloc(size);
-		
-		if (!base) {
-			Error(_("video/cuvid: out of memory\n"));
-			return NULL;
-		}
-		
-//TODO grab
-		Debug(3,"got grab data\n");
-
-		if (ret_size) {
-			*ret_size = size;
-		}
-		if (ret_width) {
-			*ret_width = width;
-		}
-		if (ret_height) {
-			*ret_height = height;
-		}
-		return base;
+	    if (overscan > 0 && overscan <= 200) {
+		source_rect.x0 = source_rect.x1 * overscan / 1000;
+		source_rect.x1 -= source_rect.x0;
+		source_rect.y0 = source_rect.y1 * overscan / 1000;
+		source_rect.y1 -= source_rect.y0;
+	    }
+	} else {
+	    if (*ret_width > 0 && (unsigned)*ret_width < width) {
+		width = *ret_width;
+	    }
+	    if (*ret_height > 0 && (unsigned)*ret_height < height) {
+		height = *ret_height;
+	    }
 	}
+
+	Debug(3, "video/cuvid: grab source rect %d,%d:%d,%d dest dim %dx%d\n",
+	source_rect.x0, source_rect.y0, source_rect.x1, source_rect.y1, width, height);
+
+	size = width * height * 4;;
+
+	base = malloc(size*sizeof(uint8_t));
+
+	if (!base) {
+	    Error(_("video/cuvid: out of memory\n"));
+	    return NULL;
+	}
+
+	glXMakeCurrent(XlibDisplay, VideoWindow, GlxSharedContext);
+	GlxCheck();
+
+	pixels = malloc(size * sizeof(GLubyte));
+	/* Get BGRA to align to 32 bits instead of just 24 for RGB */
+	glReadPixels(source_rect.x0, source_rect.y0, source_rect.x1, source_rect.y1, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
+	for (i = 0; i < height; i++) {
+	    for (j = 0; j < width; j++) {
+	        cur_gl  = 4 * (width * (height - i - 1) + j);
+	        cur_rgb = 4 * (width * i + j);
+	            for (k = 0; k < 4; k++)
+	                (base)[cur_rgb + k] = (pixels)[cur_gl + k];
+	    }
+	}
+	glXMakeCurrent(XlibDisplay, None, NULL);
+
+	Debug(3,"got grab data\n");
+
+	*ret_size = size;
+	*ret_width = width;
+	*ret_height = height;
+	return base;
+    }
 
     return NULL;
 }
@@ -12416,7 +12423,6 @@ static uint8_t *CuvidGrabOutputSurface(int *ret_size, int *ret_width,  int *ret_
     return img;
 }
 
-#endif
 #endif
 
 #ifdef USE_AUTOCROP
@@ -13616,7 +13622,7 @@ static const VideoModule CuvidModule = {
     .ResetStart = (void (*const) (const VideoHwDecoder *))CuvidResetStart,
     .SetTrickSpeed =
 	(void (*const) (const VideoHwDecoder *, int))CuvidSetTrickSpeed,
-#ifdef USE_GRAB_TODO
+#ifdef USE_GRAB
     .GrabOutput = CuvidGrabOutputSurface,
 #endif
     .GetStats = (void (*const) (VideoHwDecoder *, int *, int *, int *,
