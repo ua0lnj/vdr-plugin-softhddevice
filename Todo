@@ -55,7 +55,6 @@ vdpau:
 libva:
     yaepghd (VaapiSetOutputPosition) support
     can associate only displayed part of osd
-    grab image for va-api
     remove stderr output of libva init
     still many: (workaround export NO_MPEG_HW=1)
     [drm:i915_hangcheck_elapsed] *ERROR* Hangcheck timer elapsed... GPU hung

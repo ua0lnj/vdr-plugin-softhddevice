@@ -12388,6 +12388,7 @@ static uint8_t *CuvidGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int 
 	    }
 	}
 	glXMakeCurrent(XlibDisplay, None, NULL);
+	free(pixels);
 
 	Debug(3,"got grab data\n");
 
