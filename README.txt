@@ -21,7 +21,7 @@ $Id$
 A software and GPU emulated UHD output device plugin for VDR.
 
     o Video decoder CPU / VA-API / VDPAU / CUVID
-    o Video output VA-API / VDPAU / GLX (VA-API CUVID)
+    o Video output VA-API / VDPAU / GLX (VA-API / CUVID)
     o OSD accelerated by GPU VDPAU / CUVID
     o Audio FFMpeg / Alsa / Analog
     o Audio FFMpeg / Alsa / Digital
@@ -31,11 +31,11 @@ A software and GPU emulated UHD output device plugin for VDR.
     o VDR ScaleVideo API
     o Software deinterlacer Bob (VA-API only)
     o Autocrop
-    o Grab image (VDPAU only)
+    o Grab image (VA-API / VDPAU / CUVID)
     o Suspend / Dettach
     o Letterbox, Stretch and Center cut-out video display modes
     o atmo light support with plugin http://github.com/durchflieger/DFAtmo
-    o PIP (Picture-in-Picture) (VDPAU and CUVID)
+    o PIP (Picture-in-Picture) (VDPAU / CUVID)
 
     o planned: OSD accelerated by GPU VA-API
     o planned: Video output Opengl / Xv
