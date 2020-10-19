@@ -12369,7 +12369,7 @@ static uint8_t *CuvidGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int 
 	base = malloc(size*sizeof(uint8_t));
 
 	if (!base) {
-	    Error(_("video/cuvid: out of memory\n"));
+	    Error(_("video/cuvid: grab out of memory\n"));
 	    return NULL;
 	}
 
@@ -12377,8 +12377,14 @@ static uint8_t *CuvidGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int 
 	GlxCheck();
 
 	pixels = malloc(size * sizeof(GLubyte));
+	if (!pixels) {
+	    Error(_("video/cuvid: grab out of memory\n"));
+	    return NULL;
+	}
+
 	/* Get BGRA to align to 32 bits instead of just 24 for RGB */
 	glReadPixels(source_rect.x0, source_rect.y0, source_rect.x1, source_rect.y1, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
+	GlxCheck();
 	for (i = 0; i < height; i++) {
 	    for (j = 0; j < width; j++) {
 	        cur_gl  = 4 * (width * (height - i - 1) + j);
@@ -12445,7 +12451,6 @@ static void CuvidAutoCrop(CuvidDecoder * decoder)
     int crop14;
     int crop16;
     int next_state;
-    //int format;
 
     surface = decoder->SurfacesRb[(decoder->SurfaceRead + 1) %  (VIDEO_SURFACES_MAX * 2)];
 
