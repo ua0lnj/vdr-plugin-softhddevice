@@ -12338,6 +12338,7 @@ static enum AVPixelFormat Cuvid_get_format(CuvidDecoder * decoder,
 #ifdef USE_GRAB
 ///
 ///	Grab output surface already locked.
+//	Grab openGL video + osd (screenshot)
 ///
 ///	@param ret_size[out]		size of allocated surface copy
 ///	@param ret_width[in,out]	width of output
@@ -12351,6 +12352,8 @@ static uint8_t *CuvidGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int 
     uint8_t *base;
     size_t i, j, k, cur_gl, cur_rgb;
     GLubyte *pixels;
+    double scalew, scaleh;
+    unsigned char* ptr;
 
     typedef struct {
         uint32_t x0;
@@ -12410,33 +12413,51 @@ static uint8_t *CuvidGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int 
 	size = width * height * 4;;
 
 	base = malloc(size*sizeof(uint8_t));
-
 	if (!base) {
 	    Error(_("video/cuvid: grab out of memory\n"));
+	    return NULL;
+	}
+
+	pixels = malloc(VideoWindowWidth * VideoWindowHeight * 4 * sizeof(GLubyte));
+	if (!pixels) {
+	    Error(_("video/cuvid: grab out of memory\n"));
+	    free(base);
 	    return NULL;
 	}
 
 	glXMakeCurrent(XlibDisplay, VideoWindow, GlxSharedContext);
 	GlxCheck();
 
-	pixels = malloc(size * sizeof(GLubyte));
-	if (!pixels) {
-	    Error(_("video/cuvid: grab out of memory\n"));
-	    return NULL;
-	}
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, grab_buffer);
+	glBufferData(GL_PIXEL_PACK_BUFFER, VideoWindowWidth * VideoWindowHeight * 4 * sizeof(GLubyte), NULL, GL_STREAM_READ);
 
 	/* Get BGRA to align to 32 bits instead of just 24 for RGB */
-	glReadPixels(source_rect.x0, source_rect.y0, source_rect.x1, source_rect.y1, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
+	glReadPixels(source_rect.x0, source_rect.y0, VideoWindowWidth, VideoWindowHeight, GL_BGRA, GL_UNSIGNED_BYTE, 0);
+
+	ptr = (unsigned char*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+
+	if (NULL != ptr) {
+	    memcpy(pixels, ptr, VideoWindowWidth * VideoWindowHeight * 4 * sizeof(GLubyte));
+	    glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+	}
+
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+	glXMakeCurrent(XlibDisplay, None, NULL);
 	GlxCheck();
+
+	scalew = (double)VideoWindowWidth / width;
+	scaleh = (double)VideoWindowHeight / height;
+
+	// convert 32 -> 24 and simple scale
 	for (i = 0; i < height; i++) {
 	    for (j = 0; j < width; j++) {
-	        cur_gl  = 4 * (width * (height - i - 1) + j);
+	        cur_gl  = 4 * (VideoWindowWidth * (int)(scaleh * (height - i - 1)) + (int)(scalew * j));
 	        cur_rgb = 4 * (width * i + j);
 	            for (k = 0; k < 4; k++)
 	                (base)[cur_rgb + k] = (pixels)[cur_gl + k];
 	    }
 	}
-	glXMakeCurrent(XlibDisplay, None, NULL);
+
 	free(pixels);
 
 	Debug(3,"got grab data\n");
@@ -13427,11 +13448,7 @@ static void CuvidSyncRenderFrame(CuvidDecoder * decoder,
     // if video output buffer is full, wait and display surface.
     // loop for interlace
     if (atomic_read(&decoder->SurfacesFilled) >= (VIDEO_SURFACES_MAX * 2)) {
-#ifdef DEBUG
-	Fatal("video/cuvid: this code part shouldn't be used\n");
-#else
 	Info("video/cuvid: this code part shouldn't be used\n");
-#endif
 	return;
     }
 #else
