@@ -12408,7 +12408,7 @@ static uint8_t *CuvidGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int 
 	// convert 32 -> 24 and simple scale
 	for (i = 0; i < height; i++) {
 	    for (j = 0; j < width; j++) {
-	        cur_gl  = 4 * ((int)scaleh * VideoWindowWidth * (height - i - 1) + (int)scalew * j);
+	        cur_gl  = 4 * (VideoWindowWidth * (int)(scaleh * (height - i - 1)) + (int)(scalew * j));
 	        cur_rgb = 4 * (width * i + j);
 	            for (k = 0; k < 4; k++)
 	                (base)[cur_rgb + k] = (pixels)[cur_gl + k];
