@@ -4786,11 +4786,11 @@ static void VaapiAutoCrop(VaapiDecoder * decoder)
 	decoder->OutputHeight = (decoder->VideoWidth * 9) / next_state;
 	if (decoder->OutputWidth > decoder->VideoWidth) {
 	    decoder->OutputWidth = decoder->VideoWidth;
-	    decoder->OutputY =
+	    decoder->OutputY +=
 		(decoder->VideoHeight - decoder->OutputHeight) / 2;
 	} else if (decoder->OutputHeight > decoder->VideoHeight) {
 	    decoder->OutputHeight = decoder->VideoHeight;
-	    decoder->OutputX =
+	    decoder->OutputX +=
 		(decoder->VideoWidth - decoder->OutputWidth) / 2;
 	}
 	Debug(3, "video: aspect output %dx%d %dx%d%+d%+d\n",
@@ -9750,11 +9750,11 @@ static void VdpauAutoCrop(VdpauDecoder * decoder)
 	decoder->OutputHeight = (decoder->VideoWidth * 9) / next_state;
 	if (decoder->OutputWidth > decoder->VideoWidth) {
 	    decoder->OutputWidth = decoder->VideoWidth;
-	    decoder->OutputY =
+	    decoder->OutputY +=
 		(decoder->VideoHeight - decoder->OutputHeight) / 2;
 	} else if (decoder->OutputHeight > decoder->VideoHeight) {
 	    decoder->OutputHeight = decoder->VideoHeight;
-	    decoder->OutputX =
+	    decoder->OutputX +=
 		(decoder->VideoWidth - decoder->OutputWidth) / 2;
 	}
 	Debug(3, "video: aspect output %dx%d %dx%d%+d%+d\n",
@@ -12577,11 +12577,11 @@ static void CuvidAutoCrop(CuvidDecoder * decoder)
 		decoder->OutputHeight = (decoder->VideoWidth * 9) / next_state;
 		if (decoder->OutputWidth > decoder->VideoWidth) {
 			decoder->OutputWidth = decoder->VideoWidth;
-			decoder->OutputY =
+			decoder->OutputY +=
 			(decoder->VideoHeight - decoder->OutputHeight) / 2;
 		} else if (decoder->OutputHeight > decoder->VideoHeight) {
 			decoder->OutputHeight = decoder->VideoHeight;
-			decoder->OutputX =
+			decoder->OutputX +=
 			(decoder->VideoWidth - decoder->OutputWidth) / 2;
 		}
 		Debug(3, "video: aspect output %dx%d %dx%d%+d%+d\n",
