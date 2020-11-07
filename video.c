@@ -12382,6 +12382,9 @@ static uint8_t *CuvidGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int 
 	    return NULL;
 	}
 
+	while (glXGetCurrentContext()) {
+	    usleep(1000);
+	}
 	glXMakeCurrent(XlibDisplay, VideoWindow, GlxSharedContext);
 	GlxCheck();
 
