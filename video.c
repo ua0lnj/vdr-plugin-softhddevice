@@ -11626,7 +11626,7 @@ static int CuvidSurfaceQueued;          ///< number of display surfaces queued
 GLuint vao_buffer, grab_buffer;
 GLuint gl_shader=0, gl_prog = 0, gl_fbo=0;      // shader programm
 GLint gl_colormatrix, gl_colormatrix_c;
-
+static int can_grab;                    ///  enabling for grab
 static struct timespec CuvidFrameTime;	///< time of last display
 
 static pthread_mutex_t CuvidGrabMutex;
@@ -12425,8 +12425,8 @@ static uint8_t *CuvidGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int 
 	    return NULL;
 	}
 
-	while (glXGetCurrentContext()) {
-	    usleep(1000);
+	while (!can_grab) {
+	    usleep(100);
 	}
 	glXMakeCurrent(XlibDisplay, VideoWindow, GlxSharedContext);
 	GlxCheck();
@@ -12447,7 +12447,7 @@ static uint8_t *CuvidGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int 
 	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 	glXMakeCurrent(XlibDisplay, None, NULL);
 	GlxCheck();
-
+	can_grab = 0;
 	scalew = (double)VideoWindowWidth / width;
 	scaleh = (double)VideoWindowHeight / height;
 
@@ -13032,9 +13032,10 @@ static void CuvidDisplayFrame(void)
 		CuvidMixerSetup(CuvidDecoders[i]);
 	}
     }
+    can_grab = 1;    // enable grab
+    glXWaitVideoSyncSGI (2, (Count + 1) % 2, &Count);   // wait for previous frame to swap
 
     glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
-    glXWaitVideoSyncSGI (2, (Count + 1) % 2, &Count);   // wait for previous frame to swap
     glClear(GL_COLOR_BUFFER_BIT);
 
     // check if surface was displayed for more than 1 frame
@@ -13052,7 +13053,7 @@ static void CuvidDisplayFrame(void)
 	}
     }
     last_time = first_time;
-
+    can_grab = 0;    //disable grab
     //
     //	Render videos into output
     //
