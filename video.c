@@ -11583,7 +11583,7 @@ static int CuvidSurfaceQueued;          ///< number of display surfaces queued
 GLuint vao_buffer, grab_buffer;
 GLuint gl_shader=0, gl_prog = 0, gl_fbo=0;      // shader programm
 GLint gl_colormatrix, gl_colormatrix_c;
-static int can_grab;                    ///  enabling for grab
+
 static struct timespec CuvidFrameTime;	///< time of last display
 
 static pthread_mutex_t CuvidGrabMutex;
@@ -12382,20 +12382,20 @@ static uint8_t *CuvidGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int 
 	    return NULL;
 	}
 
-	while (!can_grab) {
-	    usleep(100);
-	}
 	glXMakeCurrent(XlibDisplay, VideoWindow, GlxSharedContext);
 	GlxCheck();
 
 	glBindBuffer(GL_PIXEL_PACK_BUFFER, grab_buffer);
 	glBufferData(GL_PIXEL_PACK_BUFFER, VideoWindowWidth * VideoWindowHeight * 4 * sizeof(GLubyte), NULL, GL_STREAM_READ);
 
+	pthread_mutex_lock(&VideoLockMutex);
+
 	/* Get BGRA to align to 32 bits instead of just 24 for RGB */
 	glReadPixels(source_rect.x0, source_rect.y0, VideoWindowWidth, VideoWindowHeight, GL_BGRA, GL_UNSIGNED_BYTE, 0);
 
-	ptr = (unsigned char*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+	pthread_mutex_unlock(&VideoLockMutex);
 
+	ptr = (unsigned char*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
 	if (NULL != ptr) {
 	    memcpy(pixels, ptr, VideoWindowWidth * VideoWindowHeight * 4 * sizeof(GLubyte));
 	    glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
@@ -12404,7 +12404,7 @@ static uint8_t *CuvidGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int 
 	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 	glXMakeCurrent(XlibDisplay, None, NULL);
 	GlxCheck();
-	can_grab = 0;
+
 	scalew = (double)VideoWindowWidth / width;
 	scaleh = (double)VideoWindowHeight / height;
 
@@ -12989,7 +12989,7 @@ static void CuvidDisplayFrame(void)
 		CuvidMixerSetup(CuvidDecoders[i]);
 	}
     }
-    can_grab = 1;    // enable grab
+
     glXWaitVideoSyncSGI (2, (Count + 1) % 2, &Count);   // wait for previous frame to swap
 
     glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
@@ -13010,7 +13010,7 @@ static void CuvidDisplayFrame(void)
 	}
     }
     last_time = first_time;
-    can_grab = 0;    //disable grab
+
     //
     //	Render videos into output
     //
@@ -14997,7 +14997,7 @@ static void VideoCreateWindow(xcb_window_t parent, xcb_visualid_t visual,
 #endif
 
     // FIXME: size hints
-
+#if 0
     // register interest in the delete window message
     if ((reply =
 	    xcb_intern_atom_reply(Connection, xcb_intern_atom(Connection, 0,
@@ -15020,6 +15020,7 @@ static void VideoCreateWindow(xcb_window_t parent, xcb_visualid_t visual,
 	    free(reply);
 	}
     }
+#endif
     //
     //	prepare fullscreen.
     //
@@ -16301,6 +16302,13 @@ void VideoInit(const char *display_name)
 	Debug(3, "video: x11 already setup\n");
 	return;
     }
+#ifdef USE_GLX
+    if (!XInitThreads()) {
+	Error(_("video: Can't initialize X11 thread support on '%s'\n"),
+	    display_name);
+    }
+#endif
+
     // Open the connection to the X server.
     // use the DISPLAY environment variable as the default display name
     if (!display_name && !(display_name = getenv("DISPLAY"))) {
@@ -16312,12 +16320,6 @@ void VideoInit(const char *display_name)
 	// FIXME: we need to retry connection
 	return;
     }
-#ifdef USE_GLX_not_needed_done_with_locks
-    if (!XInitThreads()) {
-	Error(_("video: Can't initialize X11 thread support on '%s'\n"),
-	    display_name);
-    }
-#endif
     // Register error handler
     XSetIOErrorHandler(VideoIOErrorHandler);
 
