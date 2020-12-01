@@ -12439,7 +12439,6 @@ static uint8_t *CuvidGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int 
 	pthread_mutex_unlock(&VideoLockMutex);
 
 	ptr = (unsigned char*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-
 	if (NULL != ptr) {
 	    memcpy(pixels, ptr, VideoWindowWidth * VideoWindowHeight * 4 * sizeof(GLubyte));
 	    glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
@@ -13098,13 +13097,13 @@ static void CuvidDisplayFrame(void)
     //	add osd to surface
     //
     if (OsdShown) {
-#ifdef USE_OPENGLOSD
-        if(!DisableOglOsd && OsdGlTexture) {
             glViewport(0, 0, VideoWindowWidth, VideoWindowHeight);
             glMatrixMode(GL_PROJECTION);
             glLoadIdentity();
             glOrtho(0.0, VideoWindowWidth, VideoWindowHeight, 0.0, -1.0, 1.0);
             GlxCheck();
+#ifdef USE_OPENGLOSD
+        if(!DisableOglOsd && OsdGlTexture) {
             GlxRenderTexture(OsdGlTexture, 0,0, VideoWindowWidth, VideoWindowHeight);
         } else
 #endif
