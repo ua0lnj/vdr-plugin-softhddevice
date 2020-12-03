@@ -1826,7 +1826,7 @@ void cOglPixmap::DrawBitmap(const cPoint &Point, const cBitmap &Bitmap, tColor C
     int xNew = Point.X();
     int yNew = Point.Y();
 
-    if(ViewPort().X() && ViewPort().Y()) {
+    if(Point.X() >= ViewPort().X() && Point.Y() >= ViewPort().Y()) {
         xNew -= ViewPort().X();
         yNew -= ViewPort().Y();
     }
