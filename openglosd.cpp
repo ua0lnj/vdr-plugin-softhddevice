@@ -1932,8 +1932,23 @@ void cOglPixmap::DrawText(const cPoint &Point, const char *s, tColor ColorFg, tC
 void cOglPixmap::DrawRectangle(const cRect &Rect, tColor Color) {
     if (!oglThread->Active())
         return;
+
+    int xNew = Rect.X();
+    int yNew = Rect.Y();
+    int wNew = Rect.Width();
+    int hNew = Rect.Height();
+
+    if(Rect.Width() < 0) {
+        xNew -= Rect.Width();
+        wNew = 0;
+    }
+    if(Rect.Height() < 0) {
+        yNew -= Rect.Height();
+        hNew = 0;
+    }
+
     LOCK_PIXMAPS;
-    oglThread->DoCmd(new cOglCmdDrawRectangle(fb, Rect.X(), Rect.Y(), Rect.Width(), Rect.Height(), Color));
+    oglThread->DoCmd(new cOglCmdDrawRectangle(fb, xNew, yNew, wNew, hNew, Color));
     SetDirty();
     MarkDrawPortDirty(Rect);
 }
@@ -1941,8 +1956,23 @@ void cOglPixmap::DrawRectangle(const cRect &Rect, tColor Color) {
 void cOglPixmap::DrawEllipse(const cRect &Rect, tColor Color, int Quadrants) {
     if (!oglThread->Active())
         return;
+
+    int xNew = Rect.X();
+    int yNew = Rect.Y();
+    int wNew = Rect.Width();
+    int hNew = Rect.Height();
+
+    if(Rect.Width() < 0) {
+        xNew -= Rect.Width();
+        wNew = 0;
+    }
+    if(Rect.Height() < 0) {
+        yNew -= Rect.Height();
+        hNew = 0;
+    }
+
     LOCK_PIXMAPS;
-    oglThread->DoCmd(new cOglCmdDrawEllipse(fb, Rect.X(), Rect.Y(), Rect.Width(), Rect.Height(), Color, Quadrants));
+    oglThread->DoCmd(new cOglCmdDrawEllipse(fb, xNew, yNew, wNew, hNew, Color, Quadrants));
     SetDirty();
     MarkDrawPortDirty(Rect);
 }
@@ -1950,8 +1980,23 @@ void cOglPixmap::DrawEllipse(const cRect &Rect, tColor Color, int Quadrants) {
 void cOglPixmap::DrawSlope(const cRect &Rect, tColor Color, int Type) {
     if (!oglThread->Active())
         return;
+
+    int xNew = Rect.X();
+    int yNew = Rect.Y();
+    int wNew = Rect.Width();
+    int hNew = Rect.Height();
+
+    if(Rect.Width() < 0) {
+        xNew -= Rect.Width();
+        wNew = 0;
+    }
+    if(Rect.Height() < 0) {
+        yNew -= Rect.Height();
+        hNew = 0;
+    }
+
     LOCK_PIXMAPS;
-    oglThread->DoCmd(new cOglCmdDrawSlope(fb, Rect.X(), Rect.Y(), Rect.Width(), Rect.Height(), Color, Type));
+    oglThread->DoCmd(new cOglCmdDrawSlope(fb, xNew, yNew, wNew, hNew, Color, Type));
     SetDirty();
     MarkDrawPortDirty(Rect);
 }
