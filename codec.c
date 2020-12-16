@@ -541,7 +541,9 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 	decoder->VideoCtx->get_buffer2 = Codec_get_buffer2;
 	decoder->VideoCtx->draw_horiz_band = Codec_draw_horiz_band;
 	decoder->VideoCtx->thread_count = 1;
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,114,100)
 	decoder->VideoCtx->thread_safe_callbacks = 0;
+#endif
 	decoder->VideoCtx->active_thread_type = 0;
         decoder->VideoCtx->hwaccel_context =
             VideoGetHwAccelContext(decoder->HwDecoder);
@@ -550,7 +552,9 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 	decoder->VideoCtx->get_format = Codec_get_format;
 	decoder->VideoCtx->get_buffer2 = Codec_get_buffer2;
 	decoder->VideoCtx->thread_count = 0;
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,114,100)
 	decoder->VideoCtx->thread_safe_callbacks = 1;
+#endif
 	decoder->VideoCtx->active_thread_type = 0;
 	decoder->VideoCtx->draw_horiz_band = NULL;
         decoder->VideoCtx->hwaccel_context = NULL;
