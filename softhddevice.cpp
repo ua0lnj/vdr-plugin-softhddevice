@@ -3128,6 +3128,22 @@ void cSoftHdDevice::ScaleVideo(const cRect & rect)
 	rect.Height(), rect.X(), rect.Y());
 #endif
     ::ScaleVideo(rect.X(), rect.Y(), rect.Width(), rect.Height());
+    if (SuspendMode == SUSPEND_EXTERNAL){
+        typedef struct
+        {
+            int x;
+            int y;
+            int width;
+            int height;
+        } scaleVideo;
+
+        scaleVideo data;
+        data.x = rect.X();
+        data.y = rect.Y();
+        data.width = rect.Width();
+        data.height = rect.Height();
+        cPluginManager::CallFirstService("ScaleVideo", &data);
+    }
 }
 
 #endif
