@@ -15016,8 +15016,8 @@ static void VideoCreateWindow(xcb_window_t parent, xcb_visualid_t visual,
 	XCB_EVENT_MASK_STRUCTURE_NOTIFY;
     values[3] = VideoColormap;
     VideoWindow = xcb_generate_id(Connection);
-    xcb_create_window(Connection, depth, VideoWindow, parent, VideoWindowX,
-	VideoWindowY, VideoWindowWidth, VideoWindowHeight, 0,
+    xcb_create_window(Connection, depth, VideoWindow, parent, 0,
+	0, VideoWindowWidth, VideoWindowHeight, 0,
 	XCB_WINDOW_CLASS_INPUT_OUTPUT, visual,
 	XCB_CW_BACK_PIXEL | XCB_CW_BORDER_PIXEL | XCB_CW_EVENT_MASK |
 	XCB_CW_COLORMAP, values);
@@ -15082,6 +15082,11 @@ static void VideoCreateWindow(xcb_window_t parent, xcb_visualid_t visual,
     }
 
     xcb_map_window(Connection, VideoWindow);
+
+    // For some WMs the X/Y coordinates are not taken into account when passed to xcb_create_window.
+    // As a workaround we must manually set the coordinates after mapping the window.
+    const uint32_t coords[] = { VideoWindowX, VideoWindowY };
+    xcb_configure_window (Connection, VideoWindow, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, coords);
 
     //
     //	hide cursor
