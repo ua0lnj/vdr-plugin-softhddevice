@@ -14996,6 +14996,8 @@ static void VideoCreateWindow(xcb_window_t parent, xcb_visualid_t visual,
     xcb_pixmap_t pixmap;
     xcb_cursor_t cursor;
 
+    const uint32_t coords[2] = { VideoWindowX, VideoWindowY };
+
     Debug(3, "video: visual %#0x depth %d\n", visual, depth);
 
     // Color map
@@ -15081,7 +15083,6 @@ static void VideoCreateWindow(xcb_window_t parent, xcb_visualid_t visual,
 
     // For some WMs the X/Y coordinates are not taken into account when passed to xcb_create_window.
     // As a workaround we must manually set the coordinates after mapping the window.
-    const uint32_t coords[] = { VideoWindowX, VideoWindowY };
     xcb_configure_window (Connection, VideoWindow, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, coords);
 
     //
