@@ -13732,7 +13732,7 @@ static void NoopSetClosing(__attribute__ ((unused)) VideoHwDecoder * decoder)
 ///
 ///	@param decoder	noop decoder
 ///
-static void NoopResetStart(__attribute__ ((unused)) VdpauDecoder * decoder)
+static void NoopResetStart(__attribute__ ((unused)) VideoHwDecoder * decoder)
 {
 }
 
