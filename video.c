@@ -13033,9 +13033,8 @@ static void CuvidDisplayFrame(void)
 	}
     }
 
-    glXWaitVideoSyncSGI (2, (Count + 1) % 2, &Count);   // wait for previous frame to swap
-
     glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
+    glXWaitVideoSyncSGI (2, (Count + 1) % 2, &Count);   // wait for previous frame to swap
     glClear(GL_COLOR_BUFFER_BIT);
 
     // check if surface was displayed for more than 1 frame
