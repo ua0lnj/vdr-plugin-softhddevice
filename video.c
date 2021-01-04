@@ -13745,6 +13745,41 @@ static void NoopReleaseSurface(
 }
 
 ///
+///	Set noop decoder video clock.
+///
+///	Can be called while exiting.
+///
+///	@param decoder	noop hardware decoder
+///	@param pts	audio presentation timestamp
+///
+void NoopSetClock(__attribute__ ((unused)) VideoHwDecoder * decoder,
+    __attribute__ ((unused)) int64_t pts)
+{
+}
+
+///
+///	Set noop decoder closing stream flag.
+///
+///	Can be called while exiting.
+///
+///	@param decoder	noop hw decoder
+///
+static void NoopSetClosing(__attribute__ ((unused)) VideoHwDecoder * decoder)
+{
+}
+
+///
+///	Reset start of frame counter.
+///
+///	Can be called while exiting.
+///
+///	@param decoder	noop decoder
+///
+static void NoopResetStart(__attribute__ ((unused)) VideoHwDecoder * decoder)
+{
+}
+
+///
 ///	Set noop background color.
 ///
 ///	@param rgba	32 bit RGBA color.
@@ -13857,10 +13892,14 @@ static const VideoModule NoopModule = {
 	    const AVCodecContext *, const AVFrame *))NoopSyncRenderFrame,
     .GetHwAccelContext = (void *(*const)(VideoHwDecoder *))
 	DummyGetHwAccelContext,
+#endif
     .SetClock = (void (*const) (VideoHwDecoder *, int64_t))NoopSetClock,
+#if 0
     .GetClock = (int64_t(*const) (const VideoHwDecoder *))NoopGetClock,
+#endif
     .SetClosing = (void (*const) (const VideoHwDecoder *))NoopSetClosing,
     .ResetStart = (void (*const) (const VideoHwDecoder *))NoopResetStart,
+#if 0
     .SetTrickSpeed =
 	(void (*const) (const VideoHwDecoder *, int))NoopSetTrickSpeed,
     .GrabOutput = NoopGrabOutputSurface,
