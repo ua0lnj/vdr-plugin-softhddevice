@@ -211,7 +211,7 @@ bool cShader::Compile(const char *vertexCode, const char *fragmentCode) {
         glShaderSource(sVertex, 1, &vertexCodeChr, NULL);
         glCompileShader(sVertex);
         if (CheckCompileErrors(sVertex)) break; //compiled ok
-        else if (a != 0) return false;          //no supported shaders
+        else if (a > 1) return false;          //no supported shaders
         glDeleteShader(sVertex);                //try yet
     }
     dsyslog("[softhddev]:SHADER: Compiled ok\n");

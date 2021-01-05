@@ -6382,7 +6382,8 @@ static void VaapiDisplayFrame(void)
 		Error(_("video/glx: can't make glx context current\n"));
 		return;
 	    }
-	    glXWaitVideoSyncSGI (2, (Count + 1) % 2, &Count);   // wait for previous frame to swap
+	    if (GlxGetVideoSyncSGI)
+	        glXWaitVideoSyncSGI (2, (Count + 1) % 2, &Count);   // wait for previous frame to swap
 	    glClear(GL_COLOR_BUFFER_BIT);
 	}
 #endif
@@ -6523,7 +6524,8 @@ static void VaapiDisplayFrame(void)
 	    // FIXME: toggle osd
 	}
 	//glFinish();
-	glXGetVideoSyncSGI (&Count);    // get current frame
+	if (GlxGetVideoSyncSGI)
+	    glXGetVideoSyncSGI (&Count);    // get current frame
 	glXSwapBuffers(XlibDisplay, VideoWindow);
 	glXMakeCurrent(XlibDisplay, None, NULL);
 	GlxCheck();
