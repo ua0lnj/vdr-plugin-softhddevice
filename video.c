@@ -4586,7 +4586,7 @@ static void VaapiPutSurfaceGLX(VaapiDecoder * decoder, VASurfaceID surface,
     int interlaced, int deinterlaced, int top_field_first, int field)
 {
     unsigned type;
-
+    int y;
     //uint32_t start;
     //uint32_t copy;
     //uint32_t end;
@@ -4620,10 +4620,13 @@ static void VaapiPutSurfaceGLX(VaapiDecoder * decoder, VASurfaceID surface,
 	return;
     }
     //copy = GetMsTicks();
+
+    //fix CropY
+    y = decoder->OutputHeight * ((float)decoder->CropY/(float)decoder->CropHeight);
+
     // hardware surfaces are always busy
-    // FIXME: CropX, ...
     GlxRenderTexture(decoder->GlTextures[0], decoder->OutputX,
-	decoder->OutputY, decoder->OutputWidth, decoder->OutputHeight);
+	decoder->OutputY - y, decoder->OutputWidth, decoder->OutputHeight + y * 2);
     //end = GetMsTicks();
     //Debug(3, "video/vaapi/glx: %d copy %d render\n", copy - start, end - copy);
 }
@@ -6372,6 +6375,17 @@ static void VaapiDisplayFrame(void)
 	    VaapiInitSurfaceFlags(VaapiDecoders[i]);
 	}
     }
+
+#ifdef USE_GLX
+	if (GlxEnabled) {
+	    if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext)) {
+		Error(_("video/glx: can't make glx context current\n"));
+		return;
+	    }
+	    glClear(GL_COLOR_BUFFER_BIT);
+	}
+#endif
+
     // look if any stream have a new surface available
     for (i = 0; i < VaapiDecoderN; ++i) {
 	VASurfaceID surface;
@@ -6388,19 +6402,6 @@ static void VaapiDisplayFrame(void)
 		!= VA_STATUS_SUCCESS) {
 		Error(_("video/vaapi: vaSyncSurface failed\n"));
 	    }
-	}
-#endif
-#ifdef USE_GLX
-	if (GlxEnabled) {
-	    if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext)) {
-		Error(_("video/glx: can't make glx context current\n"));
-		return;
-	    }
-	    glClear(GL_COLOR_BUFFER_BIT);
-	    glViewport(0, 0, VideoWindowWidth, VideoWindowHeight);
-	    glMatrixMode(GL_PROJECTION);
-	    glLoadIdentity();
-	    glOrtho(0.0, VideoWindowWidth, VideoWindowHeight, 0.0, -1.0, 1.0);
 	}
 #endif
 	filled = atomic_read(&decoder->SurfacesFilled);
@@ -6507,6 +6508,11 @@ static void VaapiDisplayFrame(void)
 	//	add OSD
 	//
 	if (OsdShown) {
+	    glViewport(0, 0, VideoWindowWidth, VideoWindowHeight);
+	    glMatrixMode(GL_PROJECTION);
+	    glLoadIdentity();
+	    glOrtho(0.0, VideoWindowWidth, VideoWindowHeight, 0.0, -1.0, 1.0);
+
 	    GlxRenderTexture(OsdGlTextures[OsdIndex], 0, 0, VideoWindowWidth,
 		VideoWindowHeight);
 	    // FIXME: toggle osd
@@ -14825,7 +14831,11 @@ void VideoGetVideoSize(VideoHwDecoder * hw_decoder, int *width, int *height,
     }
 #endif
 #ifdef USE_VAAPI
+#ifdef USE_GLX
+    if (VideoUsedModule == &VaapiModule || VideoUsedModule == &VaapiGlxModule) {
+#else
     if (VideoUsedModule == &VaapiModule) {
+#endif
 	*width = hw_decoder->Vaapi.InputWidth;
 	*height = hw_decoder->Vaapi.InputHeight;
 	av_reduce(aspect_num, aspect_den,
@@ -15625,7 +15635,11 @@ void VideoSetOutputPosition(VideoHwDecoder * hw_decoder, int x, int y,
     }
 #endif
 #ifdef USE_VAAPI
+#ifdef USE_GLX
+    if (VideoUsedModule == &VaapiModule || VideoUsedModule == &VaapiGlxModule) {
+#else
     if (VideoUsedModule == &VaapiModule) {
+#endif
         // check values to be able to avoid
         // interfering with the video thread if possible
 
