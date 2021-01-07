@@ -6515,14 +6515,11 @@ static void VaapiDisplayFrame(void)
 
 	    GlxRenderTexture(OsdGlTextures[OsdIndex], 0, 0, VideoWindowWidth,
 		VideoWindowHeight);
-	    // FIXME: toggle osd
 	}
-	//glFinish();
+
 	glXSwapBuffers(XlibDisplay, VideoWindow);
 	glXMakeCurrent(XlibDisplay, None, NULL);
 	GlxCheck();
-	//glClearColor(1.0f, 0.0f, 0.0f, 0.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
 
 	xcb_flush(Connection);
     }
@@ -6828,11 +6825,7 @@ static void VaapiSyncRenderFrame(VaapiDecoder * decoder,
     // if video output buffer is full, wait and display surface.
     // loop for interlace
     if (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX - 1) {
-#ifdef DEBUG
-	Fatal("video/vaapi: this code part shouldn't be used\n");
-#else
 	Info("video/vaapi: this code part shouldn't be used\n");
-#endif
 	return;
     }
 #else
@@ -10940,11 +10933,7 @@ static void VdpauSyncRenderFrame(VdpauDecoder * decoder,
     // if video output buffer is full, wait and display surface.
     // loop for interlace
     if (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX) {
-#ifdef DEBUG
-	Fatal("video/vdpau: this code part shouldn't be used\n");
-#else
 	Info("video/vdpau: this code part shouldn't be used\n");
-#endif
 	return;
     }
 #else
