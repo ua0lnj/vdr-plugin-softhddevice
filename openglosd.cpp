@@ -367,6 +367,7 @@ void cOglFont::Init(void) {
 void cOglFont::Cleanup(void) {
     if (!initiated)
         return;
+    if (!fonts) return;
     delete fonts;
     fonts = 0;
     if (FT_Done_FreeType(ftLib))

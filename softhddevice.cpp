@@ -2690,7 +2690,7 @@ void cSoftHdDevice::MakePrimaryDevice(bool on)
 	    Resume();
 	    SuspendMode = NOT_SUSPENDED;
 	}
-    } else if (SuspendMode == NOT_SUSPENDED) {
+    } else if (SuspendMode == NOT_SUSPENDED && SuspendMode != SUSPEND_EXTERNAL) {
 #ifdef USE_OPENGLOSD
 	dsyslog("[softhddev]stopping Ogl Thread MakePrimaryDevice");
 	cSoftOsdProvider::StopOpenGlThread();
@@ -2775,7 +2775,8 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 	    return false;
 	}
 	Resume();
-	SuspendMode = NOT_SUSPENDED;
+        if (play_mode != 0)
+            SuspendMode = NOT_SUSPENDED;
     }
 
     return::SetPlayMode(play_mode);
