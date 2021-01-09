@@ -1099,6 +1099,10 @@ void cMenuSetupSoft::Create(void)
     current = Current();		// get current menu item index
     Clear();				// clear the menu
 
+    //set default parameters for VA-API
+    if (Contrast > contrast_max) Contrast = contrast_def;
+    if (Saturation > saturation_max) Saturation = saturation_def;
+
     //
     //	general
     //
