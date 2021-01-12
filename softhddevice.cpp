@@ -802,7 +802,7 @@ cOsd *cSoftOsdProvider::CreateOsd(int left, int top, uint level)
 #endif
 
 #ifdef USE_OPENGLOSD
-    if ((!VideoIsDriverVdpau() && !VideoIsDriverCuvid()) || DisableOglOsd) {
+    if (((!VideoIsDriverVdpau() && !VideoIsDriverCuvid()) || DisableOglOsd) && SuspendMode == NOT_SUSPENDED) {
         dsyslog("[softhddev]No hw driver or OpenGL Osd disabled - use soft OSD");
         return Osd = new cSoftOsd(left, top, level);
     }
