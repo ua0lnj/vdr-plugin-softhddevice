@@ -133,6 +133,7 @@ typedef enum
 // only for gluErrorString
 #include <GL/glu.h>
 #include <GL/glext.h>
+#include <GL/glxext.h>
 #endif
 
 #ifdef USE_VAAPI
@@ -868,6 +869,9 @@ static PFNGLXGETVIDEOSYNCSGIPROC GlxGetVideoSyncSGI;
 #ifdef GLX_SGI_swap_control
 static PFNGLXSWAPINTERVALSGIPROC GlxSwapIntervalSGI;
 #endif
+#ifdef GLX_MESA_copy_sub_buffer
+static PFNGLXCOPYSUBBUFFERMESAPROC GlXCopySubBufferMESA;
+#endif
 
 ///@}
 
@@ -1268,6 +1272,7 @@ static void GlxInit(void)
     int glx_GLX_MESA_swap_control;
     int glx_GLX_SGI_swap_control;
     int glx_GLX_SGI_video_sync;
+    int glX_GLX_MESA_copy_sub_buffer;
 
     if (!glXQueryVersion(XlibDisplay, &major, &minor)) {
 	Error(_("video/glx: no GLX support\n"));
@@ -1284,6 +1289,7 @@ static void GlxInit(void)
 	GlxIsExtensionSupported("GLX_MESA_swap_control");
     glx_GLX_SGI_swap_control = GlxIsExtensionSupported("GLX_SGI_swap_control");
     glx_GLX_SGI_video_sync = GlxIsExtensionSupported("GLX_SGI_video_sync");
+    glX_GLX_MESA_copy_sub_buffer = GlxIsExtensionSupported("GLX_MESA_copy_sub_buffer");
 
 #ifdef GLX_MESA_swap_control
     if (glx_GLX_MESA_swap_control) {
@@ -1307,6 +1313,13 @@ static void GlxInit(void)
     Debug(3, "video/glx: GlxGetVideoSyncSGI=%p\n", GlxGetVideoSyncSGI);
 #endif
     // glXGetVideoSyncSGI glXWaitVideoSyncSGI
+#ifdef GLX_MESA_copy_sub_buffer
+    if (glX_GLX_MESA_copy_sub_buffer) {
+	GlXCopySubBufferMESA = (PFNGLXCOPYSUBBUFFERMESAPROC)
+	    glXGetProcAddress((const GLubyte *)"glXCopySubBufferMESA");
+    }
+    Debug(3, "video/glx: GlXCopySubBufferMESA=%p\n", GlXCopySubBufferMESA);
+#endif
 
 #if 0
     // FIXME: use xcb: xcb_glx_create_context
@@ -6367,7 +6380,6 @@ static void VaapiDisplayFrame(void)
     uint32_t put2;
 #endif
     int i;
-    static unsigned int Count;
     VaapiDecoder *decoder;
 
     if (VideoSurfaceModesChanged) {	// handle changed modes
@@ -6382,8 +6394,6 @@ static void VaapiDisplayFrame(void)
 		Error(_("video/glx: can't make glx context current\n"));
 		return;
 	    }
-	    if (GlxGetVideoSyncSGI)
-	        glXWaitVideoSyncSGI (2, (Count + 1) % 2, &Count);   // wait for previous frame to swap
 	    glClear(GL_COLOR_BUFFER_BIT);
 	}
 #endif
@@ -6524,9 +6534,7 @@ static void VaapiDisplayFrame(void)
 	    // FIXME: toggle osd
 	}
 
-	if (GlxGetVideoSyncSGI)
-	    glXGetVideoSyncSGI (&Count);    // get current frame
-	glXSwapBuffers(XlibDisplay, VideoWindow);
+	glXCopySubBufferMESA( XlibDisplay, VideoWindow, 0, 0, VideoWindowWidth, VideoWindowHeight);
 	glXMakeCurrent(XlibDisplay, None, NULL);
 	GlxCheck();
 
