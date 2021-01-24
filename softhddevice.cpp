@@ -64,7 +64,7 @@ extern "C"
     /// vdr-plugin version number.
     /// Makefile extracts the version number for generating the file name
     /// for the distribution archive.
-static const char *const VERSION = "1.0.11"
+static const char *const VERSION = "1.0.12"
 #ifdef GIT_REV
     "-GIT" GIT_REV
 #endif
@@ -1253,16 +1253,19 @@ void cMenuSetupSoft::Create(void)
 		audiodrift));
 	Add(new cMenuEditBoolItem(tr("Pass-through default"),
 		&AudioPassthroughDefault, trVDR("off"), trVDR("on")));
-	Add(new cMenuEditBoolItem(tr("\040\040PCM pass-through"),
+	if (AudioPassthroughDefault) {
+	    Add(new cMenuEditBoolItem(tr("\040\040PCM pass-through"),
 		&AudioPassthroughPCM, trVDR("no"), trVDR("yes")));
-	Add(new cMenuEditBoolItem(tr("\040\040AC-3 pass-through"),
+	    Add(new cMenuEditBoolItem(tr("\040\040AC-3 pass-through"),
 		&AudioPassthroughAC3, trVDR("no"), trVDR("yes")));
-	Add(new cMenuEditBoolItem(tr("\040\040E-AC-3 pass-through"),
+	    Add(new cMenuEditBoolItem(tr("\040\040E-AC-3 pass-through"),
 		&AudioPassthroughEAC3, trVDR("no"), trVDR("yes")));
-	Add(new cMenuEditBoolItem(tr("Enable (E-)AC-3 (decoder) downmix"),
-		&AudioDownmix, trVDR("no"), trVDR("yes")));
-	Add(new cMenuEditBoolItem(tr("\040\040DTS pass-through"),
+	    Add(new cMenuEditBoolItem(tr("\040\040DTS pass-through"),
 		&AudioPassthroughDTS, trVDR("no"), trVDR("yes")));
+	} else {
+	    Add(new cMenuEditBoolItem(tr("Enable (E-)AC-3, DTS (decoder) downmix"),
+		&AudioDownmix, trVDR("no"), trVDR("yes")));
+	}
 	Add(new cMenuEditBoolItem(tr("Volume control"), &AudioSoftvol,
 		tr("Hardware"), tr("Software")));
 	Add(new cMenuEditBoolItem(tr("Enable normalize volume"),
@@ -1343,6 +1346,7 @@ eOSState cMenuSetupSoft::ProcessKey(eKeys key)
     int old_hue;
     int old_stde;
     int i;
+    int old_pass;
 
     old_general = General;
     old_video = Video;
@@ -1359,6 +1363,7 @@ eOSState cMenuSetupSoft::ProcessKey(eKeys key)
     old_saturation = Saturation;
     old_hue = Hue;
     old_stde = Stde;
+    old_pass = AudioPassthroughDefault;
     state = cMenuSetupPage::ProcessKey(key);
 
     if (key != kNone) {
@@ -1368,6 +1373,7 @@ eOSState cMenuSetupSoft::ProcessKey(eKeys key)
 #ifdef USE_PIP
 	    || old_pip != Pip
 #endif
+	    || old_pass != AudioPassthroughDefault
 	    || old_osd_size != OsdSize) {
 	    Create();			// update menu
 	} else {
