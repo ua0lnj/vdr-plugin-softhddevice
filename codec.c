@@ -916,7 +916,7 @@ void CodecAudioOpen(AudioDecoder * audio_decoder, int codec_id)
 	audio_decoder->AudioCtx->request_channels = 2;
 #endif
 	audio_decoder->AudioCtx->request_channel_layout =
-	    AV_CH_LAYOUT_STEREO_DOWNMIX;
+	    AV_CH_LAYOUT_STEREO;
     }
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(53,61,100)
     // this has no effect (with ffmpeg and libav)
