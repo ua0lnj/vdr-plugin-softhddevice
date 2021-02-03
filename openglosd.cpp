@@ -2137,7 +2137,8 @@ void cOglOsd::DrawScaledBitmap(int x, int y, const cBitmap &Bitmap, double Facto
     const cBitmap *b = &Bitmap;
     if (!DoubleEqual(FactorX, 1.0) || !DoubleEqual(FactorY, 1.0))
         b = b->Scaled(FactorX, FactorY, AntiAlias);
-    oglPixmaps[0]->DrawBitmap(cPoint(x, y), *b);
+    if (oglPixmaps[0])
+        oglPixmaps[0]->DrawBitmap(cPoint(x, y), *b);
     if (b != &Bitmap)
         delete b;
 }
