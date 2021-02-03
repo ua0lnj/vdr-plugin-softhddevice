@@ -1,31 +1,26 @@
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
 msgid ""
 msgstr ""
 "Project-Id-Version: VDR \n"
 "Report-Msgid-Bugs-To: <see README>\n"
-"POT-Creation-Date: 2020-07-04 00:33+1000\n"
-"PO-Revision-Date: 2020-07-04 00:33+1000\n"
-"Last-Translator: ua0lnj\n"
-"Language-Team: ua0lnj\n"
-"Language: ru\n"
+"POT-Creation-Date: 2021-01-28 17:59+0100\n"
+"PO-Revision-Date: \n"
+"Last-Translator: fiveten_59\n"
+"Language-Team: fiveten_59\n"
+"Language: it\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=utf-8\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
 #, c-format
 msgid "audio: %dHz sample-rate unsupported\n"
-msgstr ""
+msgstr "audio: %dHz tasso di campionamento non supportato\n"
 
 #, c-format
 msgid "audio: %d channels unsupported\n"
-msgstr ""
+msgstr "audio: %d canali non supportati\n"
 
 msgid "audio: out of ring buffers\n"
-msgstr ""
+msgstr "audio: out of ring buffers\n"
 
 #, c-format
 msgid "audio/alsa: avail underrun error? '%s'\n"
@@ -312,6 +307,18 @@ msgstr ""
 msgid "codec/audio: can't open resample\n"
 msgstr ""
 
+msgid "codec/audio: latm\n"
+msgstr ""
+
+msgid "codec/audio: bad audio frame\n"
+msgstr ""
+
+msgid "codec/audio: error more than one frame data\n"
+msgstr ""
+
+msgid "codec/audio: no frame\n"
+msgstr ""
+
 msgid "[softhddev] out of memory\n"
 msgstr ""
 
@@ -390,11 +397,19 @@ msgid "[softhddev] invalid video packet %d/%d bytes\n"
 msgstr ""
 
 #, c-format
+msgid "[softhddev] empty video packet %d bytes\n"
+msgstr ""
+
+#, c-format
 msgid "softhddev: %s called without hw decoder\n"
 msgstr ""
 
 #, c-format
-msgid "[softhddev] invalid still video packet size %d\n"
+msgid "[softhddev] still video packet %d  %x %x %x\n"
+msgstr ""
+
+#, c-format
+msgid "[softhddev] invalid still video packet %d  %x %x %x\n"
 msgstr ""
 
 msgid "[softhddev] no codec known for still picture\n"
@@ -441,8 +456,8 @@ msgstr ""
 msgid "[softhddev] ready%s\n"
 msgstr ""
 
-msgid "A software and GPU emulated UHD device"
-msgstr "Программное и аппаратное UHD устройство вывода"
+msgid "A software and GPU emulated HD device"
+msgstr "<un <hd device emulato da Software e GPU" 
 
 msgid "SoftHdDevice"
 msgstr "SoftHdDevice"
@@ -451,254 +466,239 @@ msgid "[softhddev]: dirty area too big\n"
 msgstr ""
 
 msgid "show"
-msgstr "увидеть"
+msgstr "mostra"
 
 msgid "hide"
-msgstr "скрыть"
-
-msgid "auto"
-msgstr "авто"
-
-msgid "custom"
-msgstr "ручной"
-
-msgid "None"
-msgstr "Нет"
+msgstr "nascondi"
 
 msgid "General"
-msgstr "Основное"
+msgstr "Generale"
 
 msgid "Make primary device"
-msgstr "Сделать основным устройством"
+msgstr "Utilizza come dispositivo primario"
 
 msgid "Hide main menu entry"
-msgstr "Скрыть в основном меню"
+msgstr "Nascondi voce nel menu principale"
 
 msgid "Osd size"
-msgstr "OSD размер"
+msgstr "Dimensione OSD"
 
 msgid "Osd width"
-msgstr "OSD ширина"
+msgstr "Larghezza OSD"
 
 msgid "Osd height"
-msgstr "OSD высота"
-
-msgid "GPU mem used for image caching (MB)"
-msgstr "Видео память для кэша изображ. (МБ)"
+msgstr "Altezza OSD"
 
 msgid "Suspend"
-msgstr "Приостановка"
+msgstr "Sospensione"
 
 msgid "Detach from main menu entry"
-msgstr "Отцепить от основного меню"
+msgstr "Scollega dalla voce del menù principale"
 
 msgid "Suspend closes video+audio"
-msgstr "Приостановка закроет видео+звук"
+msgstr "La sospensione disattiva audio+video"
 
 msgid "Suspend stops x11"
-msgstr "Приостановка остановит X11"
+msgstr "La sospensione arresta X11"
 
 msgid "Video"
-msgstr "Видео"
+msgstr "Video"
 
 msgid "Enable Screensaver(DPMS) at black screen"
-msgstr "Вкл. хранитель экрана (DPMS) при тёмном экране"
+msgstr "Abilita screensaver (DMPS) a schermo nero"
 
 msgid "Video background color (RGB)"
-msgstr "Цвет заднего фона видео (RGB)"
+msgstr "Colore di sfondo del video (RGB)"
 
 msgid "Video background color (Alpha)"
-msgstr "Цвет заднего фона видео (Alpha)"
+msgstr "Colore di sfondo del video (Alpha)"
 
 msgid "Use studio levels"
-msgstr "Использовать Studio Levels"
+msgstr "Utilizzo livelli studio"
 
 msgid "60hz display mode"
-msgstr "60ГЦ экран"
+msgstr "Modalità schermo 60Hz"
 
 msgid "Soft start a/v sync"
-msgstr "Плавная A/V синхр."
+msgstr "Avvio graduale sincronizzazione a/v "
 
 msgid "Black during channel switch"
-msgstr "Тёмный экран при смене канала"
+msgstr "Schermo nero durante il cambio canale"
 
 msgid "Clear decoder on channel switch"
-msgstr "Сброс декодера при смене канала"
+msgstr "Svuota decoder al cambio canale"
 
 #, c-format
 msgid "Brightness (%d..[%d]..%d)"
-msgstr "Яркость (%d..[%d]..%d)"
+msgstr "Luminosità  (%d..[%d]..%d)"
 
 #, c-format
 msgid "Contrast (%d..[%d]..%d)"
-msgstr "Контраст (%d..[%d]..%d)"
+msgstr "Contrasto  (%d..[%d]..%d)"
 
 #, c-format
 msgid "Saturation (%d..[%d]..%d)"
-msgstr "Насыщенность (%d..[%d]..%d)"
+msgstr "Saturazione (%d..[%d]..%d)"
 
 #, c-format
 msgid "Hue (%d..[%d]..%d)"
-msgstr "Тон (%d..[%d]..%d)"
+msgstr "Tonalità (%d..[%d]..%d)"
 
 #, c-format
 msgid "Skin Tone Enhancement (%d..[%d]..%d)"
-msgstr "Расширенный тон скина (%d..[%d]..%d)"
+msgstr ""
 
 msgid "Scaling"
-msgstr "Масштабирование"
+msgstr "Ridimensionamento"
 
 msgid "Deinterlace"
-msgstr "Устранение черезстр."
+msgstr "Deinterlacciamento"
 
 msgid "SkipChromaDeinterlace"
-msgstr "Пропуск черезстр. цвета"
+msgstr ""
 
 msgid "Inverse Telecine"
-msgstr "Обратный Телесин"
+msgstr ""
 
 #, c-format
 msgid "Denoise (%d..[%d]..%d)"
-msgstr "Шумоподавл. (%d..[%d]..%d)"
+msgstr ""
 
 #, c-format
 msgid "Sharpen (%d..[%d]..%d)"
-msgstr "Чёткость (%d..[%d]..%d)"
+msgstr ""
 
 msgid "Cut top and bottom (pixel)"
-msgstr "Обрезка сверху и снизу (пикс)"
+msgstr "Riduci sopra e sotto (pixel)"
 
 msgid "Cut left and right (pixel)"
-msgstr "Обрезка слева и справа (пикс)"
+msgstr "Riduci sinistra e destra (pixel)"
 
 msgid "First field order (0-2)"
-msgstr "Порядок 1 поля (0-2)"
+msgstr "Ordine primo campo (0-2)"
 
 msgid "Second field order (0-2)"
-msgstr "Порядок 2 поля (0-2)"
+msgstr "Ordine secondo campo (0-2)"
 
 msgid "Auto-crop"
-msgstr "Автообрезка"
+msgstr "Ritaglio automatico"
 
 msgid "Autocrop interval (frames)"
-msgstr "Интервал автообрезки (кадров)"
+msgstr "Intervallo ritaglio automatico (frames)"
 
 msgid "off"
-msgstr "выкл"
+msgstr "off"
 
 msgid "Autocrop delay (n * interval)"
-msgstr "Задержка автообрезки (n * интервал)"
+msgstr "Ritardo ritaglio automatico (n * interval)"
 
 msgid "Autocrop tolerance (pixel)"
-msgstr "Чувствительность автообрезки (пикс)"
+msgstr "Tolleranza ritaglio automatico (pixel)"
 
 msgid "Audio"
-msgstr "Звук"
+msgstr "Audio"
 
 msgid "Audio/Video delay (ms)"
-msgstr "Звук/Видео задержка (мс)"
+msgstr "Ritaglio Audio/Video (ms)"
 
 msgid "Audio drift correction"
-msgstr "Коррекция дрейфа звука"
+msgstr "Correzione drift audio"
 
 msgid "Pass-through default"
-msgstr "Передать напрямую"
+msgstr ""
 
 msgid "  PCM pass-through"
-msgstr "  передать PCM"
+msgstr ""
 
 msgid "  AC-3 pass-through"
-msgstr "  передать AC-3"
+msgstr ""
 
 msgid "  E-AC-3 pass-through"
-msgstr "  передать E-AC-3"
+msgstr ""
 
 msgid "Enable (E-)AC-3 (decoder) downmix"
-msgstr "Вкл. (E-)AC-3 (декодер) смешивание"
-
-msgid "  DTS pass-through"
-msgstr " передать DTS"
+msgstr "Attiva (E-)AC-3 (decoder) downmix"
 
 msgid "Volume control"
-msgstr "Контроль громкости"
+msgstr "Controllo volume"
 
 msgid "Hardware"
-msgstr "Аппарат."
+msgstr "Hardware"
 
 msgid "Software"
-msgstr "Прогр."
+msgstr "Software"
 
 msgid "Enable normalize volume"
-msgstr "Вкл. нормализацию громкости"
+msgstr "Abilita normalizzazione volume"
 
 msgid "  Max normalize factor (/1000)"
-msgstr "  Макс. норм. фактор (/1000)"
+msgstr "  Massimo fattore di normalizzazione (/1000)"
 
 msgid "Enable volume compression"
-msgstr "Вкл. сжатие громкости"
+msgstr "Abilita compressione volume"
 
 msgid "  Max compression factor (/1000)"
-msgstr "  Макс. фактор сжития (/1000)"
+msgstr "  Massimo fattore di compressione (/1000)"
 
 msgid "Reduce stereo volume (/1000)"
-msgstr "Уменьшение стерео громкости (/1000)"
+msgstr "Diminuisci volume stereo (/1000)"
 
 msgid "Audio buffer size (ms)"
-msgstr "Размер буфера звука (мс)"
+msgstr "Dimensione buffer audio (ms)"
 
 msgid "Enable automatic AES"
-msgstr "Вкл. авто AES"
+msgstr ""
 
 msgid "Picture-In-Picture"
-msgstr "Картинка в картинке (PIP)"
+msgstr ""
 
 msgid "Pip X (%)"
-msgstr "PIP X (%)"
+msgstr ""
 
 msgid "Pip Y (%)"
-msgstr "PIP Y (%)"
+msgstr ""
 
 msgid "Pip Width (%)"
-msgstr "PIP Ширина (%)"
+msgstr "Larghezza Pip (%)"
 
 msgid "Pip Height (%)"
-msgstr "PIP Высота (%)"
+msgstr "Altezza Pip (%)"
 
 msgid "Video X (%)"
-msgstr "Видео X (%)"
+msgstr "Video X (%)"
 
 msgid "Video Y (%)"
-msgstr "Видео Y (%)"
+msgstr "Video Y (%)"
 
 msgid "Video Width (%)"
-msgstr "Видео Ширина (%)"
+msgstr "Larghezza video (%)"
 
 msgid "Video Height (%)"
-msgstr "Видео Высота (%)"
+msgstr "Altezza video (%)"
 
 msgid "Alternative Pip X (%)"
-msgstr "Другой PIP X (%)"
+msgstr "Pip X Alternativo  (%)"
 
 msgid "Alternative Pip Y (%)"
-msgstr "Другой Pip Y (%)"
+msgstr "Pip Y Alternativo  (%)"
 
 msgid "Alternative Pip Width (%)"
-msgstr "Другой PIP Ширина (%)"
+msgstr "larghezza Pip Alternativo (%)"
 
 msgid "Alternative Pip Height (%)"
-msgstr "Другой PIP Высота (%)"
+msgstr "Altezza Pip Alternativo (%)"
 
 msgid "Alternative Video X (%)"
-msgstr "Другое Видео X (%)"
+msgstr "Video X Alternativo (%)"
 
 msgid "Alternative Video Y (%)"
-msgstr "Другое Видео Y (%)"
+msgstr "Video Y Alternativo (%)"
 
 msgid "Alternative Video Width (%)"
-msgstr "Другое Видео Ширина (%)"
+msgstr "Larghezza Video Alternativo (%)"
 
 msgid "Alternative Video Height (%)"
-msgstr "Другое Видео Высота (%)"
+msgstr "Altezza Video Alternativo (%)"
 
 #, c-format
 msgid "[softhddev]pip: invalid PES packet %d\n"
@@ -711,72 +711,75 @@ msgid "[softhddev]tsdemux: transport stream out of sync\n"
 msgstr ""
 
 msgid "Channel not available!"
-msgstr "Канал не доступен!"
+msgstr "Canale non disponibile"
 
 msgid "Detach SoftHdDevice"
-msgstr "Отцепить SoftHdDevice"
+msgstr ""
 
 msgid "Suspend SoftHdDevice"
-msgstr "Приостановить SoftHdDevice"
+msgstr "Sospendi SoftHdDevice"
 
 msgid "PIP toggle on/off: off"
-msgstr "PIP выключить"
+msgstr "Disattivare PIP"
 
 msgid "PIP toggle on/off: on"
-msgstr "PIP включить"
+msgstr "Attivare PIP"
 
 msgid "PIP zapmode (not working)"
-msgstr "PIP захват (не работает)"
+msgstr ""
 
 msgid "PIP channel +"
-msgstr "PIP канал +"
+msgstr ""
 
 msgid "PIP channel -"
-msgstr "PIP канал -"
+msgstr ""
 
 msgid "PIP on/swap channels: swap"
-msgstr "PIP вкл/обмен каналов: обмен"
+msgstr ""
 
 msgid "PIP on/swap channels: on"
-msgstr "PIP вкл/обмен каналов: вкл"
+msgstr ""
 
 msgid "PIP swap position: normal"
-msgstr "PIP положение обмена: нормальное"
+msgstr ""
 
 msgid "PIP swap position: alternative"
-msgstr "PIP положение обмена: другое"
+msgstr ""
 
 msgid "PIP close"
-msgstr "PIP закрыть"
+msgstr "Chiudere PIP"
 
 #, c-format
 msgid " Frames missed(%d) duped(%d) dropped(%d) total(%d)"
-msgstr " Кадров потяряно(%d) дублировано(%d) отброшено(%d) всего(%d)"
+msgstr " Frames persi(%d) duped(%d) scartati(%d) totali(%d)"
 
 msgid "pass-through disabled"
-msgstr ""
+msgstr "pass-through disabilitato"
 
 msgid "pass-through enabled"
-msgstr ""
+msgstr "pass-through abilitato"
 
 #, c-format
 msgid "audio delay changed to %d"
-msgstr ""
+msgstr "ritardo audio cambiato in %d"
 
 msgid "surround downmix enabled"
-msgstr ""
+msgstr "surround downmix abilitato"
 
 msgid "surround downmix disabled"
-msgstr ""
+msgstr "surround downmix disabilitato"
 
 msgid "auto-crop disabled and freezed"
-msgstr ""
+msgstr "ritaglio automatico disabilitato e bloccato"
 
 msgid "auto-crop enabled"
-msgstr ""
+msgstr "ritaglio automatico abilitato"
 
 #, c-format
 msgid "[softhddev]: hot key %d is not supported\n"
+msgstr "[softhddev]: hot key %d non supportata\n"
+
+msgid "video/glx: can't make glx osd context current\n"
 msgstr ""
 
 msgid "video/glx: can't make glx context current\n"
@@ -792,6 +795,9 @@ msgstr ""
 msgid "video/glx: glx version %d.%d\n"
 msgstr ""
 
+msgid "video/glx: can't get FB configs\n"
+msgstr ""
+
 msgid "video/glx: can't get a RGB visual\n"
 msgstr ""
 
@@ -799,6 +805,9 @@ msgid "video/glx: no valid visual found\n"
 msgstr ""
 
 msgid "video/glx: need atleast 8-bits per RGB\n"
+msgstr ""
+
+msgid "video/glx: can't create shared glx context\n"
 msgstr ""
 
 msgid "video/glx: can't create glx context\n"
@@ -1113,6 +1122,10 @@ msgid "video/vaapi: can't put image err:%d!\n"
 msgstr ""
 
 #, c-format
+msgid "video: display buffer empty, duping frame (%d/%d) %d\n"
+msgstr ""
+
+#, c-format
 msgid "video: decoder buffer empty, duping frame (%d/%d) %d v-buf\n"
 msgstr ""
 
@@ -1368,6 +1381,14 @@ msgstr ""
 msgid "video/vdpau: pixel format %d not supported\n"
 msgstr ""
 
+#, c-format
+msgid "NV12 10bit video/vdpau: can't put video surface %d bits: %s\n"
+msgstr ""
+
+#, c-format
+msgid "NV12 video/vdpau: can't put video surface %d bits: %s\n"
+msgstr ""
+
 msgid "Cannot initialize the conversion context!\n"
 msgstr ""
 
@@ -1426,94 +1447,7 @@ msgid "video/vdpau: can't create bitmap surface: %s\n"
 msgstr ""
 
 #, c-format
-msgid "video/vdpau: created osd output surface %dx%d with id 0x%08x\n"
-msgstr ""
-
-#, c-format
 msgid "video/vdpau: can't destroy bitmap surface: %s\n"
-msgstr ""
-
-#, c-format
-msgid "Cuvid Driver API error = %04d"
-msgstr ""
-
-msgid "video/cuvid: cuGraphicsGLRegisterImage failed \n"
-msgstr ""
-
-msgid "video/cuvid: cuGraphicsMapResources failed \n"
-msgstr ""
-
-msgid "video/cuvid: cuGraphicsSubResourceGetMappedArray failed \n"
-msgstr ""
-
-msgid "video/cuvid: cuGraphicsUnmapResources failed \n"
-msgstr ""
-
-msgid "video/cuvid: surface needed not set\n"
-msgstr ""
-
-msgid "video/cuvid: out of surfaces\n"
-msgstr ""
-
-#, c-format
-msgid "video/cuvid: release surface %#08x, which is not in use\n"
-msgstr ""
-
-msgid "Can't set deinterlace mode\n"
-msgstr ""
-
-msgid "Can't set drop second field to false\n"
-msgstr ""
-
-msgid "video/cuvid: out of decoders\n"
-msgstr ""
-
-msgid "video/cuvid: out of memory\n"
-msgstr ""
-
-msgid "video/cuvid: need 1 future, 1 current, 1 back and 1 work surface\n"
-msgstr ""
-
-msgid "video/cuvid: CUDA context create failed"
-msgstr ""
-
-msgid "video/cuvid: decoder not in decoder list.\n"
-msgstr ""
-
-msgid "video/cuvid: Start CUVID\n"
-msgstr ""
-
-msgid "video/cuvid: GLX error\n"
-msgstr ""
-
-msgid "Could not dynamically load CUDA\n"
-msgstr ""
-
-msgid "Could not init CUDA device\n"
-msgstr ""
-
-msgid "Could not get CUDA device\n"
-msgstr ""
-
-msgid "video/cuvid: Start CUVID ok\n"
-msgstr ""
-
-msgid "video/cuvid: no valid cuvid pixfmt found\n"
-msgstr ""
-
-#, c-format
-msgid "video/cuvid: output buffer full, dropping frame (%d/%d)\n"
-msgstr ""
-
-#, c-format
-msgid "video/cuvid: pixel format %d not supported\n"
-msgstr ""
-
-msgid "video/cuvid: render frame error\n"
-msgstr ""
-
-#, c-format
-msgid "video/cuvid: missed frame (%d/%d)\n"
 msgstr ""
 
 msgid "video: fatal i/o error\n"
@@ -1573,3 +1507,48 @@ msgstr ""
 
 msgid "video: error closing display\n"
 msgstr ""
+
+#~ msgid "Use studio levels (vdpau only)"
+#~ msgstr "Utilizza studio levels (solo vdpau)"
+
+#~ msgid "Brightness (-1000..1000) (vdpau)"
+#~ msgstr "Luminosità (-1000..1000) (vdpau)"
+
+#~ msgid "min"
+#~ msgstr "min"
+
+#~ msgid "max"
+#~ msgstr "max"
+
+#~ msgid "Contrast (0..10000) (vdpau)"
+#~ msgstr "Contrasto (0..10000) (vdpau)"
+
+#~ msgid "Saturation (0..10000) (vdpau)"
+#~ msgstr "Saturazione (0..10000) (vdpau)"
+
+#~ msgid "Hue (-3141..3141) (vdpau)"
+#~ msgstr "Tonalità (-3141..3141) (vdpau)"
+
+#~ msgid "SkipChromaDeinterlace (vdpau)"
+#~ msgstr "SkipChromaDeinterlace (vdpau)"
+
+#~ msgid "Inverse Telecine (vdpau)"
+#~ msgstr "Inverse Telecine (vdpau)"
+
+#~ msgid "Denoise (0..1000) (vdpau)"
+#~ msgstr "Denoise (0..1000) (vdpau)"
+
+#~ msgid "Sharpen (-1000..1000) (vdpau)"
+#~ msgstr "Nitidezza (-1000..1000) (vdpau)"
+
+#~ msgid "blur max"
+#~ msgstr "blur max"
+
+#~ msgid "sharpen max"
+#~ msgstr "sharpen max"
+
+#~ msgid "Audio pass-through"
+#~ msgstr "Audio pass-through"
+
+#~ msgid "Enable AC-3 (decoder) downmix"
+#~ msgstr "Abilita downmix decodifica AC-3"
