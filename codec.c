@@ -460,6 +460,7 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 
     if (!(decoder->VideoCtx = avcodec_alloc_context3(video_codec))) {
 	Error(_("codec: can't allocate video codec context\n"));
+	decoder->VideoCodec = NULL;
 	return 0;
     }
     // FIXME: for software decoder use all cpus, otherwise 1
@@ -479,6 +480,7 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
     if (avcodec_open(decoder->VideoCtx, video_codec) < 0) {
 	pthread_mutex_unlock(&CodecLockMutex);
 	Error(_("codec: can't open video codec!\n"));
+	decoder->VideoCodec = NULL;
 	return 0;
     }
 #else
@@ -751,7 +753,7 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 */
 void CodecVideoFlushBuffers(VideoDecoder * decoder)
 {
-    if (decoder->VideoCtx) {
+    if (decoder->VideoCtx && decoder->VideoCodec) {
 	avcodec_flush_buffers(decoder->VideoCtx);
     }
 }
