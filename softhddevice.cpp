@@ -64,7 +64,7 @@ extern "C"
     /// vdr-plugin version number.
     /// Makefile extracts the version number for generating the file name
     /// for the distribution archive.
-static const char *const VERSION = "1.0.14"
+static const char *const VERSION = "1.0.15"
 #ifdef GIT_REV
     "-GIT" GIT_REV
 #endif
@@ -2791,7 +2791,7 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
         if (play_mode != 0)
             SuspendMode = NOT_SUSPENDED;
     }
-
+    SetVolume(cDevice::CurrentVolume(), true);
     return::SetPlayMode(play_mode);
 }
 
