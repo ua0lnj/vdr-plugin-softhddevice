@@ -2789,9 +2789,9 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 	Resume();
         if (play_mode != 0)
 	    SuspendMode = NOT_SUSPENDED;
-    }
-    if (!cDevice::IsMute())
         SetVolume(cDevice::CurrentVolume(), true);
+    }
+
     return::SetPlayMode(play_mode);
 }
 
