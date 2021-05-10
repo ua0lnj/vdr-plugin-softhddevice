@@ -64,7 +64,7 @@ extern "C"
     /// vdr-plugin version number.
     /// Makefile extracts the version number for generating the file name
     /// for the distribution archive.
-static const char *const VERSION = "1.0.15"
+static const char *const VERSION = "1.1.0"
 #ifdef GIT_REV
     "-GIT" GIT_REV
 #endif
@@ -1547,7 +1547,17 @@ cMenuSetupSoft::cMenuSetupSoft(void)
 cMenuSetupSoft::~cMenuSetupSoft()
 {
     int i;
-
+#ifdef USE_OPENGLOSD
+    int osdWidth = 0;
+    int osdHeight = 0;
+    //get current osd size
+    VideoGetOsdSize(&osdWidth, &osdHeight);
+    osdWidth = std::min(osdWidth - Setup.OSDLeft, int(round(osdWidth * Setup.OSDWidthP))) & ~0x07;
+    osdHeight = std::min(osdHeight - Setup.OSDTop, int(round(osdHeight * Setup.OSDHeightP)));
+    //if osd size changed restart openGL osd provider
+    if (cOsd::OsdWidth() != osdWidth || cOsd::OsdHeight() != osdHeight)
+        cSoftOsdProvider::OsdSizeChanged();
+#endif
     for (i = 0; i < RESOLUTIONS; ++i) {
 	VideoSetDenoise(ConfigVideoDenoise);
 	VideoSetSharpen(ConfigVideoSharpen);
