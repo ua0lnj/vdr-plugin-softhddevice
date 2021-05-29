@@ -1647,7 +1647,6 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 			    }
 			    if (r > 0) {
 				AVPacket avpkt[1];
-
 				// new codec id, close and open new
 				if (AudioCodecID != codec_id) {
 				    Debug(3, "pesdemux: new codec %#06x -> %#06x\n",
@@ -1656,7 +1655,11 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 				    CodecAudioOpen(MyAudioDecoder, codec_id);
 				    AudioCodecID = codec_id;
 				}
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,33,100)
 				av_init_packet(avpkt);
+#else
+				*avpkt = *av_packet_alloc();
+#endif
 				avpkt->data = (void *)q;
 				avpkt->size = r;
 				avpkt->pts = pesdx->PTS;
@@ -2365,7 +2368,11 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 		CodecAudioOpen(MyAudioDecoder, codec_id);
 		AudioCodecID = codec_id;
 	    }
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,33,100)
 	    av_init_packet(avpkt);
+#else
+	    *avpkt = *av_packet_alloc();
+#endif
 	    avpkt->data = (void *)p;
 	    avpkt->size = r;
 	    avpkt->pts = AudioAvPkt->pts;

@@ -402,7 +402,11 @@ void CodecVideoDelDecoder(VideoDecoder * decoder)
 */
 int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 {
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59,0,100)
     AVCodec *video_codec;
+#else
+    const AVCodec *video_codec;
+#endif
     const char *name;
 
     Debug(3, "codec: using video codec ID %#06x (%s)\n", codec_id,
@@ -774,7 +778,11 @@ typedef struct _audio_decoder_ AudioDecoder;
 ///
 struct _audio_decoder_
 {
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59,0,100)
     AVCodec *AudioCodec;		///< audio codec
+#else
+    const AVCodec *AudioCodec;		///< audio codec
+#endif
     AVCodecContext *AudioCtx;		///< audio codec context
 
     char Passthrough;			///< current pass-through flags
@@ -898,7 +906,11 @@ void CodecAudioDelDecoder(AudioDecoder * decoder)
 */
 void CodecAudioOpen(AudioDecoder * audio_decoder, int codec_id)
 {
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59,0,100)
     AVCodec *audio_codec;
+#else
+    const AVCodec *audio_codec;
+#endif
 
     Debug(3, "codec: using audio codec ID %#06x (%s)\n", codec_id,
 	avcodec_get_name(codec_id));

@@ -4321,8 +4321,10 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
 		e = VaapiFindEntrypoint(entrypoints, entrypoint_n,
 		    VAEntrypointVLD);
 		break;
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(54,31,100)
 	    case AV_PIX_FMT_VAAPI_MOCO:
 	    case AV_PIX_FMT_VAAPI_IDCT:
+#endif
 	    default:
 		Debug(3,"codec: this VA-API pixel format is not supported\n");
 		continue;
