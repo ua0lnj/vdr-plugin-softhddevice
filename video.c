@@ -6075,6 +6075,7 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
 {
     VASurfaceID surface;
     int interlaced;
+    AVRational aspect_ratio;
 
     // FIXME: some tv-stations toggle interlace on/off
     // frame->interlaced_frame isn't always correct set
@@ -6113,21 +6114,27 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
 	decoder->TopFieldFirst = frame->top_field_first;
 	decoder->SurfaceField = 0;
     }
+    //aspect correction
+    aspect_ratio = frame->sample_aspect_ratio;
+    if ((video_ctx->width == 720 && video_ctx->height == 288) ||
+	(video_ctx->width == 1920 && video_ctx->height == 540)) {
+	aspect_ratio.den *= 2;
+    }
     // update aspect ratio changes
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(53,60,100)
     if (decoder->InputWidth && decoder->InputHeight
-	&& av_cmp_q(decoder->InputAspect, frame->sample_aspect_ratio)) {
+	&& av_cmp_q(decoder->InputAspect, aspect_ratio)) {
 	Debug(3, "video/vaapi: aspect ratio changed\n");
 
-	decoder->InputAspect = frame->sample_aspect_ratio;
+	decoder->InputAspect = aspect_ratio;
 	VaapiUpdateOutput(decoder);
     }
 #else
     if (decoder->InputWidth && decoder->InputHeight
-	&& av_cmp_q(decoder->InputAspect, video_ctx->sample_aspect_ratio)) {
+	&& av_cmp_q(decoder->InputAspect, aspect_ratio)) {
 	Debug(3, "video/vaapi: aspect ratio changed\n");
 
-	decoder->InputAspect = video_ctx->sample_aspect_ratio;
+	decoder->InputAspect = aspect_ratio;
 	VaapiUpdateOutput(decoder);
     }
 #endif
@@ -9896,6 +9903,7 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 //    VideoDecoder        *ist = video_ctx->opaque;
 //    AVFrame *output;
     int interlaced;
+    AVRational aspect_ratio;
 
     // FIXME: some tv-stations toggle interlace on/off
     // frame->interlaced_frame isn't always correct set
@@ -9928,21 +9936,27 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 	decoder->TopFieldFirst = frame->top_field_first;
 	decoder->SurfaceField = 0;
     }
+    //aspect correction
+    aspect_ratio = frame->sample_aspect_ratio;
+    if ((video_ctx->width == 720 && video_ctx->height == 288) ||
+	(video_ctx->width == 1920 && video_ctx->height == 540)) {
+	aspect_ratio.den *= 2;
+    }
     // update aspect ratio changes
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(53,60,100)
     if (decoder->InputWidth && decoder->InputHeight
-	&& av_cmp_q(decoder->InputAspect, frame->sample_aspect_ratio)) {
+	&& av_cmp_q(decoder->InputAspect, aspect_ratio)) {
 	Debug(3, "video/vdpau: aspect ratio changed\n");
 
-	decoder->InputAspect = frame->sample_aspect_ratio;
+	decoder->InputAspect = aspect_ratio;
 	VdpauUpdateOutput(decoder);
     }
 #else
     if (decoder->InputWidth && decoder->InputHeight
-	&& av_cmp_q(decoder->InputAspect, video_ctx->sample_aspect_ratio)) {
+	&& av_cmp_q(decoder->InputAspect, aspect_ratio)) {
 	Debug(3, "video/vdpau: aspect ratio changed\n");
 
-	decoder->InputAspect = video_ctx->sample_aspect_ratio;
+	decoder->InputAspect = aspect_ratio;
 	VdpauUpdateOutput(decoder);
     }
 #endif
@@ -12721,6 +12735,7 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
     int interlaced;
     enum AVColorSpace color;
     int n;
+    AVRational aspect_ratio;
 
     // FIXME: some tv-stations toggle interlace on/off
     // frame->interlaced_frame isn't always correct set
@@ -12737,12 +12752,18 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
 	decoder->TopFieldFirst = frame->top_field_first;
 	decoder->SurfaceField = 0;
     }
+
+    //aspect correction
+    aspect_ratio = frame->sample_aspect_ratio;
+    if ((video_ctx->width == 720 && video_ctx->height == 288) ||
+	(video_ctx->width == 1920 && video_ctx->height == 540)) {
+	aspect_ratio.den *= 2;
+    }
     // update aspect ratio changes
     if (decoder->InputWidth && decoder->InputHeight
-	&& av_cmp_q(decoder->InputAspect, frame->sample_aspect_ratio)) {
+	&& av_cmp_q(decoder->InputAspect, aspect_ratio)) {
 	Debug(3, "video/cuvid: aspect ratio changed\n");
-
-	decoder->InputAspect = frame->sample_aspect_ratio;
+	decoder->InputAspect = aspect_ratio;
 	CuvidUpdateOutput(decoder);
     }
 
@@ -12893,7 +12914,7 @@ static void CuvidMixVideo(CuvidDecoder * decoder, int level)
     if (!decoder->gl_textures[current][0] || !decoder->gl_textures[current][1]) return;
     // Render Progressive frame and simple interlaced
     y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
-    if (y <0 )
+    if (y < 0)
         y = 0;
     glViewport(decoder->OutputX, y, decoder->OutputWidth, decoder->OutputHeight);
 
