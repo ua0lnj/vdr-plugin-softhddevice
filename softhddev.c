@@ -1775,7 +1775,7 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 			    break;
 			}
 			// PES start code 0x00 0x00 0x01 0x00|(0xb3 0xXX 0xXX)
-			if (z > 1 && check[0] == 0x01 && (!check[1] || (check[1] == 0xb3 && check[2] && check[3]))) {
+			if (z > 1 && check[0] == 0x01 && ((!check[1] && is_start) || (check[1] == 0xb3 && check[2] && check[3]))) {
 			    if (MyVideoStream->CodecID == AV_CODEC_ID_MPEG2VIDEO) {
 				VideoNextPacket(MyVideoStream, AV_CODEC_ID_MPEG2VIDEO);
 			    } else {
