@@ -1646,7 +1646,13 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 				break;
 			    }
 			    if (r > 0) {
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,33,100)
 				AVPacket avpkt[1];
+				av_init_packet(avpkt);
+#else
+				AVPacket * avpkt;
+				avpkt = av_packet_alloc();
+#endif
 				// new codec id, close and open new
 				if (AudioCodecID != codec_id) {
 				    Debug(3, "pesdemux: new codec %#06x -> %#06x\n",
@@ -1655,17 +1661,15 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 				    CodecAudioOpen(MyAudioDecoder, codec_id);
 				    AudioCodecID = codec_id;
 				}
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,33,100)
-				av_init_packet(avpkt);
-#else
-				*avpkt = *av_packet_alloc();
-#endif
 				avpkt->data = (void *)q;
 				avpkt->size = r;
 				avpkt->pts = pesdx->PTS;
 				avpkt->dts = pesdx->DTS;
 				// FIXME: not aligned for ffmpeg
 				CodecAudioDecode(MyAudioDecoder, avpkt);
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58,33,100)
+				av_packet_free(&avpkt);
+#endif
 				pesdx->PTS = AV_NOPTS_VALUE;
 				pesdx->DTS = AV_NOPTS_VALUE;
 				pesdx->Skip += r;
@@ -2361,24 +2365,28 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 	    break;
 	}
 	if (r > 0) {
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,33,100)
 	    AVPacket avpkt[1];
+	    av_init_packet(avpkt);
+#else
+	    AVPacket * avpkt;
+	    avpkt = av_packet_alloc();
+#endif
 	    // new codec id, close and open new
 	    if (AudioCodecID != codec_id) {
 		CodecAudioClose(MyAudioDecoder);
 		CodecAudioOpen(MyAudioDecoder, codec_id);
 		AudioCodecID = codec_id;
 	    }
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,33,100)
-	    av_init_packet(avpkt);
-#else
-	    *avpkt = *av_packet_alloc();
-#endif
 	    avpkt->data = (void *)p;
 	    avpkt->size = r;
 	    avpkt->pts = AudioAvPkt->pts;
 	    avpkt->dts = AudioAvPkt->dts;
 	    // FIXME: not aligned for ffmpeg
 	    CodecAudioDecode(MyAudioDecoder, avpkt);
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58,33,100)
+	    av_packet_free(&avpkt);
+#endif
 	    AudioAvPkt->pts = AV_NOPTS_VALUE;
 	    AudioAvPkt->dts = AV_NOPTS_VALUE;
 	    p += r;
