@@ -64,7 +64,7 @@ extern "C"
     /// vdr-plugin version number.
     /// Makefile extracts the version number for generating the file name
     /// for the distribution archive.
-static const char *const VERSION = "1.2.0"
+static const char *const VERSION = "1.2.1"
 #ifdef GIT_REV
     "-GIT" GIT_REV
 #endif
@@ -710,15 +710,17 @@ public:
     virtual void DrawImage(const cPoint &Point, const cImage &Image) { (void)Point; (void)Image; }
     virtual void DrawImage(const cPoint &Point, int ImageHandle) { (void)Point; (void)ImageHandle; }
     virtual void DrawPixel(const cPoint &Point, tColor Color) { (void)Point; (void)Color; }
-    virtual void DrawBitmap(const cPoint &Point, const cBitmap &Bitmap, tColor ColorFg = 0, tColor ColorBg = 0, bool Overlay = false) { (void) Point; (void)Bitmap; (void)ColorFg; (void)ColorBg; (void)Overlay; }
-    virtual void DrawText(const cPoint &Point, const char *s, tColor ColorFg, tColor ColorBg, const cFont *Font, int Width = 0, int Height = 0, int Alignment = taDefault) {}
-    virtual void DrawRectangle(const cRect &Rect, tColor Color) {}
-    virtual void DrawEllipse(const cRect &Rect, tColor Color, int Quadrants = 0) {}
-    virtual void DrawSlope(const cRect &Rect, tColor Color, int Type) {}
-    virtual void Render(const cPixmap *Pixmap, const cRect &Source, const cPoint &Dest) {}
-    virtual void Copy(const cPixmap *Pixmap, const cRect &Source, const cPoint &Dest) {}
-    virtual void Scroll(const cPoint &Dest, const cRect &Source = cRect::Null) {}
-    virtual void Pan(const cPoint &Dest, const cRect &Source = cRect::Null) {}
+    virtual void DrawBitmap(const cPoint &Point, const cBitmap &Bitmap, tColor ColorFg = 0, tColor ColorBg = 0, bool Overlay = false) {
+        (void) Point; (void)Bitmap; (void)ColorFg; (void)ColorBg; (void)Overlay; }
+    virtual void DrawText(const cPoint &Point, const char *s, tColor ColorFg, tColor ColorBg, const cFont *Font, int Width = 0, int Height = 0, int Alignment = taDefault) {
+        (void)Point; (void)s; (void)ColorFg; (void) ColorBg; (void) Font; (void)Width; (void)Height; (void)Alignment; }
+    virtual void DrawRectangle(const cRect &Rect, tColor Color) { (void)Rect; (void)Color; }
+    virtual void DrawEllipse(const cRect &Rect, tColor Color, int Quadrants = 0) { (void)Rect; (void)Color; (void)Quadrants; }
+    virtual void DrawSlope(const cRect &Rect, tColor Color, int Type) { (void)Rect; (void)Color; (void)Type; }
+    virtual void Render(const cPixmap *Pixmap, const cRect &Source, const cPoint &Dest) { (void)Pixmap; (void)Source; (void)Dest; }
+    virtual void Copy(const cPixmap *Pixmap, const cRect &Source, const cPoint &Dest) { (void)Pixmap; (void)Source; (void)Dest; }
+    virtual void Scroll(const cPoint &Dest, const cRect &Source = cRect::Null) { (void)Dest; (void)Source; }
+    virtual void Pan(const cPoint &Dest, const cRect &Source = cRect::Null) { (void)Dest; (void)Source; }
 };
 
 //Dummy OSD for OpenGL OSD if no X Server is available.
@@ -2810,6 +2812,7 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 	    Setup.Save();
 	    Suspend(1, 1, 0);
 	    SuspendMode = SUSPEND_EXTERNAL;
+	    cOsdProvider::UpdateOsdSize(true);
 	    return true;
 	default:
 	    Debug(3, "[softhddev] playmode not implemented... %d\n", play_mode);
