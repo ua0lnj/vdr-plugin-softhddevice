@@ -64,7 +64,7 @@ extern "C"
     /// vdr-plugin version number.
     /// Makefile extracts the version number for generating the file name
     /// for the distribution archive.
-static const char *const VERSION = "1.1.1"
+static const char *const VERSION = "1.2.0"
 #ifdef GIT_REV
     "-GIT" GIT_REV
 #endif
@@ -700,14 +700,37 @@ void cSoftOsd::Flush(void)
 }
 
 #ifdef USE_OPENGLOSD
+//Dummy Pixmap for skins
+class cDummyPixmap : public cPixmap {
+public:
+    cDummyPixmap(int Layer, const cRect &ViewPort, const cRect &DrawPort = cRect::Null) : cPixmap(Layer, ViewPort, DrawPort) {}
+    virtual ~cDummyPixmap(void) {}
+    virtual void Clear(void) {}
+    virtual void Fill(tColor Color) { (void)Color; }
+    virtual void DrawImage(const cPoint &Point, const cImage &Image) { (void)Point; (void)Image; }
+    virtual void DrawImage(const cPoint &Point, int ImageHandle) { (void)Point; (void)ImageHandle; }
+    virtual void DrawPixel(const cPoint &Point, tColor Color) { (void)Point; (void)Color; }
+    virtual void DrawBitmap(const cPoint &Point, const cBitmap &Bitmap, tColor ColorFg = 0, tColor ColorBg = 0, bool Overlay = false) { (void) Point; (void)Bitmap; (void)ColorFg; (void)ColorBg; (void)Overlay; }
+    virtual void DrawText(const cPoint &Point, const char *s, tColor ColorFg, tColor ColorBg, const cFont *Font, int Width = 0, int Height = 0, int Alignment = taDefault) {}
+    virtual void DrawRectangle(const cRect &Rect, tColor Color) {}
+    virtual void DrawEllipse(const cRect &Rect, tColor Color, int Quadrants = 0) {}
+    virtual void DrawSlope(const cRect &Rect, tColor Color, int Type) {}
+    virtual void Render(const cPixmap *Pixmap, const cRect &Source, const cPoint &Dest) {}
+    virtual void Copy(const cPixmap *Pixmap, const cRect &Source, const cPoint &Dest) {}
+    virtual void Scroll(const cPoint &Dest, const cRect &Source = cRect::Null) {}
+    virtual void Pan(const cPoint &Dest, const cRect &Source = cRect::Null) {}
+};
+
 //Dummy OSD for OpenGL OSD if no X Server is available.
 class cDummyOsd : public cOsd {
+  private:
+    cDummyPixmap *p;
   public:
     cDummyOsd(int Left, int Top, uint Level) : cOsd(Left, Top, Level) {}
     virtual ~cDummyOsd() {}
     virtual cPixmap *CreatePixmap(int Layer, const cRect &ViewPort, const cRect &DrawPort = cRect::Null) {
-        (void)Layer; (void)ViewPort; (void)DrawPort;
-        return NULL;
+        p = new cDummyPixmap(Layer, ViewPort, DrawPort);
+        return p;
     }
     virtual void DestroyPixmap(cPixmap *Pixmap) { (void)Pixmap; }
     virtual void DrawImage(const cPoint &Point, const cImage &Image) { (void)Point; (void)Image; }
