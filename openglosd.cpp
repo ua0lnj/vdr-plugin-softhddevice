@@ -1996,10 +1996,12 @@ cOglOutputFb *cOglOsd::oFb = NULL;
 cOglOsd::cOglOsd(int Left, int Top, uint Level, std::shared_ptr<cOglThread> oglThread) : cOsd(Left, Top, Level) {
     this->oglThread = oglThread;
     bFb = NULL;
-    isSubtitleOsd = false;
+    if (Level > 1)
+      isSubtitleOsd = true;
+    else
+      isSubtitleOsd = false;
     int osdWidth = 0;
     int osdHeight = 0;
-
     VideoGetOsdSize(&osdWidth, &osdHeight);
     //dsyslog("[softhddev]cOglOsd osdLeft %d osdTop %d screenWidth %d screenHeight %d", Left, Top, osdWidth, osdHeight);
 
@@ -2028,7 +2030,7 @@ eOsdError cOglOsd::SetAreas(const tArea *Areas, int NumAreas) {
     for (int i = 0; i < NumAreas; i++)
         r.Combine(cRect(Areas[i].x1, Areas[i].y1, Areas[i].Width(), Areas[i].Height()));
 
-    if(r.Left() && r.Top() && !isSubtitleOsd) isSubtitleOsd = true; //for DVD plugin
+    if(r.Left() && r.Top()) isSubtitleOsd = true; //for DVD plugin
 
     tArea area = { r.Left(), r.Top(), r.Right(), r.Bottom(), 32 };
 
