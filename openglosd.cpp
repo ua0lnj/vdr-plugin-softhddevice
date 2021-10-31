@@ -1996,7 +1996,7 @@ cOglOutputFb *cOglOsd::oFb = NULL;
 cOglOsd::cOglOsd(int Left, int Top, uint Level, std::shared_ptr<cOglThread> oglThread) : cOsd(Left, Top, Level) {
     this->oglThread = oglThread;
     bFb = NULL;
-    if (Level > 1)
+    if (Level == 10)
       isSubtitleOsd = true;
     else
       isSubtitleOsd = false;
