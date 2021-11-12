@@ -12454,9 +12454,10 @@ static uint8_t *CuvidGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int 
 	/* Get BGRA to align to 32 bits instead of just 24 for RGB */
 	glReadPixels(source_rect.x0, source_rect.y0, VideoWindowWidth, VideoWindowHeight, GL_BGRA, GL_UNSIGNED_BYTE, 0);
 
+	ptr = (unsigned char*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+
 	pthread_mutex_unlock(&VideoLockMutex);
 
-	ptr = (unsigned char*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
 	if (NULL != ptr) {
 	    memcpy(pixels, ptr, VideoWindowWidth * VideoWindowHeight * 4 * sizeof(GLubyte));
 	    glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
