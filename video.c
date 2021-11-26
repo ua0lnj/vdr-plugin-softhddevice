@@ -7148,7 +7148,11 @@ static void VaapiOsdInit(int width, int height)
     unsigned v;
     int i;
     static uint32_t wanted_formats[] =
+#if VA_CHECK_VERSION(1,0,0)
+	{ VA_FOURCC_BGRA, VA_FOURCC_RGBA };
+#else
 	{ VA_FOURCC('B', 'G', 'R', 'A'), VA_FOURCC_RGBA };
+#endif
 
     if (VaOsdImage.image_id != VA_INVALID_ID) {
 	Debug(3, "video/vaapi: osd already setup\n");
@@ -7172,11 +7176,11 @@ static void VaapiOsdInit(int width, int height)
 #ifdef DEBUG
     Debug(3, "video/vaapi: supported subpicture formats:\n");
     for (u = 0; u < format_n; ++u) {
-	Debug(3, "video/vaapi:\t%c%c%c%c flags %#x %s\n", formats[u].fourcc,
+	Debug(3, "video/vaapi:\t%c%c%c%c flags %#x %s - %#x\n", formats[u].fourcc,
 	    formats[u].fourcc >> 8, formats[u].fourcc >> 16,
 	    formats[u].fourcc >> 24, flags[u],
 	    flags[u] & VA_SUBPICTURE_DESTINATION_IS_SCREEN_COORD ?
-	    "screen coord" : "");
+	    "screen coord" : "", formats[u].fourcc);
     }
 #endif
     for (v = 0; v < sizeof(wanted_formats) / sizeof(*wanted_formats); ++v) {
