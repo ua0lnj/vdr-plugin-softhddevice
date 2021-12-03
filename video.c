@@ -10466,19 +10466,10 @@ static void VdpauBlackSurface(VdpauDecoder * decoder)
     source_rect.x1 = 0;
     source_rect.y1 = 0;
 
-    // FIXME: what happens with PIP?
-    if (0) {
-	// FIXME: wrong for radio channels
-	output_rect.x0 = decoder->OutputX;	// video output (scale)
-	output_rect.y0 = decoder->OutputY;
-	output_rect.x1 = decoder->OutputX + decoder->OutputWidth;
-	output_rect.y1 = decoder->OutputY + decoder->OutputHeight;
-    } else {
-	output_rect.x0 = decoder->VideoX;
-	output_rect.y0 = decoder->VideoY;
-	output_rect.x1 = decoder->VideoWidth;
-	output_rect.y1 = decoder->VideoHeight;
-    }
+    output_rect.x0 = decoder->VideoX;
+    output_rect.y0 = decoder->VideoY;
+    output_rect.x1 = decoder->VideoWidth + decoder->VideoX;
+    output_rect.y1 = decoder->VideoHeight + decoder->VideoY;
 
     // FIXME: double buffered osd disabled
     // VdpauOsdSurfaceIndex always 0 and only 0 valid
