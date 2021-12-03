@@ -6543,7 +6543,7 @@ static void VaapiDisplayFrame(void)
 	    // FIXME: toggle osd
 	}
 
-	glXCopySubBufferMESA( XlibDisplay, VideoWindow, 0, 0, VideoWindowWidth, VideoWindowHeight);
+	glXSwapBuffers(XlibDisplay, VideoWindow);
 	glXMakeCurrent(XlibDisplay, None, NULL);
 	GlxCheck();
 
