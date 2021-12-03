@@ -2121,7 +2121,8 @@ void cOglOsd::DestroyPixmap(cPixmap *Pixmap) {
             if (Pixmap->Layer() >= 0)
                 oglPixmaps[0]->SetDirty();
             oglPixmaps[i] = NULL;
-            cOsd::DestroyPixmap(Pixmap);
+            if (i)
+                cOsd::DestroyPixmap(Pixmap);
             return;
         }
     }
