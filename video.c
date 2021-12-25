@@ -10623,6 +10623,7 @@ static void VdpauDisplayFrame(void)
 		}
 #endif
 	    }
+	    if (OsdShown && !VideoShowBlackPicture) VdpauMixVideo(decoder, i);
 	    continue;
 #ifdef USE_SCREENSAVER
 	} else if (!DPMSDisabled) {	// always disable
@@ -13056,7 +13057,8 @@ static void CuvidDisplayFrame(void)
 
     glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
     glXWaitVideoSyncSGI (2, (Count + 1) % 2, &Count);   // wait for previous frame to swap
-    glClear(GL_COLOR_BUFFER_BIT);
+    if (OsdShown)
+        glClear(GL_COLOR_BUFFER_BIT);
 
     // check if surface was displayed for more than 1 frame
     // FIXME: 21 only correct for 50Hz
@@ -13101,6 +13103,7 @@ static void CuvidDisplayFrame(void)
 		}
 #endif
 	    }
+	    if (OsdShown && !VideoShowBlackPicture) CuvidMixVideo(decoder, i);
 	    continue;
 #ifdef USE_SCREENSAVER
 	} else if (!DPMSDisabled) {	// always disable
