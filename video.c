@@ -6349,29 +6349,35 @@ static void *VaapiGetHwAccelContext(VaapiDecoder * decoder)
 ///
 static void VaapiAdvanceDecoderFrame(VaapiDecoder * decoder)
 {
-    VASurfaceID surface;
-    int filled;
+    if (decoder->SurfaceField) {
+        VASurfaceID surface;
+        int filled;
 
-    filled = atomic_read(&decoder->SurfacesFilled);
-    // FIXME: this should check the caller
-    // check decoder, if new surface is available
-    if (filled <= 1) {
-        // keep use of last surface
-        ++decoder->FramesDuped;
-        // FIXME: don't warn after stream start, don't warn during pause
-        Debug(4,"video: display buffer empty, duping frame (%d/%d) %d\n",
+        filled = atomic_read(&decoder->SurfacesFilled);
+        // FIXME: this should check the caller
+        // check decoder, if new surface is available
+        if (filled < 1 + 2 * decoder->Interlaced) {
+            // keep use of last surface
+            ++decoder->FramesDuped;
+            // FIXME: don't warn after stream start, don't warn during pause
+            Debug(4,"video: display buffer empty, duping frame (%d/%d) %d\n",
 		decoder->FramesDuped, decoder->FrameCounter,
 		VideoGetBuffers(decoder->Stream));
+            return;
+        }
+        // wait for rendering finished
+        surface = decoder->SurfacesRb[decoder->SurfaceRead];
+        if (vaSyncSurface(decoder->VaDisplay, surface) != VA_STATUS_SUCCESS) {
+            Error(_("video/vaapi: vaSyncSurface failed\n"));
+        }
+
+        decoder->SurfaceRead = (decoder->SurfaceRead + 1) % VIDEO_SURFACES_MAX;
+        atomic_dec(&decoder->SurfacesFilled);
+        decoder->SurfaceField = !decoder->Interlaced;
         return;
     }
-    // wait for rendering finished
-    surface = decoder->SurfacesRb[decoder->SurfaceRead];
-    if (vaSyncSurface(decoder->VaDisplay, surface) != VA_STATUS_SUCCESS) {
-        Error(_("video/vaapi: vaSyncSurface failed\n"));
-    }
-
-    decoder->SurfaceRead = (decoder->SurfaceRead + 1) % VIDEO_SURFACES_MAX;
-    atomic_dec(&decoder->SurfacesFilled);
+    // next field
+    decoder->SurfaceField = 1;
 }
 
 ///
@@ -6403,7 +6409,8 @@ static void VaapiDisplayFrame(void)
 		Error(_("video/glx: can't make glx context current\n"));
 		return;
 	    }
-	    glClear(GL_COLOR_BUFFER_BIT);
+	    if (OsdShown)
+		glClear(GL_COLOR_BUFFER_BIT);
 	}
 #endif
 
@@ -6427,20 +6434,24 @@ static void VaapiDisplayFrame(void)
 #endif
 	filled = atomic_read(&decoder->SurfacesFilled);
 	// no surface availble show black with possible osd
-	if (!filled) {
-	    VaapiBlackSurface(decoder);
+	if (filled < 1 + 2 * decoder->Interlaced && decoder->Closing) {
+	    if ((VideoShowBlackPicture && !decoder->TrickSpeed)
+		|| (VideoShowBlackPicture && decoder->Closing < -300)) {
+		VaapiBlackSurface(decoder);
 #ifdef VA_EXP
-	    decoder->LastSurface = decoder->BlackSurface;
+		decoder->LastSurface = decoder->BlackSurface;
 #endif
-	    VaapiMessage(3, "video/vaapi: black surface displayed\n");
+		VaapiMessage(4, "video/vaapi: black surface displayed\n");
 #ifdef USE_SCREENSAVER
-	    if (EnableDPMSatBlackScreen && DPMSDisabled) {
-		Debug(3, "Black surface, DPMS enabled");
-		X11DPMSReenable(Connection);
-		X11SuspendScreenSaver(Connection, 1);
-	    }
+		if (EnableDPMSatBlackScreen && DPMSDisabled) {
+		    Debug(3, "Black surface, DPMS enabled");
+		    X11DPMSReenable(Connection);
+		    X11SuspendScreenSaver(Connection, 1);
+		}
 #endif
-	    continue;
+	    }
+	    if (VideoShowBlackPicture)
+		continue;
 #ifdef USE_SCREENSAVER
 	} else if (!DPMSDisabled) {	// always disable
 	    Debug(3, "DPMS disabled");
@@ -6497,9 +6508,9 @@ static void VaapiDisplayFrame(void)
 	}
 	clock_gettime(CLOCK_MONOTONIC, &nowtime);
 	// FIXME: 31 only correct for 50Hz
-	if ((nowtime.tv_sec - decoder->FrameTime.tv_sec)
+	if (!decoder->Closing && ((nowtime.tv_sec - decoder->FrameTime.tv_sec)
 	    * 1000 * 1000 * 1000 + (nowtime.tv_nsec -
-		decoder->FrameTime.tv_nsec) > 31 * 1000 * 1000) {
+		decoder->FrameTime.tv_nsec) > 31 * 1000 * 1000)) {
 	    // FIXME: ignore still-frame, trick-speed
 	    Debug(3, "video/vaapi: time/frame too long %ldms\n",
 		((nowtime.tv_sec - decoder->FrameTime.tv_sec)
@@ -10623,8 +10634,8 @@ static void VdpauDisplayFrame(void)
 		}
 #endif
 	    }
-	    if (OsdShown && !VideoShowBlackPicture) VdpauMixVideo(decoder, i);
-	    continue;
+	    if (VideoShowBlackPicture)
+		continue;
 #ifdef USE_SCREENSAVER
 	} else if (!DPMSDisabled) {	// always disable
 	    VdpauMessage(3, "DPMS disabled\n");
@@ -13103,8 +13114,8 @@ static void CuvidDisplayFrame(void)
 		}
 #endif
 	    }
-	    if (OsdShown && !VideoShowBlackPicture) CuvidMixVideo(decoder, i);
-	    continue;
+	    if (VideoShowBlackPicture)
+		continue;
 #ifdef USE_SCREENSAVER
 	} else if (!DPMSDisabled) {	// always disable
 	    CuvidMessage(4, "DPMS disabled\n");
