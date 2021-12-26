@@ -180,16 +180,15 @@ typedef enum
 #define AV_CODEC_ID_VC1 CODEC_ID_VC1
 #define AV_CODEC_ID_WMV3 CODEC_ID_WMV3
 #endif
-#ifdef USE_VAAPI
-#include <libavcodec/vaapi.h>
-#endif
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55,50,100)
 #include <libavutil/imgutils.h>
 #endif
 #include <libavutil/pixdesc.h>
 #include <libavutil/hwcontext.h>
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57,74,100)
 #ifdef USE_VAAPI
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,74,100)
+#include <libavcodec/vaapi.h>
+#else
 #include <libavutil/hwcontext_vaapi.h>
 #endif
 #endif
