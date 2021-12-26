@@ -1088,11 +1088,7 @@ static void GlxOsdDrawARGB(int xi, int yi, int width, int height, int pitch,
 	GlxContext);
 #endif
     if (!GlxContext) return;
-    // set glx context
-    if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxContext)) {
-	Error(_("video/glx: can't make glx context current\n"));
-	return;
-    }
+
     // FIXME: faster way
     tmp = malloc(width * height * 4);
     if (tmp) {
@@ -1102,7 +1098,11 @@ static void GlxOsdDrawARGB(int xi, int yi, int width, int height, int pitch,
 	    memcpy(tmp + i * width * 4, argb + xi * 4 + (i + yi) * pitch,
 		width * 4);
 	}
-
+	// set glx context
+	if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxContext)) {
+	    Error(_("video/glx: can't make glx context current\n"));
+	    return;
+	}
 	GlxUploadOsdTexture(x, y, width, height, tmp);
 	glXMakeCurrent(XlibDisplay, None, NULL);
 
@@ -1238,9 +1238,6 @@ static void GlxSetupWindow(xcb_window_t window, int width, int height,
     // clear
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);	// intial background color
     glClear(GL_COLOR_BUFFER_BIT);
-#ifdef DEBUG
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);	// background color
-#endif
     GlxCheck();
 }
 
