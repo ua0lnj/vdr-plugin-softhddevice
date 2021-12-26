@@ -69,7 +69,11 @@
 #define AV_CODEC_ID_MPEG2VIDEO CODEC_ID_MPEG2VIDEO
 #define AV_CODEC_ID_H264 CODEC_ID_H264
 #endif
+#ifdef USE_VAAPI
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,74,100)
 #include <libavcodec/vaapi.h>
+#endif
+#endif
 #ifdef USE_VDPAU
 #include <libavcodec/vdpau.h>
 #endif
