@@ -1010,7 +1010,7 @@ static void GlxOsdInit(int width, int height)
     // not init with openglosd
     if (OsdGlTexture) return;
 
-    if (!GlxEnabled) {
+    if (!GlxEnabled || !GlxContext) {
 	Debug(3, "video/glx: %s called without glx enabled\n", __FUNCTION__);
 	return;
     }
@@ -1090,7 +1090,7 @@ static void GlxOsdDrawARGB(int xi, int yi, int width, int height, int pitch,
     Debug(3, "video/glx: osd context %p <-> %p\n", glXGetCurrentContext(),
 	GlxContext);
 #endif
-    if (!GlxContext) return;
+    if (!GlxThreadContext) return;
 
     // FIXME: faster way
     tmp = malloc(width * height * 4);
@@ -1102,7 +1102,7 @@ static void GlxOsdDrawARGB(int xi, int yi, int width, int height, int pitch,
 		width * 4);
 	}
 	// set glx context
-	if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxContext)) {
+	if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext)) {
 	    Error(_("video/glx: can't make glx context current\n"));
 	    return;
 	}
@@ -6405,8 +6405,7 @@ static void VaapiDisplayFrame(void)
 		Error(_("video/glx: can't make glx context current\n"));
 		return;
 	    }
-	    if (OsdShown)
-		glClear(GL_COLOR_BUFFER_BIT);
+	    glClear(GL_COLOR_BUFFER_BIT);
 	}
 #endif
 
@@ -13064,8 +13063,7 @@ static void CuvidDisplayFrame(void)
 
     glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
     glXWaitVideoSyncSGI (2, (Count + 1) % 2, &Count);   // wait for previous frame to swap
-    if (OsdShown)
-        glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT);
 
     // check if surface was displayed for more than 1 frame
     // FIXME: 21 only correct for 50Hz
