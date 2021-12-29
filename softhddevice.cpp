@@ -865,7 +865,7 @@ void cSoftOsdProvider::OsdSizeChanged(void) {
 }
 
 bool cSoftOsdProvider::StartOpenGlThread(void) {
-    if (DisableOglOsd)
+    if ((!VideoIsDriverVdpau() && !VideoIsDriverCuvid()) || DisableOglOsd)
         return false;
     //only try to start worker thread if shd is attached
     //otherwise glutInit() crashes
