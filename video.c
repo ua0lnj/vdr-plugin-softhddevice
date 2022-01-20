@@ -1847,7 +1847,7 @@ struct _vaapi_decoder_
     int vpp_saturation_idx;		///< video postprocessing saturation buffer index
 };
 
-static VaapiDecoder *VaapiDecoders[1];	///< open decoder streams
+static VaapiDecoder *VaapiDecoders[2];	///< open decoder streams
 static int VaapiDecoderN;		///< number of decoder streams
 
     /// forward display back surface
@@ -2313,8 +2313,10 @@ static VaapiDecoder *VaapiNewHwDecoder(VideoStream * stream)
     VaapiDecoder *decoder;
     int i;
 
-    if (VaapiDecoderN == 1) {
-	Fatal(_("video/vaapi: out of decoders\n"));
+    if ((unsigned)VaapiDecoderN >=
+	sizeof(VaapiDecoders) / sizeof(*VaapiDecoders)) {
+	    Error(_("video/vaapi: out of decoders\n"));
+	return NULL;
     }
 
     if (!(decoder = calloc(1, sizeof(*decoder)))) {
@@ -6662,6 +6664,14 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
     int64_t video_clock;
 
     err = 0;
+    video_clock = VaapiGetClock(decoder);
+    filled = atomic_read(&decoder->SurfacesFilled);
+
+    if (!decoder->SyncOnAudio) {
+        audio_clock = AV_NOPTS_VALUE;
+        // FIXME: 60Hz Mode
+        goto skip_sync;
+    }
     mutex_start_time = GetMsTicks();
     pthread_mutex_lock(&PTS_mutex);
     pthread_mutex_lock(&ReadAdvance_mutex);
@@ -6672,8 +6682,6 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	max_mutex_delay = GetMsTicks() - mutex_start_time;
 	Debug(3, "video: mutex delay: %"PRIu32"ms\n", max_mutex_delay);
     }
-    video_clock = VaapiGetClock(decoder);
-    filled = atomic_read(&decoder->SurfacesFilled);
 
     // 60Hz: repeat every 5th field
     if (Video60HzMode && !(decoder->FramesDisplayed % 6)) {

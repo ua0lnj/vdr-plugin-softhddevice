@@ -2163,6 +2163,7 @@ static void NewPip(int channel_nr)
 */
 static void TogglePip(void)
 {
+    if(!VideoIsDriverVdpau() && !VideoIsDriverCuvid() && strcasecmp(VideoGetDriverName(), "va-api-glx")) return;
     if (PipReceiver) {
 	int attached;
 
