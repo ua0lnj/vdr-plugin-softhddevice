@@ -6347,35 +6347,29 @@ static void *VaapiGetHwAccelContext(VaapiDecoder * decoder)
 ///
 static void VaapiAdvanceDecoderFrame(VaapiDecoder * decoder)
 {
-    if (decoder->SurfaceField) {
-        VASurfaceID surface;
-        int filled;
+    VASurfaceID surface;
+    int filled;
 
-        filled = atomic_read(&decoder->SurfacesFilled);
-        // FIXME: this should check the caller
-        // check decoder, if new surface is available
-        if (filled < 1 + 2 * decoder->Interlaced) {
-            // keep use of last surface
-            ++decoder->FramesDuped;
-            // FIXME: don't warn after stream start, don't warn during pause
-            Debug(4,"video: display buffer empty, duping frame (%d/%d) %d\n",
-		decoder->FramesDuped, decoder->FrameCounter,
-		VideoGetBuffers(decoder->Stream));
-            return;
-        }
-        // wait for rendering finished
-        surface = decoder->SurfacesRb[decoder->SurfaceRead];
-        if (vaSyncSurface(decoder->VaDisplay, surface) != VA_STATUS_SUCCESS) {
-            Error(_("video/vaapi: vaSyncSurface failed\n"));
-        }
-
-        decoder->SurfaceRead = (decoder->SurfaceRead + 1) % VIDEO_SURFACES_MAX;
-        atomic_dec(&decoder->SurfacesFilled);
-        decoder->SurfaceField = !decoder->Interlaced;
+    filled = atomic_read(&decoder->SurfacesFilled);
+    // FIXME: this should check the caller
+    // check decoder, if new surface is available
+    if (filled <= 1) {
+        // keep use of last surface
+        ++decoder->FramesDuped;
+        // FIXME: don't warn after stream start, don't warn during pause
+        Debug(4,"video: display buffer empty, duping frame (%d/%d) %d\n",
+	    decoder->FramesDuped, decoder->FrameCounter,
+	    VideoGetBuffers(decoder->Stream));
         return;
     }
-    // next field
-    decoder->SurfaceField = 1;
+    // wait for rendering finished
+    surface = decoder->SurfacesRb[decoder->SurfaceRead];
+    if (vaSyncSurface(decoder->VaDisplay, surface) != VA_STATUS_SUCCESS) {
+        Error(_("video/vaapi: vaSyncSurface failed\n"));
+    }
+
+    decoder->SurfaceRead = (decoder->SurfaceRead + 1) % VIDEO_SURFACES_MAX;
+    atomic_dec(&decoder->SurfacesFilled);
 }
 
 ///
