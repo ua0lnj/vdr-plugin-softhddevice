@@ -639,8 +639,11 @@ void DisplayPts(AVCodecContext * video_ctx, AVFrame * frame)
     int ms_delay;
     int64_t pts;
     static int64_t last_pts;
-
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,61,100)
     pts = frame->pkt_pts;
+#else
+    pts = frame->pts;
+#endif
     if (pts == (int64_t) AV_NOPTS_VALUE) {
 	printf("*");
     }

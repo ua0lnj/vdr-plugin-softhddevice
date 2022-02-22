@@ -257,6 +257,9 @@ extern void VideoSetOsdSize(int, int);
     /// Set Osd 3D Mode
 extern void VideoSetOsd3DMode(int);
 
+
+extern int VideoMaxPixmapSize(void);
+
     /// Set video clock.
 extern void VideoSetClock(VideoHwDecoder *, int64_t);
 

@@ -64,7 +64,7 @@ extern "C"
     /// vdr-plugin version number.
     /// Makefile extracts the version number for generating the file name
     /// for the distribution archive.
-static const char *const VERSION = "1.2.8"
+static const char *const VERSION = "1.3.0"
 #ifdef GIT_REV
     "-GIT" GIT_REV
 #endif
@@ -356,16 +356,19 @@ extern "C" void FeedKeyPress(const char *keymap, const char *key, int repeat,
 */
 class cSoftOsd:public cOsd
 {
+  private:
+    cSize maxPixmapSize;
   public:
     static volatile char Dirty;		///< flag force redraw everything
     int OsdLevel;			///< current osd level FIXME: remove
 
-     cSoftOsd(int, int, uint);		///< osd constructor
-     virtual ~ cSoftOsd(void);		///< osd destructor
+    cSoftOsd(int, int, uint);		///< osd constructor
+    virtual ~ cSoftOsd(void);		///< osd destructor
     /// set the sub-areas to the given areas
     virtual eOsdError SetAreas(const tArea *, int);
     virtual void Flush(void);		///< commits all data to the hardware
     virtual void SetActive(bool);	///< sets OSD to be the active one
+    virtual const cSize &MaxPixmapSize(void) const;
 };
 
 volatile char cSoftOsd::Dirty;		///< flag force redraw everything
@@ -412,6 +415,7 @@ void cSoftOsd::SetActive(bool on)
 cSoftOsd::cSoftOsd(int left, int top, uint level)
 :cOsd(left, top, level)
 {
+    int size;
 #ifdef OSD_DEBUG
     /* FIXME: OsdWidth/OsdHeight not correct!
      */
@@ -420,6 +424,9 @@ cSoftOsd::cSoftOsd(int left, int top, uint level)
 #endif
 
     OsdLevel = level;
+
+    size = VideoMaxPixmapSize();
+    maxPixmapSize.Set(size, size);
 }
 
 /**
@@ -697,6 +704,11 @@ void cSoftOsd::Flush(void)
 #endif
     }
     Dirty = 0;
+}
+
+const cSize &cSoftOsd::MaxPixmapSize(void) const
+{
+    return maxPixmapSize;
 }
 
 #ifdef USE_OPENGLOSD
