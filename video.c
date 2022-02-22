@@ -858,6 +858,7 @@ static XVisualInfo *GlxVisualInfo;	///< our gl visual
 static GLuint OsdGlTextures[2];		///< gl texture for OSD
 static GLuint OsdGlTexture = 0;		///< texture for openglosd
 static int OsdIndex;			///< index into OsdGlTextures
+static GLint maxTextureSize;
 
 ///
 ///	GLX extension functions
@@ -1156,11 +1157,7 @@ static void GlxOsdClear(void)
 
 static int GlxMaxPixmapSize (void)
 {
-    GLint size = 0;
-
-    if (glXGetCurrentContext())
-	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &size);
-    return size;
+    return maxTextureSize;
 }
 
 ///
@@ -1251,6 +1248,9 @@ static void GlxSetupWindow(xcb_window_t window, int width, int height,
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);	// intial background color
     glClear(GL_COLOR_BUFFER_BIT);
     GlxCheck();
+
+    //get GL_MAX_TEXTURE_SIZE
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
 }
 
 ///
