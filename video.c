@@ -316,6 +316,7 @@ typedef struct _video_module_
 	int);
     void (*const OsdInit) (int, int);	///< initialize OSD
     void (*const OsdExit) (void);	///< cleanup OSD
+    int (*const MaxPixmapSize) (void);
 
     int (*const Init) (const char *);	///< initialize video output module
     void (*const Exit) (void);		///< cleanup video output module
@@ -354,6 +355,9 @@ typedef struct _video_config_values_
 #define POSTPROC_SURFACES_MAX	8	///< video postprocessing surfaces for queue
 #define FIELD_SURFACES_MAX	POSTPROC_SURFACES_MAX / 2	///< video postprocessing surfaces for queue
 #define OUTPUT_SURFACES_MAX	4	///< output surfaces for flip page
+
+#define MAX_PIXMAP_SIZE_VAAPI	8192
+#define MAX_PIXMAP_SIZE_VDPAU	8192
 
 //----------------------------------------------------------------------------
 //	Variables
@@ -1152,6 +1156,15 @@ static void GlxOsdClear(void)
     glXMakeCurrent(XlibDisplay, None, NULL);
 
     free(texbuf);
+}
+
+static int GlxMaxPixmapSize (void)
+{
+    GLint size = 0;
+
+    if (glXGetCurrentContext())
+	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &size);
+    return size;
 }
 
 ///
@@ -7287,6 +7300,11 @@ static void VaapiOsdExit(void)
     }
 }
 
+static int VaapiMaxPixmapSize (void)
+{
+	return MAX_PIXMAP_SIZE_VAAPI;
+}
+
 ///
 ///	VA-API module.
 ///
@@ -7325,6 +7343,7 @@ static const VideoModule VaapiModule = {
     .OsdDrawARGB = VaapiOsdDrawARGB,
     .OsdInit = VaapiOsdInit,
     .OsdExit = VaapiOsdExit,
+    .MaxPixmapSize = VaapiMaxPixmapSize,
     .Init = VaapiInit,
     .Exit = VaapiExit,
 };
@@ -7402,6 +7421,7 @@ static const VideoModule VaapiGlxModule = {
     .OsdDrawARGB = GlxOsdDrawARGB,
     .OsdInit = GlxOsdInit,
     .OsdExit = GlxOsdExit,
+    .MaxPixmapSize = GlxMaxPixmapSize,
     .Init = VaapiGlxInit,
     .Exit = VaapiExit,
 };
@@ -11487,6 +11507,12 @@ static void VdpauOsdExit(void)
 #endif
 }
 
+static int VdpauMaxPixmapSize (void)
+{
+	return MAX_PIXMAP_SIZE_VDPAU;
+}
+
+
 void *GetVDPAUDevice(void) {
     return (void*)(uintptr_t)VdpauDevice;
 }
@@ -11546,6 +11572,7 @@ static const VideoModule VdpauModule = {
     .OsdDrawARGB = VdpauOsdDrawARGB,
     .OsdInit = VdpauOsdInit,
     .OsdExit = VdpauOsdExit,
+    .MaxPixmapSize = VdpauMaxPixmapSize,
     .Init = VdpauInit,
     .Exit = VdpauExit,
 };
@@ -13737,6 +13764,7 @@ static const VideoModule CuvidModule = {
     .OsdDrawARGB = GlxOsdDrawARGB,
     .OsdInit = GlxOsdInit,
     .OsdExit = GlxOsdExit,
+    .MaxPixmapSize = GlxMaxPixmapSize,
     .Init = CuvidInit,
     .Exit = CuvidExit,
 };
@@ -13856,6 +13884,11 @@ static void NoopOsdDrawARGB( __attribute__ ((unused))
 {
 }
 
+static int NoopMaxPixmapSize(void)
+{
+    return 0;
+}
+
 ///
 ///	Noop setup.
 ///
@@ -13944,6 +13977,7 @@ static const VideoModule NoopModule = {
     .OsdDrawARGB = NoopOsdDrawARGB,
     .OsdInit = NoopOsdInit,
     .OsdExit = NoopVoid,
+    .MaxPixmapSize = NoopMaxPixmapSize,
     .Init = NoopInit,
     .Exit = NoopVoid,
 };
@@ -14105,6 +14139,11 @@ int VideoOsdNeedRestart(void)
     return OsdNeedRestart;
 }
 #endif
+
+int VideoMaxPixmapSize (void)
+{
+	return VideoUsedModule->MaxPixmapSize();
+}
 
 //----------------------------------------------------------------------------
 //	Events

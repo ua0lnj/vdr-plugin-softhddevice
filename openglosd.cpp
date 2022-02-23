@@ -2033,8 +2033,13 @@ cOglOsd::cOglOsd(int Left, int Top, uint Level, std::shared_ptr<cOglThread> oglT
       isSubtitleOsd = false;
     int osdWidth = 0;
     int osdHeight = 0;
+    int size;
+
     VideoGetOsdSize(&osdWidth, &osdHeight);
     //dsyslog("[softhddev]cOglOsd osdLeft %d osdTop %d screenWidth %d screenHeight %d", Left, Top, osdWidth, osdHeight);
+
+    size = VideoMaxPixmapSize();
+    maxPixmapSize.Set(size, size);
 
     //create output framebuffer
     if (!oFb) {
@@ -2175,4 +2180,9 @@ void cOglOsd::DrawScaledBitmap(int x, int y, const cBitmap &Bitmap, double Facto
         oglPixmaps[0]->DrawBitmap(cPoint(x, y), *b);
     if (b != &Bitmap)
         delete b;
+}
+
+const cSize &cOglOsd::MaxPixmapSize(void) const
+{
+    return maxPixmapSize;
 }
