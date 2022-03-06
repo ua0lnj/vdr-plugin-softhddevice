@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: VDR \n"
 "Report-Msgid-Bugs-To: <see README>\n"
-"POT-Creation-Date: 2018-09-01 16:00+1000\n"
+"POT-Creation-Date: 2022-03-03 14:31+1000\n"
 "PO-Revision-Date: blabla\n"
 "Last-Translator: blabla\n"
 "Language-Team: blabla\n"
@@ -36,7 +36,9 @@ msgid "audio/alsa: snd_pcm_avail_update(): %s\n"
 msgstr ""
 
 #, c-format
-msgid "audio/alsa: broken driver %d state '%s'\n"
+msgid ""
+"audio/alsa: broken driver state '%s', retries: %d, avail: %d\n"
+"\n"
 msgstr ""
 
 #, c-format
@@ -312,18 +314,6 @@ msgstr ""
 msgid "codec/audio: can't open resample\n"
 msgstr ""
 
-msgid "codec/audio: latm\n"
-msgstr ""
-
-msgid "codec/audio: bad audio frame\n"
-msgstr ""
-
-msgid "codec/audio: error more than one frame data\n"
-msgstr ""
-
-msgid "codec/audio: no frame\n"
-msgstr ""
-
 msgid "[softhddev] out of memory\n"
 msgstr ""
 
@@ -402,19 +392,11 @@ msgid "[softhddev] invalid video packet %d/%d bytes\n"
 msgstr ""
 
 #, c-format
-msgid "[softhddev] empty video packet %d bytes\n"
-msgstr ""
-
-#, c-format
 msgid "softhddev: %s called without hw decoder\n"
 msgstr ""
 
 #, c-format
-msgid "[softhddev] still video packet %d  %x %x %x\n"
-msgstr ""
-
-#, c-format
-msgid "[softhddev] invalid still video packet %d  %x %x %x\n"
+msgid "[softhddev] invalid still video packet size %d\n"
 msgstr ""
 
 msgid "[softhddev] no codec known for still picture\n"
@@ -461,8 +443,8 @@ msgstr ""
 msgid "[softhddev] ready%s\n"
 msgstr ""
 
-msgid "A software and GPU emulated HD device"
-msgstr "Ein Software und GPU emulieres HD-Gerät"
+msgid "A software and GPU emulated UHD device"
+msgstr "Ein Software und GPU emulieres UHD-Gerät"
 
 msgid "SoftHdDevice"
 msgstr "SoftHdDevice"
@@ -475,6 +457,15 @@ msgstr "anzeigen"
 
 msgid "hide"
 msgstr "verstecken"
+
+msgid "auto"
+msgstr ""
+
+msgid "custom"
+msgstr ""
+
+msgid "None"
+msgstr ""
 
 msgid "General"
 msgstr "Allgemeines"
@@ -493,6 +484,9 @@ msgstr "OSD Breite"
 
 msgid "Osd height"
 msgstr "OSD Höhe"
+
+msgid "GPU mem used for image caching (MB)"
+msgstr ""
 
 msgid "Suspend"
 msgstr "Unterbrechen"
@@ -621,8 +615,11 @@ msgstr ""
 msgid "  E-AC-3 pass-through"
 msgstr ""
 
-msgid "Enable (E-)AC-3 (decoder) downmix"
-msgstr "Aktiviere (E-)AC-3 (decoder) downmix"
+msgid "  DTS pass-through"
+msgstr ""
+
+msgid "Enable (E-)AC-3, DTS (decoder) downmix"
+msgstr "Aktiviere (E-)AC-3, DTS (decoder) downmix"
 
 msgid "Volume control"
 msgstr "Lautstärkesteuerung"
@@ -784,9 +781,6 @@ msgstr ""
 msgid "[softhddev]: hot key %d is not supported\n"
 msgstr ""
 
-msgid "video/glx: can't make glx osd context current\n"
-msgstr ""
-
 msgid "video/glx: can't make glx context current\n"
 msgstr ""
 
@@ -800,9 +794,6 @@ msgstr ""
 msgid "video/glx: glx version %d.%d\n"
 msgstr ""
 
-msgid "video/glx: can't get FB configs\n"
-msgstr ""
-
 msgid "video/glx: can't get a RGB visual\n"
 msgstr ""
 
@@ -810,9 +801,6 @@ msgid "video/glx: no valid visual found\n"
 msgstr ""
 
 msgid "video/glx: need atleast 8-bits per RGB\n"
-msgstr ""
-
-msgid "video/glx: can't create shared glx context\n"
 msgstr ""
 
 msgid "video/glx: can't create glx context\n"
@@ -1009,8 +997,7 @@ msgstr ""
 msgid "video/vaapi: can't create image!\n"
 msgstr ""
 
-#, c-format
-msgid "video/glx: can't create glx surfaces (0x%X): %s\n"
+msgid "video/glx: can't create glx surfaces\n"
 msgstr ""
 
 #, c-format
@@ -1125,10 +1112,6 @@ msgstr ""
 
 #, c-format
 msgid "video/vaapi: can't put image err:%d!\n"
-msgstr ""
-
-#, c-format
-msgid "video: display buffer empty, duping frame (%d/%d) %d\n"
 msgstr ""
 
 #, c-format
@@ -1387,14 +1370,6 @@ msgstr ""
 msgid "video/vdpau: pixel format %d not supported\n"
 msgstr ""
 
-#, c-format
-msgid "NV12 10bit video/vdpau: can't put video surface %d bits: %s\n"
-msgstr ""
-
-#, c-format
-msgid "NV12 video/vdpau: can't put video surface %d bits: %s\n"
-msgstr ""
-
 msgid "Cannot initialize the conversion context!\n"
 msgstr ""
 
@@ -1453,7 +1428,97 @@ msgid "video/vdpau: can't create bitmap surface: %s\n"
 msgstr ""
 
 #, c-format
+msgid "video/vdpau: created osd output surface %dx%d with id 0x%08x\n"
+msgstr ""
+
+#, c-format
 msgid "video/vdpau: can't destroy bitmap surface: %s\n"
+msgstr ""
+
+#, c-format
+msgid "Cuvid Driver API error = %04d"
+msgstr ""
+
+msgid "video/cuvid: cuGraphicsGLRegisterImage failed \n"
+msgstr ""
+
+msgid "video/cuvid: cuGraphicsMapResources failed \n"
+msgstr ""
+
+msgid "video/cuvid: cuGraphicsSubResourceGetMappedArray failed \n"
+msgstr ""
+
+msgid "video/cuvid: cuGraphicsUnmapResources failed \n"
+msgstr ""
+
+msgid "video/cuvid: surface needed not set\n"
+msgstr ""
+
+msgid "video/cuvid: out of surfaces\n"
+msgstr ""
+
+#, c-format
+msgid "video/cuvid: release surface %#08x, which is not in use\n"
+msgstr ""
+
+msgid "Can't set deinterlace mode\n"
+msgstr ""
+
+msgid "Can't set drop second field to false\n"
+msgstr ""
+
+msgid "video/cuvid: out of decoders\n"
+msgstr ""
+
+msgid "video/cuvid: out of memory\n"
+msgstr ""
+
+msgid "video/cuvid: need 1 future, 1 current, 1 back and 1 work surface\n"
+msgstr ""
+
+msgid "video/cuvid: CUDA context create failed"
+msgstr ""
+
+msgid "video/cuvid: decoder not in decoder list.\n"
+msgstr ""
+
+msgid "video/cuvid: Start CUVID\n"
+msgstr ""
+
+msgid "video/cuvid: GLX error\n"
+msgstr ""
+
+msgid "Could not dynamically load CUDA\n"
+msgstr ""
+
+msgid "Could not init CUDA device\n"
+msgstr ""
+
+msgid "Could not get CUDA device\n"
+msgstr ""
+
+msgid "video/cuvid: Start CUVID ok\n"
+msgstr ""
+
+msgid "video/cuvid: no valid cuvid pixfmt found\n"
+msgstr ""
+
+msgid "video/cuvid: grab out of memory\n"
+msgstr ""
+
+#, c-format
+msgid "video/cuvid: output buffer full, dropping frame (%d/%d)\n"
+msgstr ""
+
+#, c-format
+msgid "video/cuvid: pixel format %d not supported\n"
+msgstr ""
+
+msgid "video/cuvid: render frame error\n"
+msgstr ""
+
+#, c-format
+msgid "video/cuvid: missed frame (%d/%d)\n"
 msgstr ""
 
 msgid "video: fatal i/o error\n"
@@ -1497,11 +1562,11 @@ msgid "softhddev: grab unsupported\n"
 msgstr ""
 
 #, c-format
-msgid "video: Can't connect to X11 server on '%s'\n"
+msgid "video: Can't initialize X11 thread support on '%s'\n"
 msgstr ""
 
 #, c-format
-msgid "video: Can't initialize X11 thread support on '%s'\n"
+msgid "video: Can't connect to X11 server on '%s'\n"
 msgstr ""
 
 msgid "video: Can't convert XLIB display to XCB connection\n"

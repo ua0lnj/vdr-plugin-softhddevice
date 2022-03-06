@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: VDR \n"
 "Report-Msgid-Bugs-To: <see README>\n"
-"POT-Creation-Date: 2020-07-04 00:33+1000\n"
+"POT-Creation-Date: 2022-03-03 14:31+1000\n"
 "PO-Revision-Date: 2020-07-04 00:33+1000\n"
 "Last-Translator: ua0lnj\n"
 "Language-Team: ua0lnj\n"
@@ -36,7 +36,9 @@ msgid "audio/alsa: snd_pcm_avail_update(): %s\n"
 msgstr ""
 
 #, c-format
-msgid "audio/alsa: broken driver %d state '%s'\n"
+msgid ""
+"audio/alsa: broken driver state '%s', retries: %d, avail: %d\n"
+"\n"
 msgstr ""
 
 #, c-format
@@ -543,7 +545,7 @@ msgstr "Тон (%d..[%d]..%d)"
 
 #, c-format
 msgid "Skin Tone Enhancement (%d..[%d]..%d)"
-msgstr "Расширенный тон скина (%d..[%d]..%d)"
+msgstr "Улучшение тона скина (%d..[%d]..%d)"
 
 msgid "Scaling"
 msgstr "Масштабирование"
@@ -613,11 +615,11 @@ msgstr "  передать AC-3"
 msgid "  E-AC-3 pass-through"
 msgstr "  передать E-AC-3"
 
-msgid "Enable (E-)AC-3 (decoder) downmix"
-msgstr "Вкл. (E-)AC-3 (декодер) смешивание"
-
 msgid "  DTS pass-through"
 msgstr " передать DTS"
+
+msgid "Enable (E-)AC-3, DTS (decoder) downmix"
+msgstr "Вкл. (E-)AC-3, DTS (декодер) смешивание"
 
 msgid "Volume control"
 msgstr "Контроль громкости"
@@ -1501,6 +1503,9 @@ msgstr ""
 msgid "video/cuvid: no valid cuvid pixfmt found\n"
 msgstr ""
 
+msgid "video/cuvid: grab out of memory\n"
+msgstr ""
+
 #, c-format
 msgid "video/cuvid: output buffer full, dropping frame (%d/%d)\n"
 msgstr ""
@@ -1557,11 +1562,11 @@ msgid "softhddev: grab unsupported\n"
 msgstr ""
 
 #, c-format
-msgid "video: Can't connect to X11 server on '%s'\n"
+msgid "video: Can't initialize X11 thread support on '%s'\n"
 msgstr ""
 
 #, c-format
-msgid "video: Can't initialize X11 thread support on '%s'\n"
+msgid "video: Can't connect to X11 server on '%s'\n"
 msgstr ""
 
 msgid "video: Can't convert XLIB display to XCB connection\n"
