@@ -33,6 +33,17 @@ typedef struct _video_hw_decoder_ VideoHwDecoder;
     /// Video output stream typedef
 typedef struct __video_stream__ VideoStream;
 
+    /// Video resolutions selector
+typedef enum _video_resolutions_
+{
+    VideoResolution576i,		///< ...x576 interlaced
+    VideoResolution720p,		///< ...x720 progressive
+    VideoResolutionFake1080i,		///< 1280x1080 1440x1080 interlaced
+    VideoResolution1080i,		///< 1920x1080 interlaced
+    VideoResolutionUHD,			///< UHD progressive
+    VideoResolutionMax			///< number of resolution indexs
+} VideoResolutions;
+
 //----------------------------------------------------------------------------
 //	Variables
 //----------------------------------------------------------------------------
@@ -180,38 +191,38 @@ extern int VideoGetScalingModes(const char* **long_table, const char* **short_ta
 extern int VideoGetDeinterlaceModes(const char* **long_table, const char* **short_table);
 
     /// Set deinterlace.
-extern void VideoSetDeinterlace(int[]);
+extern void VideoSetDeinterlace(int[VideoResolutionMax]);
 
     /// Set skip chroma deinterlace.
-extern void VideoSetSkipChromaDeinterlace(int[]);
+extern void VideoSetSkipChromaDeinterlace(int[VideoResolutionMax]);
 
     /// Set inverse telecine.
-extern void VideoSetInverseTelecine(int[]);
+extern void VideoSetInverseTelecine(int[VideoResolutionMax]);
 
     /// Set scaling.
-extern void VideoSetScaling(int[]);
+extern void VideoSetScaling(int[VideoResolutionMax]);
 
     /// Set denoise.
-extern void VideoSetDenoise(int[]);
+extern void VideoSetDenoise(int[VideoResolutionMax]);
 
     /// Get denoise configurations.
 extern int VideoGetDenoiseConfig(int *minvalue, int *defvalue, int *maxvalue);
 
     /// Set sharpen.
-extern void VideoSetSharpen(int[]);
+extern void VideoSetSharpen(int[VideoResolutionMax]);
 
     /// Get sharpen configurations.
 extern int VideoGetSharpenConfig(int *minvalue, int *defvalue, int *maxvalue);
 
     /// Set cut top and bottom.
-extern void VideoSetCutTopBottom(int[]);
+extern void VideoSetCutTopBottom(int[VideoResolutionMax]);
 
     /// Set cut left and right.
-extern void VideoSetCutLeftRight(int[]);
+extern void VideoSetCutLeftRight(int[VideoResolutionMax]);
 
     /// Set first & second field ordering.
-extern void VideoSetFirstField(int[]);
-extern void VideoSetSecondField(int[]);
+extern void VideoSetFirstField(int[VideoResolutionMax]);
+extern void VideoSetSecondField(int[VideoResolutionMax]);
 
     /// Set studio levels.
 extern void VideoSetStudioLevels(int);
