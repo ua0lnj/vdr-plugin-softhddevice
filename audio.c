@@ -780,9 +780,10 @@ static int AlsaRatio;			///< internal -> mixer ratio * 1000
 */
 static int AlsaPlayRingbuffer(void)
 {
-    int first;
+    int first, retry_count;
 
     first = 1;
+    retry_count = 0;
     for (;;) {				// loop for ring buffer wrap
 	int avail;
 	int n;
@@ -807,30 +808,38 @@ static int AlsaPlayRingbuffer(void)
 	    return -1;
 	}
 	avail = snd_pcm_frames_to_bytes(AlsaPCMHandle, n);
+	Debug(4, "audio/alsa: first: %d, n: %d, avail: %d\n", first, n, avail);
 	if (avail < 256) {		// too much overhead
 	    if (first) {
-		// happens with broken alsa drivers
+		// Happens with PA wrapped libasound
 		if (AudioThread) {
-		    if (!AudioAlsaDriverBroken) {
-			Error(_("audio/alsa: broken driver %d state '%s'\n"),
-			    avail,
-			    snd_pcm_state_name(snd_pcm_state(AlsaPCMHandle)));
-		    }
-		    // try to recover
-		    if (snd_pcm_state(AlsaPCMHandle)
-			== SND_PCM_STATE_PREPARED) {
-			if ((err = snd_pcm_start(AlsaPCMHandle)) < 0) {
-			    Error(_("audio/alsa: snd_pcm_start(): %s\n"),
-				snd_strerror(err));
+		    // No reasonable buffer space available -> Wait some time until next retry
+		    if (10 == retry_count++) {
+			// Happens with really broken alsa drivers
+			if (!AudioAlsaDriverBroken) {
+			    Error(_("audio/alsa: broken driver state '%s', retries: %d, avail: %d\n\n"),
+				snd_pcm_state_name(snd_pcm_state(AlsaPCMHandle)),
+				retry_count, avail);
 			}
+			// try to recover
+			if (snd_pcm_state(AlsaPCMHandle) == SND_PCM_STATE_PREPARED) {
+			    if ((err = snd_pcm_start(AlsaPCMHandle)) < 0) {
+				Error(_("audio/alsa: snd_pcm_start(): %s\n"),
+				    snd_strerror(err));
+			    }
+			}
+			usleep(5 * 1000);
+		    } else {
+			usleep(10 * 1000);
+			continue;
 		    }
-		    usleep(5 * 1000);
 		}
 	    }
 	    Debug(4, "audio/alsa: break state '%s'\n",
 		snd_pcm_state_name(snd_pcm_state(AlsaPCMHandle)));
 	    break;
 	}
+	retry_count = 0;
 
 	n = RingBufferGetReadPointer(AudioRing[AudioRingRead].RingBuffer, &p);
 	if (!n) {			// ring buffer empty
