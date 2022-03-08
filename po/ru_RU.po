@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: VDR \n"
 "Report-Msgid-Bugs-To: <see README>\n"
-"POT-Creation-Date: 2020-07-04 00:33+1000\n"
+"POT-Creation-Date: 2022-03-07 19:24+1000\n"
 "PO-Revision-Date: 2020-07-04 00:33+1000\n"
 "Last-Translator: ua0lnj\n"
 "Language-Team: ua0lnj\n"
@@ -613,11 +613,11 @@ msgstr "  передать AC-3"
 msgid "  E-AC-3 pass-through"
 msgstr "  передать E-AC-3"
 
-msgid "Enable (E-)AC-3 (decoder) downmix"
-msgstr "Вкл. (E-)AC-3 (декодер) смешивание"
-
 msgid "  DTS pass-through"
 msgstr " передать DTS"
+
+msgid "Enable (E-)AC-3, DTS (decoder) downmix"
+msgstr "Вкл. (E-)AC-3, DTS (декодер) смешивание"
 
 msgid "Volume control"
 msgstr "Контроль громкости"
@@ -816,6 +816,18 @@ msgstr ""
 msgid "video/glx: v-sync enabled\n"
 msgstr ""
 
+msgid "video/egl: can't make egl context current\n"
+msgstr ""
+
+msgid "video/egl: can't choose egl config\n"
+msgstr ""
+
+msgid "video/egl: can't create egl surface\n"
+msgstr ""
+
+msgid "video/egl: can't create egl context\n"
+msgstr ""
+
 msgid "video/vaapi: no osd subpicture yet\n"
 msgstr ""
 
@@ -943,6 +955,9 @@ msgstr ""
 msgid "video/glx: glx error\n"
 msgstr ""
 
+msgid "video/egl: eglx error\n"
+msgstr ""
+
 #, c-format
 msgid "video/vaapi: unsupported pixel format %d\n"
 msgstr ""
@@ -1046,6 +1061,12 @@ msgid "video/vaapi: surface %#010x not ready: still displayed %d\n"
 msgstr ""
 
 msgid "video/glx: vaCopySurfaceGLX failed\n"
+msgstr ""
+
+msgid "video/egl: vaExportSurfaceHandle failed\n"
+msgstr ""
+
+msgid "video/egl: eglCreateImageKHR failed\n"
 msgstr ""
 
 #, c-format
@@ -1501,6 +1522,9 @@ msgstr ""
 msgid "video/cuvid: no valid cuvid pixfmt found\n"
 msgstr ""
 
+msgid "video/cuvid: grab out of memory\n"
+msgstr ""
+
 #, c-format
 msgid "video/cuvid: output buffer full, dropping frame (%d/%d)\n"
 msgstr ""
@@ -1527,6 +1551,9 @@ msgid "video: can't lock thread\n"
 msgstr ""
 
 msgid "video: can't unlock thread\n"
+msgstr ""
+
+msgid "video/egl: can't create egl thread context\n"
 msgstr ""
 
 msgid "video: can't queue cancel video display thread\n"
@@ -1557,11 +1584,11 @@ msgid "softhddev: grab unsupported\n"
 msgstr ""
 
 #, c-format
-msgid "video: Can't connect to X11 server on '%s'\n"
+msgid "video: Can't initialize X11 thread support on '%s'\n"
 msgstr ""
 
 #, c-format
-msgid "video: Can't initialize X11 thread support on '%s'\n"
+msgid "video: Can't connect to X11 server on '%s'\n"
 msgstr ""
 
 msgid "video: Can't convert XLIB display to XCB connection\n"
