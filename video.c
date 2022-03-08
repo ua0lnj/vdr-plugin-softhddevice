@@ -219,19 +219,6 @@ typedef enum
 //----------------------------------------------------------------------------
 
 ///
-///	Video resolutions selector.
-///
-typedef enum _video_resolutions_
-{
-    VideoResolution576i,		///< ...x576 interlaced
-    VideoResolution720p,		///< ...x720 progressive
-    VideoResolutionFake1080i,		///< 1280x1080 1440x1080 interlaced
-    VideoResolution1080i,		///< 1920x1080 interlaced
-    VideoResolutionUHD,			///< UHD progressive
-    VideoResolutionMax			///< number of resolution indexs
-} VideoResolutions;
-
-///
 ///	Video deinterlace modes.
 ///
 typedef enum _video_deinterlace_modes_
