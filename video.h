@@ -258,8 +258,14 @@ extern void *GetCuvidOsdOutputTexture(unsigned int);
 extern int CuvidInitGlx(void);
 #endif
 #ifdef USE_VAAPI
+#ifdef USE_GLX
 extern void *GetVaapiGlxOsdOutputTexture(unsigned int);
 extern int VaapiInitGlx(void);
+#endif
+#ifdef USE_EGL
+extern void *GetVaapiEglOsdOutputTexture(unsigned int);
+extern int VaapiInitEgl(void);
+#endif
 #endif
 extern int DisableOglOsd;
 

@@ -839,7 +839,8 @@ cOsd *cSoftOsdProvider::CreateOsd(int left, int top, uint level)
 #endif
 
 #ifdef USE_OPENGLOSD
- if (((!VideoIsDriverVdpau() && !VideoIsDriverCuvid() && strcasecmp(VideoGetDriverName(), "va-api-glx"))
+ if (((!VideoIsDriverVdpau() && !VideoIsDriverCuvid() && strcasecmp(VideoGetDriverName(), "va-api-glx")
+        && strcasecmp(VideoGetDriverName(), "va-api-egl"))
     || DisableOglOsd) && SuspendMode == NOT_SUSPENDED) {
         dsyslog("[softhddev]OpenGL Osd disabled - use soft OSD");
         return Osd = new cSoftOsd(left, top, level);
@@ -878,7 +879,8 @@ void cSoftOsdProvider::OsdSizeChanged(void) {
 }
 
 bool cSoftOsdProvider::StartOpenGlThread(void) {
-    if ((!VideoIsDriverVdpau() && !VideoIsDriverCuvid() && strcasecmp(VideoGetDriverName(), "va-api-glx")) || DisableOglOsd)
+    if ((!VideoIsDriverVdpau() && !VideoIsDriverCuvid() && strcasecmp(VideoGetDriverName(), "va-api-glx")
+        && strcasecmp(VideoGetDriverName(), "va-api-egl")) || DisableOglOsd)
         return false;
     //only try to start worker thread if shd is attached
     //otherwise glutInit() crashes
@@ -2175,7 +2177,8 @@ static void NewPip(int channel_nr)
 */
 static void TogglePip(void)
 {
-    if(!VideoIsDriverVdpau() && !VideoIsDriverCuvid() && strcasecmp(VideoGetDriverName(), "va-api-glx")) return;
+    if(!VideoIsDriverVdpau() && !VideoIsDriverCuvid() && strcasecmp(VideoGetDriverName(), "va-api-glx")
+        && strcasecmp(VideoGetDriverName(), "va-api-egl")) return;
     if (PipReceiver) {
 	int attached;
 

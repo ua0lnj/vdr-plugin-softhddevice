@@ -1,8 +1,32 @@
+#define charsize(args...) snprintf(NULL, 0, args) + sizeof('\0')
 
 // shader
 
+char vertex_osd[] = {"\
+%s\n\
+in vec2 vertex_position;\n\
+in vec2 vertex_texcoord0;\n\
+out vec2 texcoord0;\n\
+void main() {\n\
+gl_Position = vec4(vertex_position, 1.0, 1.0);\n\
+texcoord0 = vertex_texcoord0;\n\
+}\n"};
+
+char fragment_osd[] = {"\
+%s\n\
+#define texture1D texture\n\
+precision mediump float; \
+layout(location = 0) out vec4 out_color;\n\
+in vec2 texcoord0;\n\
+uniform sampler2D texture0;\n\
+void main() {\n\
+vec4 color; \n\
+color = vec4(texture(texture0, texcoord0));\n\
+out_color = color;\n\
+}\n"};
+
 char vertex[] = {"\
-#version 330\n\
+%s\n\
 in vec2 vertex_position;\n\
 in vec2 vertex_texcoord0;\n\
 out vec2 texcoord0;\n\
@@ -28,9 +52,10 @@ texcoord5 = vertex_texcoord5;\n\
 
 
 char fragment[] = {"\
-#version 330\n\
+%s\n\
 #define texture1D texture\n\
 #define texture3D texture\n\
+precision highp float;\
 layout(location = 0) out vec4 out_color;\n\
 in vec2 texcoord0;\n\
 in vec2 texcoord1;\n\
@@ -61,9 +86,10 @@ out_color = color;\n\
 }\n"};
 
 char fragment_bt2100[] = {"\
-#version 330\n\
+%s\n\
 #define texture1D texture\n\
 #define texture3D texture\n\
+precision highp float;\
 layout(location = 0) out vec4 out_color;\n\
 in vec2 texcoord0;\n\
 in vec2 texcoord1;\n\
@@ -175,7 +201,6 @@ struct vertex_pi {
 
 #define TEXUNIT_VIDEO_NUM 6
 
-
 struct vertex {
     struct vertex_pt position;
     struct vertex_pt texcoord[TEXUNIT_VIDEO_NUM];
@@ -193,12 +218,12 @@ static const struct gl_vao_entry vertex_vao[] = {
 };
 
 
-static void compile_attach_shader(GLuint program,
-                                  GLenum type, const char *source)
+static void compile_attach_shader(GLuint program, GLenum type, const char *source)
 {
     GLuint shader;
-	GLint status, log_length;
-	
+    GLint status, log_length;
+    GLchar infoLog[1024];
+
     shader = glCreateShader(type);
     glShaderSource(shader, 1, &source, NULL);
     glCompileShader(shader);
@@ -206,7 +231,9 @@ static void compile_attach_shader(GLuint program,
     glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
     log_length = 0;
     glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &log_length);
-Debug(3,"compile Status %d loglen %d\n",status,log_length);
+    if (!status)
+        glGetShaderInfoLog(shader, 1024, NULL, infoLog);
+    Debug(3,"compile Status %d loglen %d %s\n", status, log_length, status ? " " : infoLog);
 
     GlxCheck();
     glAttachShader(program, shader);
@@ -215,62 +242,94 @@ Debug(3,"compile Status %d loglen %d\n",status,log_length);
 
 static void link_shader(GLuint program)
 {
-	GLint status,log_length;
+    GLint status,log_length;
 
     glLinkProgram(program);
     status = 0;
     glGetProgramiv(program, GL_LINK_STATUS, &status);
     log_length = 0;
     glGetProgramiv(program, GL_INFO_LOG_LENGTH, &log_length);
-Debug(3,"Link Status %d loglen %d\n",status,log_length);
-
+    Debug(3,"Link Status %d loglen %d\n",status,log_length);
 
 }
 
-static GLuint sc_generate(GLuint gl_prog, enum AVColorSpace colorspace) {
+static GLuint sc_generate_osd(GLuint gl_prog, char *ver) {
 
+    char *frag, *vert;
+    Debug(3,"vor create osd\n");
+    gl_prog = glCreateProgram();
+
+    Debug(3,"vor compile vertex osd\n");
+    vert = malloc(charsize(vertex_osd, ver));
+    sprintf(vert, vertex_osd, ver);
+    compile_attach_shader(gl_prog, GL_VERTEX_SHADER, vert);
+
+    Debug(3,"vor compile fragment osd \n");
+    frag = malloc(charsize(fragment_osd, ver));
+    sprintf(frag, fragment_osd, ver);
+    compile_attach_shader(gl_prog, GL_FRAGMENT_SHADER, frag);
+
+    glBindAttribLocation(gl_prog,0,"vertex_position");
+    glBindAttribLocation(gl_prog,1,"vertex_texcoord0");
+    free(vert);
+    free(frag);
+
+    link_shader(gl_prog);
+    return gl_prog; 
+}
+
+static GLuint sc_generate(GLuint gl_prog, enum AVColorSpace colorspace, char *ver)
+{
     char vname[80];
     int n;
 	GLint cmsLoc;
 	float *m,*c,*cms;
-	char *frag;
+	char *frag, *vert;
 	
 	switch (colorspace) {
 	case AVCOL_SPC_RGB:
 		m = &yuv_bt601.m[0][0];
 		c = &yuv_bt601.c[0];
-		frag = fragment;
+		frag = malloc(charsize(fragment, ver));
+		sprintf(frag, fragment, ver);
 		Debug(3,"BT601 Colorspace used\n");
 		break;
 	case AVCOL_SPC_BT709:
 	case AVCOL_SPC_UNSPECIFIED:   //  comes with UHD
 		m = &yuv_bt709.m[0][0];
 		c = &yuv_bt709.c[0];
-		frag = fragment;
+		frag = malloc(charsize(fragment, ver));
+		sprintf(frag, fragment, ver);
 		Debug(3,"BT709 Colorspace used\n");
 		break;
 	case AVCOL_SPC_BT2020_NCL:
 		m = &yuv_bt2020ncl.m[0][0];
 		c = &yuv_bt2020ncl.c[0];
 		cms = &cms_matrix[0][0];
-		frag = fragment_bt2100;
+		frag = malloc(charsize(fragment_bt2100, ver));
+		sprintf(frag, fragment_bt2100, ver);
 		Debug(3,"BT2020NCL Colorspace used\n");
 		break;
 	default:								// fallback
 		m = &yuv_bt709.m[0][0];
 		c = &yuv_bt709.c[0];
-		frag = fragment;
+		frag = malloc(charsize(fragment, ver));
+		sprintf(frag, fragment, ver);
 		Debug(3,"default BT709 Colorspace used  %d\n",colorspace);
 		break;
 	}
 	
+	vert = malloc(charsize(vertex, ver));
+	sprintf(vert, vertex, ver);
 	Debug(3,"vor create\n");
 	gl_prog = glCreateProgram();
 	Debug(3,"vor compile vertex\n");
-	compile_attach_shader(gl_prog, GL_VERTEX_SHADER, vertex);
+	compile_attach_shader(gl_prog, GL_VERTEX_SHADER, vert);
 	Debug(3,"vor compile fragment\n");
 	compile_attach_shader(gl_prog, GL_FRAGMENT_SHADER, frag);
 	glBindAttribLocation(gl_prog,0,"vertex_position");
+	free(vert);
+	free(frag);
 
 	for (n=0;n<6;n++) {
 		sprintf(vname,"vertex_texcoord%1d",n);

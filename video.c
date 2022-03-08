@@ -136,6 +136,15 @@ typedef enum
 #include <GL/glxext.h>
 #endif
 
+#ifdef USE_EGL
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
+#include <va/va_drmcommon.h>
+//#include <EGL/eglplatform.h>
+//#include <GLES2/gl2.h>
+//#include <GLES2/gl2ext.h>
+#endif
+
 #ifdef USE_VAAPI
 #include <va/va_x11.h>
 #if VA_CHECK_VERSION(0,33,99)
@@ -826,6 +835,26 @@ static void VideoUpdateOutput(AVRational input_aspect_ratio, int input_width,
 }
 
 //----------------------------------------------------------------------------
+//	OPENGL
+//----------------------------------------------------------------------------
+#if defined USE_GLX || defined USE_EGL
+
+static GLuint OsdGlTextures[2];		///< gl texture for OSD
+static GLuint OsdGlTexture = 0;		///< texture for openglosd
+static int OsdIndex;			///< index into OsdGlTextures
+static GLint maxTextureSize;
+static void GlxCheck(void);
+
+
+GLuint vao_buffer, grab_buffer;
+GLuint gl_prog = 0, egl_prog_osd = 0;      // shader programm
+GLint gl_colormatrix, gl_colormatrix_c;
+
+#include "shaders.h"
+
+#endif
+
+//----------------------------------------------------------------------------
 //	GLX
 //----------------------------------------------------------------------------
 
@@ -842,11 +871,6 @@ static GLXContext GlxThreadContext;	///< our gl context for the thread
 
 //static GLXFBConfig *GlxFBConfigs;	///< our gl fb configs
 static XVisualInfo *GlxVisualInfo;	///< our gl visual
-
-static GLuint OsdGlTextures[2];		///< gl texture for OSD
-static GLuint OsdGlTexture = 0;		///< texture for openglosd
-static int OsdIndex;			///< index into OsdGlTextures
-static GLint maxTextureSize;
 
 ///
 ///	GLX extension functions
@@ -1440,7 +1464,7 @@ static void GlxExit(void)
     glFinish();
 
     // must destroy glx
-    if (glXGetCurrentContext() == GlxContext) {
+    if (glXGetCurrentContext()) {
 	// if currently used, set to none
 	glXMakeCurrent(XlibDisplay, None, NULL);
     }
@@ -1462,6 +1486,437 @@ static void GlxExit(void)
 	GlxVisualInfo = NULL;
     }
 */
+}
+
+#endif
+
+//----------------------------------------------------------------------------
+//	EGL
+//----------------------------------------------------------------------------
+
+#ifdef USE_EGL
+static int EglEnabled;			///< use EGL
+
+static EGLContext EglSharedContext;     ///< shared gl context
+static EGLContext EglContext;           ///< our gl context
+static EGLConfig EglConfig;
+static EGLDisplay EglDisplay;
+static EGLSurface EglSurface;
+#ifdef USE_VIDEO_THREAD
+static EGLContext EglThreadContext;     ///< our gl context for the thread
+#endif
+
+PFNEGLCREATEIMAGEKHRPROC EglCreateImageKHR;
+PFNEGLDESTROYIMAGEKHRPROC EglDestroyImageKHR;
+PFNGLEGLIMAGETARGETTEXTURE2DOESPROC GlEGLImageTargetTexture2DOES;
+
+static EGLint EglContextAttr[] =
+{
+    EGL_CONTEXT_OPENGL_PROFILE_MASK,
+    EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
+    EGL_CONTEXT_MAJOR_VERSION, 3,
+    EGL_CONTEXT_MINOR_VERSION, 0,
+    EGL_NONE
+};
+
+#define CASE_STR(value) case value: return #value;
+const char* EglErrorString(EGLint error)
+{
+    switch(error)
+    {
+        CASE_STR(EGL_SUCCESS)
+        CASE_STR(EGL_NOT_INITIALIZED)
+        CASE_STR(EGL_BAD_ACCESS)
+        CASE_STR(EGL_BAD_ALLOC)
+        CASE_STR(EGL_BAD_ATTRIBUTE)
+        CASE_STR(EGL_BAD_CONTEXT)
+        CASE_STR(EGL_BAD_CONFIG)
+        CASE_STR(EGL_BAD_CURRENT_SURFACE)
+        CASE_STR(EGL_BAD_DISPLAY)
+        CASE_STR(EGL_BAD_SURFACE)
+        CASE_STR(EGL_BAD_MATCH)
+        CASE_STR(EGL_BAD_PARAMETER)
+        CASE_STR(EGL_BAD_NATIVE_PIXMAP)
+        CASE_STR(EGL_BAD_NATIVE_WINDOW)
+        CASE_STR(EGL_CONTEXT_LOST)
+        default: return "Unknown";
+    }
+}
+#undef CASE_STR
+
+void EglCheck(void)
+{
+    EGLint err;
+
+    if ((err = eglGetError()) != EGL_SUCCESS) {
+	Debug(3, "video/egl: error %d %s\n", err, EglErrorString(err));
+    }
+}
+
+#ifdef USE_VAAPI
+///
+///	Setup EGL decoder
+///
+///	@param width		input video textures width
+///	@param height		input video textures height
+///	@param[OUT] textures	created and prepared textures
+///
+static void EglSetupDecoder(int width, int height, GLuint * textures)
+{
+    int i;
+
+    glEnable(GL_TEXTURE_2D);		// create 2d texture
+    glGenTextures(2, textures);
+    EglCheck();
+    for (i = 0; i < 2; ++i) {
+	glBindTexture(GL_TEXTURE_2D, textures[i]);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA,
+	    GL_UNSIGNED_BYTE, NULL);
+	glBindTexture(GL_TEXTURE_2D, 0);
+    }
+    glDisable(GL_TEXTURE_2D);
+    EglCheck();
+}
+#endif
+
+static inline void EglRenderTexture(GLuint texture, int x, int y, int width,
+    int height)
+{
+    GLint texLoc;
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    if (egl_prog_osd == 0)
+        egl_prog_osd = sc_generate_osd(egl_prog_osd, "#version 300 es ");
+
+    glUseProgram(egl_prog_osd);
+    texLoc = glGetUniformLocation(egl_prog_osd, "texture0");
+    glUniform1i(texLoc, 0);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    render_pass_quad(0, 0, 0);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glUseProgram(0);
+}
+
+///
+///	Upload OSD texture.
+///
+///	@param x	x coordinate texture
+///	@param y	y coordinate texture
+///	@param width	argb image width
+///	@param height	argb image height
+///	@param argb	argb image
+///
+static void EglUploadOsdTexture(int x, int y, int width, int height,
+    const uint8_t * argb)
+{
+    glEnable(GL_TEXTURE_2D);		// upload 2d texture
+
+    glBindTexture(GL_TEXTURE_2D, OsdGlTextures[OsdIndex]);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, width, height, GL_BGRA,
+	GL_UNSIGNED_BYTE, argb);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glDisable(GL_TEXTURE_2D);
+}
+
+///
+///	GLX initialize OSD.
+///
+///	@param width	osd width
+///	@param height	osd height
+///
+static void EglOsdInit(int width, int height)
+{
+    int i;
+    // not init with openglosd
+    if (OsdGlTexture) return;
+
+    if (!EglEnabled || !EglContext) {
+	Debug(3, "video/egl: %s called without egl enabled\n", __FUNCTION__);
+	return;
+    }
+
+    Debug(3, "video/egl: osd init context %p <-> %p\n", eglGetCurrentContext(),
+	EglContext);
+
+    if (!eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EglContext)) {
+	Error(_("video/egl: can't make egl context current\n"));
+	return;
+    }
+
+    //
+    //	create a RGBA texture.
+    //
+    glEnable(GL_TEXTURE_2D);		// create 2d texture(s)
+
+    glGenTextures(2, OsdGlTextures);
+    for (i = 0; i < 2; ++i) {
+	glBindTexture(GL_TEXTURE_2D, OsdGlTextures[i]);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA,
+	    GL_UNSIGNED_BYTE, NULL);
+    }
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glDisable(GL_TEXTURE_2D);
+}
+
+///
+///	GLX cleanup osd.
+///
+static void EglOsdExit(void)
+{
+    if (egl_prog_osd)
+        glDeleteProgram(egl_prog_osd);
+    egl_prog_osd = 0;
+
+    if (OsdGlTexture) return;
+    if (OsdGlTextures[0]) {
+	glDeleteTextures(2, OsdGlTextures);
+	OsdGlTextures[0] = 0;
+	OsdGlTextures[1] = 0;
+    }
+}
+
+///
+///	Upload ARGB image to texture.
+///
+///	@param xi	x-coordinate in argb image
+///	@param yi	y-coordinate in argb image
+///	@paran height	height in pixel in argb image
+///	@paran width	width in pixel in argb image
+///	@param pitch	pitch of argb image
+///	@param argb	32bit ARGB image data
+///	@param x	x-coordinate on screen of argb image
+///	@param y	y-coordinate on screen of argb image
+///
+///	@note looked by caller
+///
+static void EglOsdDrawARGB(int xi, int yi, int width, int height, int pitch,
+    const uint8_t * argb, int x, int y)
+{
+    uint8_t *tmp;
+
+#ifdef DEBUG
+    uint32_t start;
+    uint32_t end;
+#endif
+
+    if (!EglEnabled) {
+	Debug(3, "video/egl: %s called without egl enabled\n", __FUNCTION__);
+	return;
+    }
+#ifdef DEBUG
+    start = GetMsTicks();
+    Debug(3, "video/egl: osd context %p <-> %p\n", eglGetCurrentContext(),
+	EglContext);
+#endif
+    if (!EglContext) return;
+
+    // FIXME: faster way
+    tmp = malloc(width * height * 4);
+    if (tmp) {
+	int i;
+
+	for (i = 0; i < height; ++i) {
+	    memcpy(tmp + i * width * 4, argb + xi * 4 + (i + yi) * pitch,
+		width * 4);
+	}
+	// set egl context
+	if (!eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EglContext)) {
+	    Error(_("video/glx: can't make glx context current\n"));
+	    return;
+	}
+	EglUploadOsdTexture(x, y, width, height, tmp);
+	eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+	free(tmp);
+    }
+#ifdef DEBUG
+    end = GetMsTicks();
+
+    Debug(3, "video/egl: osd upload %dx%d%+d%+d %dms %d\n", width, height, x,
+	y, end - start, width * height * 4);
+#endif
+}
+
+///
+///	Clear OSD texture.
+///
+///	@note looked by caller
+///
+static void EglOsdClear(void)
+{
+    void *texbuf;
+
+    if (!EglContext || OsdGlTexture) return;
+
+    if (!EglEnabled) {
+	Debug(3, "video/egl: %s called without egl enabled\n", __FUNCTION__);
+	return;
+    }
+
+    Debug(3, "video/egl: osd context %p <-> %p\n", eglGetCurrentContext(),
+	EglContext);
+
+    // set egl context
+    if (!eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EglContext)) {
+	Error(_("video/egl: can't make egl context current\n"));
+	return;
+    }
+
+    texbuf = calloc(OsdWidth * OsdHeight, 4);
+    EglUploadOsdTexture(0, 0, OsdWidth, OsdHeight, texbuf);
+    eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+
+    free(texbuf);
+}
+
+static int EglMaxPixmapSize (void)
+{
+    return maxTextureSize;
+}
+
+static void EglSetupWindow(xcb_window_t window, int width, int height, EGLContext context)
+{
+    uint32_t start;
+    uint32_t end;
+    int i;
+    unsigned count;
+
+    Debug(3, "video/egl: %s %x %dx%d context: %p", __FUNCTION__, window, width, height, context);
+    eglMakeCurrent(EglDisplay, EglSurface, EglSurface, context);
+    EglCheck();
+    // viewpoint
+    glViewport(0, 0, width, height);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0.0f, (GLfloat)width, 0.0f, (GLfloat)height, -1.0f, 1.0f);
+    glMatrixMode(GL_MODELVIEW);
+
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);	// intial background color
+    EglCheck();
+    // get GL_MAX_TEXTURE_SIZE
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
+
+    eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+    EglCheck();
+}
+
+
+static void EglInit(void)
+{
+    EGLConfig config;
+    EGLint numConfig;
+    EGLContext context;
+
+    EGLint visual_attr[] = {
+        EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+        EGL_RED_SIZE, 8,
+        EGL_GREEN_SIZE, 8,
+        EGL_BLUE_SIZE, 8,
+        EGL_ALPHA_SIZE, 8,
+        EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
+        EGL_NONE
+    };
+
+    EglCreateImageKHR = (PFNEGLCREATEIMAGEKHRPROC) eglGetProcAddress("eglCreateImageKHR");
+    EglDestroyImageKHR = (PFNEGLDESTROYIMAGEKHRPROC) eglGetProcAddress("eglDestroyImageKHR");
+    GlEGLImageTargetTexture2DOES = (PFNGLEGLIMAGETARGETTEXTURE2DOESPROC) eglGetProcAddress("glEGLImageTargetTexture2DOES");
+
+    EglDisplay = eglGetDisplay(XlibDisplay);
+    if (EglDisplay == EGL_NO_DISPLAY) {
+        EglEnabled = 0;
+        return;
+    }
+
+    eglInitialize(EglDisplay, NULL, NULL);
+    EglCheck();
+
+    eglBindAPI(EGL_OPENGL_API);
+    EglCheck();
+
+    Debug(3,"video/egl: egl version: %s", eglQueryString(EglDisplay, EGL_VERSION));
+    Debug(3,"video/egl: egl vendor: %s", eglQueryString(EglDisplay, EGL_VENDOR));
+    Debug(3,"video/egl: egl extensions: %s", eglQueryString(EglDisplay, EGL_EXTENSIONS));
+    Debug(3,"video/egl: egl apis: %s", eglQueryString(EglDisplay, EGL_CLIENT_APIS));
+
+    eglChooseConfig(EglDisplay, visual_attr, &config, 1, &numConfig);
+    EglCheck();
+    if (numConfig < 1) {
+	Error(_("video/egl: can't choose egl config\n"));
+        EglEnabled = 0;
+        return;
+    }
+
+    EglSurface = eglCreateWindowSurface(EglDisplay, config, (EGLNativeWindowType) VideoWindow, NULL);
+    EglCheck();
+    if (EglSurface == EGL_NO_SURFACE) {
+	Error(_("video/egl: can't create egl surface\n"));
+        EglEnabled = 0;
+        return;
+    }
+
+    context = eglCreateContext(EglDisplay, config, EGL_NO_CONTEXT, EglContextAttr);
+    EglCheck();
+    if (context == EGL_NO_CONTEXT) {
+	Error(_("video/egl: can't create egl context\n"));
+        EglEnabled = 0;
+        return;
+    }
+    EglSharedContext = context;
+
+    context = eglCreateContext(EglDisplay, config, EglSharedContext, EglContextAttr);
+    EglCheck();
+    if (!context) {
+	Error(_("video/egl: can't create egl context\n"));
+        EglEnabled = 0;
+        return;
+    }
+    EglContext = context;
+}
+
+static void EglExit(void)
+{
+    Debug(3, "video/egl: %s\n", __FUNCTION__);
+
+    glFinish();
+
+    // must destroy contet
+    if (eglGetCurrentContext()) {
+        // if currently used, set to none
+        eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+    }
+
+    if (EglSharedContext) {
+        eglDestroyContext(EglDisplay, EglSharedContext);
+        EglCheck();
+    }
+
+    if (EglContext) {
+        eglDestroyContext(EglDisplay, EglContext);
+        EglCheck();
+        EglContext = NULL;
+    }
+
+    eglTerminate(EglDisplay);
+
+    if (OsdGlTexture)
+        OsdGlTexture = 0;
+    EglThreadContext = NULL;
 }
 
 #endif
@@ -1786,8 +2241,14 @@ struct _vaapi_decoder_
     AutoCropCtx AutoCrop[1];		///< auto-crop variables
 #endif
 #ifdef USE_GLX
-    GLuint GlTextures[2];		///< gl texture for VA-API
     void *GlxSurfaces[2];		///< VA-API/GLX surface
+#endif
+#if defined USE_GLX || defined USE_EGL
+    GLuint GlTextures[2];		///< gl texture for VA-API
+#endif
+#ifdef USE_EGL
+    EGLImage EglImages[2];
+    enum AVColorSpace  ColorSpace;	/// ffmpeg ColorSpace
 #endif
     VASurfaceID BlackSurface;		///< empty black surface
 
@@ -2622,6 +3083,7 @@ static void VaapiDelHwDecoder(VaapiDecoder * decoder)
 	    Error(_("video/vaapi: can't destroy a surface\n"));
 	}
     }
+    if (!VaapiDecoders[0]) {
 #ifdef USE_GLX
     if (decoder->GlxSurfaces[0]) {
 	if (vaDestroySurfaceGLX(VaDisplay, decoder->GlxSurfaces[0])
@@ -2635,13 +3097,24 @@ static void VaapiDelHwDecoder(VaapiDecoder * decoder)
 	    != VA_STATUS_SUCCESS) {
 	    Error(_("video/vaapi: can't destroy glx surface!\n"));
 	}
-	decoder->GlxSurfaces[0] = NULL;
+	decoder->GlxSurfaces[1] = NULL;
     }
+#endif
+#ifdef USE_EGL
+    if(vao_buffer)
+        glDeleteBuffers(1, &vao_buffer);
+    vao_buffer = 0;
+
+    if (gl_prog)
+        glDeleteProgram(gl_prog);
+    gl_prog = 0;
+#endif
+#if defined USE_GLX || defined USE_EGL
     if (decoder->GlTextures[0]) {
 	glDeleteTextures(2, decoder->GlTextures);
     }
 #endif
-
+    }
     VaapiPrintFrames(decoder);
 
     free(decoder);
@@ -2922,6 +3395,33 @@ static int VaapiGlxInit(const char *display_name)
     }
     if (!GlxEnabled) {
 	Error(_("video/glx: glx error\n"));
+    }
+
+    return VaapiInit(display_name);
+}
+
+#endif
+
+#ifdef USE_EGL
+
+///
+///	VA-API EGL setup.
+///
+///	@param display_name	x11/xcb display name
+///
+///	@returns true if VA-API could be initialized, false otherwise.
+///
+static int VaapiEglInit(const char *display_name)
+{
+    EglEnabled = 1;
+
+    EglInit();
+    if (EglEnabled) {
+	EglSetupWindow(VideoWindow, VideoWindowWidth, VideoWindowHeight,
+	    EglSharedContext);
+    }
+    if (!EglEnabled) {
+	Error(_("video/egl: eglx error\n"));
     }
 
     return VaapiInit(display_name);
@@ -3756,6 +4256,19 @@ static void VaapiSetup(VaapiDecoder * decoder,
 	}
     }
 #endif
+#ifdef USE_EGL
+    if (EglEnabled) {
+        if (!eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EglThreadContext)) {
+	    Error(_("video/egl: can't make egl context current\n"));
+	    return;
+        }
+	EglSetupDecoder(decoder->InputWidth, decoder->InputHeight,
+	    decoder->GlTextures);
+	if (!vao_buffer)
+	    glGenBuffers(1,&vao_buffer);
+    }
+#endif
+
     VaapiUpdateOutput(decoder);
 
     //
@@ -3763,6 +4276,11 @@ static void VaapiSetup(VaapiDecoder * decoder,
     //
 #ifdef USE_GLX
     if (GlxEnabled) {
+	return;
+    }
+#endif
+#ifdef USE_EGL
+    if (EglEnabled) {
 	return;
     }
 #endif
@@ -4646,6 +5164,131 @@ static void VaapiPutSurfaceGLX(VaapiDecoder * decoder, VASurfaceID surface,
 
 #endif
 
+#ifdef USE_EGL
+
+///
+///	Draw surface of the VA-API decoder with egl.
+///
+///	@param decoder	VA-API decoder
+///	@param surface		VA-API surface id
+///	@param interlaced	flag interlaced source
+///	@param deinterlaced	flag source was deinterlaced
+///	@param top_field_first	flag top_field_first for interlaced source
+///	@param field		interlaced draw: 0 first field, 1 second field
+///
+static void VaapiPutSurfaceEGL(VaapiDecoder * decoder, VASurfaceID surface,
+    int interlaced, int deinterlaced, int top_field_first, int field)
+{
+//    unsigned type;
+    int y;
+    //uint32_t start;
+    //uint32_t copy;
+    //uint32_t end;
+    VADRMPRIMESurfaceDescriptor prime;
+/*
+    // deinterlace
+    if (interlaced && !deinterlaced
+	&& VideoDeinterlace[decoder->Resolution] < VideoDeinterlaceSoftBob
+	&& VideoDeinterlace[decoder->Resolution] != VideoDeinterlaceWeave) {
+	if (top_field_first) {
+	    if (field) {
+		type = VA_BOTTOM_FIELD;
+	    } else {
+		type = VA_TOP_FIELD;
+	    }
+	} else {
+	    if (field) {
+		type = VA_TOP_FIELD;
+	    } else {
+		type = VA_BOTTOM_FIELD;
+	    }
+	}
+    } else {
+	type = VA_FRAME_PICTURE;
+    }
+*/
+    // convert the frame into a pair of DRM-PRIME FDs
+
+    if (vaExportSurfaceHandle(decoder->VaDisplay, surface, VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2,
+            VA_EXPORT_SURFACE_READ_ONLY | VA_EXPORT_SURFACE_SEPARATE_LAYERS,
+            &prime) != VA_STATUS_SUCCESS) {
+	Error(_("video/egl: vaExportSurfaceHandle failed\n"));
+        EglCheck();
+	return;
+    }
+    vaSyncSurface(decoder->VaDisplay, surface);
+
+    for (int i = 0;  i < 2;  ++i) {
+        EGLint img_attr[] = {
+            EGL_LINUX_DRM_FOURCC_EXT,      prime.layers[i].drm_format,
+            EGL_WIDTH,                     decoder->InputWidth  / (i + 1),  // half size
+            EGL_HEIGHT,                    decoder->InputHeight / (i + 1),  // for chroma
+            EGL_DMA_BUF_PLANE0_FD_EXT,     prime.objects[prime.layers[i].object_index[0]].fd,
+            EGL_DMA_BUF_PLANE0_OFFSET_EXT, prime.layers[i].offset[0],
+            EGL_DMA_BUF_PLANE0_PITCH_EXT,  prime.layers[i].pitch[0],
+            EGL_NONE
+        };
+        decoder->EglImages[i] = EglCreateImageKHR(EglDisplay, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, NULL, img_attr);
+        EglCheck();
+        if (decoder->EglImages[i]) {
+            glActiveTexture(GL_TEXTURE0 + i);
+            glBindTexture(GL_TEXTURE_2D, decoder->GlTextures[i]);
+            GlEGLImageTargetTexture2DOES(GL_TEXTURE_2D, decoder->EglImages[i]);
+            EglCheck();
+        } else {
+            for (int i = 0;  i < (int)prime.num_objects;  ++i) {
+                close(prime.objects[i].fd);
+            }
+            Error(_("video/egl: eglCreateImageKHR failed\n"));
+            return;
+        }
+    }
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    float xcropf, ycropf;
+    GLint texLoc;
+
+
+    xcropf = (float) decoder->CropX / (float) decoder->InputWidth;
+    ycropf = (float) decoder->CropY / (float) decoder->InputHeight;
+
+    // Render Progressive frame and simple interlaced
+    y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
+    if (y < 0)
+        y = 0;
+    glViewport(decoder->OutputX, y, decoder->OutputWidth, decoder->OutputHeight);
+
+    if (gl_prog == 0)
+        gl_prog = sc_generate(gl_prog, decoder->ColorSpace, "#version 300 es ");    // generate shader programm
+
+    glUseProgram(gl_prog);
+    texLoc = glGetUniformLocation(gl_prog, "texture0");
+    glUniform1i(texLoc, 0);
+    texLoc = glGetUniformLocation(gl_prog, "texture1");
+    glUniform1i(texLoc, 1);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D,decoder->GlTextures[0]);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D,decoder->GlTextures[1]);
+
+    render_pass_quad(0, xcropf, ycropf);
+
+    glUseProgram(0);
+
+    for (int i = 0;  i < 2;  ++i) {
+        EglDestroyImageKHR(EglDisplay, decoder->EglImages[i]);
+        EglCheck();
+        decoder->EglImages[i] = NULL;
+        if(prime.objects[i].fd)
+            close(prime.objects[i].fd);
+    }
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+#endif
+
 #ifdef USE_AUTOCROP
 
 ///
@@ -5092,6 +5735,11 @@ static void VaapiBlackSurface(VaapiDecoder * decoder)
 
 #ifdef USE_GLX
     if (GlxEnabled) {			// already done
+	return;
+    }
+#endif
+#ifdef USE_EGL
+    if (EglEnabled) {			// already done
 	return;
     }
 #endif
@@ -6087,6 +6735,7 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
     VASurfaceID surface;
     int interlaced;
     AVRational aspect_ratio;
+    enum AVColorSpace color;
 
     // FIXME: some tv-stations toggle interlace on/off
     // frame->interlaced_frame isn't always correct set
@@ -6149,6 +6798,12 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
 	VaapiUpdateOutput(decoder);
     }
 #endif
+
+    color = frame->colorspace;
+    if (color == AVCOL_SPC_UNSPECIFIED)   // if unknown
+        color = AVCOL_SPC_BT709;
+
+    decoder->ColorSpace = color;     // save colorspace
 
     //
     // Hardware render
@@ -6404,6 +7059,15 @@ static void VaapiDisplayFrame(void)
 	    glClear(GL_COLOR_BUFFER_BIT);
 	}
 #endif
+#ifdef USE_EGL
+	if (EglEnabled) {
+	    if (!eglMakeCurrent(EglDisplay, EglSurface, EglSurface, EglThreadContext)) {
+		Error(_("video/egl: can't make egl context current\n"));
+		return;
+	    }
+	    glClear(GL_COLOR_BUFFER_BIT);
+	}
+#endif
 
     // look if any stream have a new surface available
     for (i = 0; i < VaapiDecoderN; ++i) {
@@ -6488,6 +7152,12 @@ static void VaapiDisplayFrame(void)
 		    decoder->Deinterlaced, decoder->TopFieldFirst, decoder->SurfaceField);
 	    } else
 #endif
+#ifdef USE_EGL
+	    if (EglEnabled) {
+		VaapiPutSurfaceEGL(decoder, surface, decoder->Interlaced,
+		    decoder->Deinterlaced, decoder->TopFieldFirst, decoder->SurfaceField);
+	    } else
+#endif
 	    {
 		VaapiPutSurfaceX11(decoder, surface, decoder->Interlaced,
 		    decoder->Deinterlaced, decoder->TopFieldFirst, decoder->SurfaceField);
@@ -6548,6 +7218,34 @@ static void VaapiDisplayFrame(void)
 	glXSwapBuffers(XlibDisplay, VideoWindow);
 	glXMakeCurrent(XlibDisplay, None, NULL);
 	GlxCheck();
+
+	xcb_flush(Connection);
+    }
+#endif
+#ifdef USE_EGL
+    if (EglEnabled) {
+	//
+	//	add OSD
+	//
+	if (OsdShown) {
+            glViewport(0, 0, VideoWindowWidth, VideoWindowHeight);
+            glMatrixMode(GL_PROJECTION);
+            glLoadIdentity();
+            glOrtho(0.0, VideoWindowWidth, VideoWindowHeight, 0.0, -1.0, 1.0);
+            EglCheck();
+#ifdef USE_OPENGLOSD
+            if(!DisableOglOsd && OsdGlTexture) {
+                EglRenderTexture(OsdGlTexture, 0,0, VideoWindowWidth, VideoWindowHeight);
+            } else
+#endif
+	    EglRenderTexture(OsdGlTextures[OsdIndex], 0, 0, VideoWindowWidth, VideoWindowHeight);
+	    // FIXME: toggle osd
+	}
+
+	eglSwapBuffers(EglDisplay, EglSurface);
+	EglCheck();
+	eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+	EglCheck();
 
 	xcb_flush(Connection);
     }
@@ -7415,7 +8113,88 @@ static const VideoModule VaapiGlxModule = {
 
 #endif
 
+
+#ifdef USE_EGL
+
+#ifdef USE_OPENGLOSD
+void *GetVaapiEglOsdOutputTexture(GLuint texture) {
+    OsdGlTexture = texture;
+    return 0;
+}
+
+int VaapiInitEgl(void) {
+    int a = 0;
+
+    if (!EglEnabled) {
+        Debug(3,"video/osd: can't create egl context\n");
+        return 0;
+    }
+    //after run an external player from time to time vdr not set playmode 1
+    //then try start EGL forced.
+    //is it a vdr bug or external player plugin???
+    while (!EglContext || !EglThreadContext){
+        usleep(1000);
+        a++;
+        if (a > 10 && a < 1000) {
+            Debug(3,"Try start EGL forced\n");
+            VideoDisplayWakeup();
+            a = 1000;
+        }
+        if (a > 1010) return 0;
+    }
+    Debug(3,"Create OSD EGL context\n");
+    eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+    eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EglContext);
+    return 1;
+}
 #endif
+
+///
+///	VA-API module.
+///
+static const VideoModule VaapiEglModule = {
+    .Name = "va-api-egl",
+    .Enabled = 1,
+    .NewHwDecoder =
+	(VideoHwDecoder * (*const)(VideoStream *)) VaapiNewHwDecoder,
+    .DelHwDecoder = (void (*const) (VideoHwDecoder *))VaapiDelHwDecoder,
+    .GetSurface = (unsigned (*const) (VideoHwDecoder *,
+	    const AVCodecContext *))VaapiGetSurface,
+    .ReleaseSurface =
+	(void (*const) (VideoHwDecoder *, unsigned))VaapiReleaseSurface,
+    .get_format = (enum AVPixelFormat(*const) (VideoHwDecoder *,
+	    AVCodecContext *, const enum AVPixelFormat *))Vaapi_get_format,
+    .RenderFrame = (void (*const) (VideoHwDecoder *,
+	    const AVCodecContext *, const AVFrame *))VaapiSyncRenderFrame,
+    .GetHwAccelContext = (void *(*const)(VideoHwDecoder *))
+	VaapiGetHwAccelContext,
+    .SetClock = (void (*const) (VideoHwDecoder *, int64_t))VaapiSetClock,
+    .GetClock = (int64_t(*const) (const VideoHwDecoder *))VaapiGetClock,
+    .SetClosing = (void (*const) (const VideoHwDecoder *))VaapiSetClosing,
+    .ResetStart = (void (*const) (const VideoHwDecoder *))VaapiResetStart,
+    .SetTrickSpeed =
+	(void (*const) (const VideoHwDecoder *, int))VaapiSetTrickSpeed,
+    .GrabOutput = VaapiGrabOutputSurface,
+    .GetStats = (void (*const) (VideoHwDecoder *, int *, int *, int *,
+	    int *))VaapiGetStats,
+    .SetBackground = VaapiSetBackground,
+    .SetVideoMode = VaapiSetVideoMode,
+#ifdef USE_AUTOCROP
+    .ResetAutoCrop = VaapiResetAutoCrop,
+#endif
+    .DisplayHandlerThread = VaapiDisplayHandlerThread,
+    .OsdClear = EglOsdClear,
+    .OsdDrawARGB = EglOsdDrawARGB,
+    .OsdInit = EglOsdInit,
+    .OsdExit = EglOsdExit,
+    .MaxPixmapSize = EglMaxPixmapSize,
+    .Init = VaapiEglInit,
+    .Exit = VaapiExit,
+};
+
+#endif
+
+#endif //VAAPI
 
 //----------------------------------------------------------------------------
 //	VDPAU
@@ -11659,10 +12438,6 @@ static CudaFunctions *cu;
 static CUdevice CuvidDevice;
 static int CuvidSurfaceQueued;          ///< number of display surfaces queued
 
-GLuint vao_buffer, grab_buffer;
-GLuint gl_shader=0, gl_prog = 0, gl_fbo=0;      // shader programm
-GLint gl_colormatrix, gl_colormatrix_c;
-
 static struct timespec CuvidFrameTime;	///< time of last display
 
 static pthread_mutex_t CuvidGrabMutex;
@@ -11671,8 +12446,6 @@ unsigned int size_tex_data;
 unsigned int num_texels;
 unsigned int num_values;
 int window_width,window_height;
-
-#include "shaders.h"
 
 //----------------------------------------------------------------------------
 
@@ -12988,7 +13761,7 @@ static void CuvidMixVideo(CuvidDecoder * decoder, int level)
     glViewport(decoder->OutputX, y, decoder->OutputWidth, decoder->OutputHeight);
 
     if (gl_prog == 0)
-        gl_prog = sc_generate(gl_prog, decoder->ColorSpace);    // generate shader programm
+        gl_prog = sc_generate(gl_prog, decoder->ColorSpace, "#version 330");    // generate shader programm
 
     glUseProgram(gl_prog);
     texLoc = glGetUniformLocation(gl_prog, "texture0");
@@ -14362,6 +15135,25 @@ static void *VideoDisplayHandlerThread(void *dummy)
 	    GlxThreadContext);
     }
 #endif
+#ifdef USE_EGL
+    if (EglEnabled) {
+	eglBindAPI(EGL_OPENGL_API);
+	Debug(3, "video/egl: thread context %p <-> %p\n",
+	    eglGetCurrentContext(), EglThreadContext);
+	Debug(3, "video/egl: context %p <-> %p\n", eglGetCurrentContext(),
+	    EglContext);
+
+	EglThreadContext =
+	    eglCreateContext(EglDisplay, EglConfig, EglSharedContext, EglContextAttr);
+	if (!EglThreadContext) {
+	    Error(_("video/egl: can't create egl thread context\n"));
+	    return NULL;
+	}
+	// set egl context
+	EglSetupWindow(VideoWindow, VideoWindowWidth, VideoWindowHeight,
+	    EglThreadContext);
+    }
+#endif
 
     for (;;) {
 	// fix dead-lock with VdpauExit
@@ -14380,7 +15172,12 @@ static void *VideoDisplayHandlerThread(void *dummy)
 static void VideoThreadInit(void)
 {
 #ifdef USE_GLX
-    glXMakeCurrent(XlibDisplay, None, NULL);
+    if (GlxEnabled)
+        glXMakeCurrent(XlibDisplay, None, NULL);
+#endif
+#ifdef USE_EGL
+//    if (EglEnabled)
+//        eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 #endif
     pthread_mutex_init(&VideoMutex, NULL);
     pthread_mutex_init(&VideoLockMutex, NULL);
@@ -14447,14 +15244,15 @@ static const VideoModule *VideoModules[] = {
 #endif
 #ifdef USE_VAAPI
     &VaapiModule,
+#ifdef USE_GLX
+    &VaapiGlxModule,
+#endif
+#ifdef USE_EGL
+    &VaapiEglModule,
+#endif
 #endif
 #ifdef USE_CUVID
     &CuvidModule,
-#endif
-#ifdef USE_GLX
-#ifdef USE_VAAPI
-    &VaapiGlxModule,			// FIXME: if working, prefer this
-#endif
 #endif
     &NoopModule
 };
@@ -14925,11 +15723,14 @@ void VideoGetVideoSize(VideoHwDecoder * hw_decoder, int *width, int *height,
     }
 #endif
 #ifdef USE_VAAPI
+    if (VideoUsedModule == &VaapiModule
 #ifdef USE_GLX
-    if (VideoUsedModule == &VaapiModule || VideoUsedModule == &VaapiGlxModule) {
-#else
-    if (VideoUsedModule == &VaapiModule) {
+    || VideoUsedModule == &VaapiGlxModule
 #endif
+#ifdef USE_EGL
+    || VideoUsedModule == &VaapiEglModule
+#endif
+    ) {
 	*width = hw_decoder->Vaapi.InputWidth;
 	*height = hw_decoder->Vaapi.InputHeight;
 	av_reduce(aspect_num, aspect_den,
@@ -15244,11 +16045,14 @@ int VideoIsDriverVdpau(void)
 int VideoIsDriverVaapi(void)
 {
 #ifdef USE_VAAPI
+    if (VideoUsedModule == &VaapiModule
 #ifdef USE_GLX
-    if (VideoUsedModule == &VaapiModule || VideoUsedModule == &VaapiGlxModule) {
-#else
-    if (VideoUsedModule == &VaapiModule) {
+    || VideoUsedModule == &VaapiGlxModule
 #endif
+#ifdef USE_EGL
+    || VideoUsedModule == &VaapiEglModule
+#endif
+    ) {
 	return 1;
     }
 #endif
@@ -15354,13 +16158,15 @@ void VideoSetBrightness(int brightness)
 					       VdpauConfigBrightness.scale;
     }
 #endif
-
 #ifdef USE_VAAPI
+    if (VideoUsedModule == &VaapiModule
 #ifdef USE_GLX
-    if ((VideoUsedModule == &VaapiModule || VideoUsedModule == &VaapiGlxModule) && VaapiDecoders[0]->vpp_brightness_idx >= 0) {
-#else
-    if (VideoUsedModule == &VaapiModule && VaapiDecoders[0]->vpp_brightness_idx >= 0) {
+    || VideoUsedModule == &VaapiGlxModule
 #endif
+#ifdef USE_EGL
+    || VideoUsedModule == &VaapiEglModule
+#endif
+    ) {
 	VaapiVideoSetColorbalance(VaapiDecoders[0]->vpp_cbal_buf, VaapiDecoders[0]->vpp_brightness_idx,
 				  VideoConfigClamp(&VaapiConfigBrightness, brightness) *
 				  VaapiConfigBrightness.scale);
@@ -15388,11 +16194,14 @@ int VideoGetBrightnessConfig(int *minvalue, int *defvalue, int *maxvalue)
     }
 #endif
 #ifdef USE_VAAPI
+    if (VideoUsedModule == &VaapiModule
 #ifdef USE_GLX
-    if (VideoUsedModule == &VaapiModule || VideoUsedModule == &VaapiGlxModule) {
-#else
-    if (VideoUsedModule == &VaapiModule) {
+    || VideoUsedModule == &VaapiGlxModule
 #endif
+#ifdef USE_EGL
+    || VideoUsedModule == &VaapiEglModule
+#endif
+    ) {
 	*minvalue = VaapiConfigBrightness.min_value;
 	*defvalue = VaapiConfigBrightness.def_value;
 	*maxvalue = VaapiConfigBrightness.max_value;
@@ -15425,11 +16234,14 @@ void VideoSetContrast(int contrast)
     }
 #endif
 #ifdef USE_VAAPI
+    if (VideoUsedModule == &VaapiModule
 #ifdef USE_GLX
-    if ((VideoUsedModule == &VaapiModule || VideoUsedModule == &VaapiGlxModule) && VaapiDecoders[0]->vpp_contrast_idx >= 0) {
-#else
-    if (VideoUsedModule == &VaapiModule && VaapiDecoders[0]->vpp_contrast_idx >= 0) {
+    || VideoUsedModule == &VaapiGlxModule
 #endif
+#ifdef USE_EGL
+    || VideoUsedModule == &VaapiEglModule
+#endif
+    ) {
 	VaapiVideoSetColorbalance(VaapiDecoders[0]->vpp_cbal_buf, VaapiDecoders[0]->vpp_contrast_idx,
 				  VideoConfigClamp(&VaapiConfigContrast, contrast) *
 				  VaapiConfigContrast.scale);
@@ -15457,11 +16269,14 @@ int VideoGetContrastConfig(int *minvalue, int *defvalue, int *maxvalue)
     }
 #endif
 #ifdef USE_VAAPI
+    if (VideoUsedModule == &VaapiModule
 #ifdef USE_GLX
-    if (VideoUsedModule == &VaapiModule || VideoUsedModule == &VaapiGlxModule) {
-#else
-    if (VideoUsedModule == &VaapiModule) {
+    || VideoUsedModule == &VaapiGlxModule
 #endif
+#ifdef USE_EGL
+    || VideoUsedModule == &VaapiEglModule
+#endif
+    ) {
 	*minvalue = VaapiConfigContrast.min_value;
 	*defvalue = VaapiConfigContrast.def_value;
 	*maxvalue = VaapiConfigContrast.max_value;
@@ -15494,11 +16309,14 @@ void VideoSetSaturation(int saturation)
     }
 #endif
 #ifdef USE_VAAPI
+    if (VideoUsedModule == &VaapiModule
 #ifdef USE_GLX
-    if ((VideoUsedModule == &VaapiModule || VideoUsedModule == &VaapiGlxModule) && VaapiDecoders[0]->vpp_saturation_idx >= 0) {
-#else
-    if (VideoUsedModule == &VaapiModule && VaapiDecoders[0]->vpp_saturation_idx >= 0) {
+    || VideoUsedModule == &VaapiGlxModule
 #endif
+#ifdef USE_EGL
+    || VideoUsedModule == &VaapiEglModule
+#endif
+    ) {
 	VaapiVideoSetColorbalance(VaapiDecoders[0]->vpp_cbal_buf, VaapiDecoders[0]->vpp_saturation_idx,
 				  VideoConfigClamp(&VaapiConfigSaturation, saturation) *
 				  VaapiConfigSaturation.scale);
@@ -15526,11 +16344,14 @@ int VideoGetSaturationConfig(int *minvalue, int *defvalue, int *maxvalue)
     }
 #endif
 #ifdef USE_VAAPI
+    if (VideoUsedModule == &VaapiModule
 #ifdef USE_GLX
-    if (VideoUsedModule == &VaapiModule || VideoUsedModule == &VaapiGlxModule) {
-#else
-    if (VideoUsedModule == &VaapiModule) {
+    || VideoUsedModule == &VaapiGlxModule
 #endif
+#ifdef USE_EGL
+    || VideoUsedModule == &VaapiEglModule
+#endif
+    ) {
 	*minvalue = VaapiConfigSaturation.min_value;
 	*defvalue = VaapiConfigSaturation.def_value;
 	*maxvalue = VaapiConfigSaturation.max_value;
@@ -15563,11 +16384,14 @@ void VideoSetHue(int hue)
     }
 #endif
 #ifdef USE_VAAPI
+    if (VideoUsedModule == &VaapiModule
 #ifdef USE_GLX
-    if ((VideoUsedModule == &VaapiModule || VideoUsedModule == &VaapiGlxModule) && VaapiDecoders[0]->vpp_hue_idx >= 0) {
-#else
-    if (VideoUsedModule == &VaapiModule && VaapiDecoders[0]->vpp_hue_idx >= 0) {
+    || VideoUsedModule == &VaapiGlxModule
 #endif
+#ifdef USE_EGL
+    || VideoUsedModule == &VaapiEglModule
+#endif
+    ) {
 	VaapiVideoSetColorbalance(VaapiDecoders[0]->vpp_cbal_buf, VaapiDecoders[0]->vpp_hue_idx,
 				  VideoConfigClamp(&VaapiConfigHue, hue) * VaapiConfigHue.scale);
     }
@@ -15594,11 +16418,14 @@ int VideoGetHueConfig(int *minvalue, int *defvalue, int *maxvalue)
     }
 #endif
 #ifdef USE_VAAPI
+    if (VideoUsedModule == &VaapiModule
 #ifdef USE_GLX
-    if (VideoUsedModule == &VaapiModule || VideoUsedModule == &VaapiGlxModule) {
-#else
-    if (VideoUsedModule == &VaapiModule) {
+    || VideoUsedModule == &VaapiGlxModule
 #endif
+#ifdef USE_EGL
+    || VideoUsedModule == &VaapiEglModule
+#endif
+    ) {
 	*minvalue = VaapiConfigHue.min_value;
 	*defvalue = VaapiConfigHue.def_value;
 	*maxvalue = VaapiConfigHue.max_value;
@@ -15630,11 +16457,14 @@ void VideoSetSkinToneEnhancement(int stde)
     }
 #endif
 #ifdef USE_VAAPI
+    if (VideoUsedModule == &VaapiModule
 #ifdef USE_GLX
-    if (VideoUsedModule == &VaapiModule || VideoUsedModule == &VaapiGlxModule) {
-#else
-    if (VideoUsedModule == &VaapiModule) {
+    || VideoUsedModule == &VaapiGlxModule
 #endif
+#ifdef USE_EGL
+    || VideoUsedModule == &VaapiEglModule
+#endif
+    ) {
 	VideoSkinToneEnhancement = VideoConfigClamp(&VaapiConfigStde, stde);
     }
 #endif
@@ -15660,11 +16490,14 @@ int VideoGetSkinToneEnhancementConfig(int *minvalue, int *defvalue, int *maxvalu
     }
 #endif
 #ifdef USE_VAAPI
+    if (VideoUsedModule == &VaapiModule
 #ifdef USE_GLX
-    if (VideoUsedModule == &VaapiModule || VideoUsedModule == &VaapiGlxModule) {
-#else
-    if (VideoUsedModule == &VaapiModule) {
+    || VideoUsedModule == &VaapiGlxModule
 #endif
+#ifdef USE_EGL
+    || VideoUsedModule == &VaapiEglModule
+#endif
+    ) {
         *minvalue = VaapiConfigStde.min_value;
         *defvalue = VaapiConfigStde.def_value;
         *maxvalue = VaapiConfigStde.max_value;
@@ -15729,11 +16562,14 @@ void VideoSetOutputPosition(VideoHwDecoder * hw_decoder, int x, int y,
     }
 #endif
 #ifdef USE_VAAPI
+    if (VideoUsedModule == &VaapiModule
 #ifdef USE_GLX
-    if (VideoUsedModule == &VaapiModule || VideoUsedModule == &VaapiGlxModule) {
-#else
-    if (VideoUsedModule == &VaapiModule) {
+    || VideoUsedModule == &VaapiGlxModule
 #endif
+#ifdef USE_EGL
+    || VideoUsedModule == &VaapiEglModule
+#endif
+    ) {
         // check values to be able to avoid
         // interfering with the video thread if possible
 
@@ -15974,11 +16810,14 @@ int VideoGetScalingModes(const char* **long_table, const char* **short_table)
     }
 #endif
 #ifdef USE_VAAPI
+    if (VideoUsedModule == &VaapiModule
 #ifdef USE_GLX
-    if (VideoUsedModule == &VaapiModule || VideoUsedModule == &VaapiGlxModule) {
-#else
-    if (VideoUsedModule == &VaapiModule) {
+    || VideoUsedModule == &VaapiGlxModule
 #endif
+#ifdef USE_EGL
+    || VideoUsedModule == &VaapiEglModule
+#endif
+    ) {
 	*long_table = vaapi_scaling;
 	*short_table = vaapi_scaling_short;
 	return ARRAY_ELEMS(vaapi_scaling);
@@ -16063,11 +16902,14 @@ int VideoGetDeinterlaceModes(const char* **long_table, const char* **short_table
     }
 #endif
 #ifdef USE_VAAPI
+    if (VideoUsedModule == &VaapiModule
 #ifdef USE_GLX
-    if (VideoUsedModule == &VaapiModule || VideoUsedModule == &VaapiGlxModule) {
-#else
-    if (VideoUsedModule == &VaapiModule) {
+    || VideoUsedModule == &VaapiGlxModule
 #endif
+#ifdef USE_EGL
+    || VideoUsedModule == &VaapiEglModule
+#endif
+    ) {
 	unsigned int len = VaapiDecoders[0]->MaxSupportedDeinterlacer;
 	*long_table = vaapi_deinterlace;
 	*short_table = vaapi_deinterlace_short;
@@ -16092,11 +16934,14 @@ int VideoGetDeinterlaceModes(const char* **long_table, const char* **short_table
 void VideoSetDeinterlace(int mode[VideoResolutionMax])
 {
 #ifdef USE_VAAPI
+    if (VideoUsedModule == &VaapiModule
 #ifdef USE_GLX
-    if (VideoUsedModule == &VaapiModule || VideoUsedModule == &VaapiGlxModule) {
-#else
-    if (VideoUsedModule == &VaapiModule) {
+    || VideoUsedModule == &VaapiGlxModule
 #endif
+#ifdef USE_EGL
+    || VideoUsedModule == &VaapiEglModule
+#endif
+     ) {
 	int i;
 	for (i = 0; i < VideoResolutionMax; ++i) {
             if (mode[i] > (int)VaapiDecoders[0]->MaxSupportedDeinterlacer)
@@ -16152,11 +16997,14 @@ void VideoSetDenoise(int level[VideoResolutionMax])
     }
 #endif
 #ifdef USE_VAAPI
+    if (VideoUsedModule == &VaapiModule
 #ifdef USE_GLX
-    if (VideoUsedModule == &VaapiModule || VideoUsedModule == &VaapiGlxModule) {
-#else
-    if (VideoUsedModule == &VaapiModule) {
+    || VideoUsedModule == &VaapiGlxModule
 #endif
+#ifdef USE_EGL
+    || VideoUsedModule == &VaapiEglModule
+#endif
+    ) {
 	int i;
 	for (i = 0; i < VideoResolutionMax; ++i) {
 	    level[i] = VideoConfigClamp(&VaapiConfigDenoise, level[i]);
@@ -16193,11 +17041,14 @@ int VideoGetDenoiseConfig(int *minvalue, int *defvalue, int *maxvalue)
     }
 #endif
 #ifdef USE_VAAPI
+    if (VideoUsedModule == &VaapiModule
 #ifdef USE_GLX
-    if (VideoUsedModule == &VaapiModule || VideoUsedModule == &VaapiGlxModule) {
-#else
-    if (VideoUsedModule == &VaapiModule) {
+    || VideoUsedModule == &VaapiGlxModule
 #endif
+#ifdef USE_EGL
+    || VideoUsedModule == &VaapiEglModule
+#endif
+    ) {
         *minvalue = VaapiConfigDenoise.min_value;
         *defvalue = VaapiConfigDenoise.def_value;
         *maxvalue = VaapiConfigDenoise.max_value;
@@ -16229,11 +17080,14 @@ void VideoSetSharpen(int level[VideoResolutionMax])
     }
 #endif
 #ifdef USE_VAAPI
+    if (VideoUsedModule == &VaapiModule
 #ifdef USE_GLX
-    if (VideoUsedModule == &VaapiModule || VideoUsedModule == &VaapiGlxModule) {
-#else
-    if (VideoUsedModule == &VaapiModule) {
+    || VideoUsedModule == &VaapiGlxModule
 #endif
+#ifdef USE_EGL
+    || VideoUsedModule == &VaapiEglModule
+#endif
+    ) {
 	int i;
 	for (i = 0; i < VideoResolutionMax; ++i) {
 	    level[i] = VideoConfigClamp(&VaapiConfigSharpen, level[i]);
@@ -16270,11 +17124,14 @@ int VideoGetSharpenConfig(int *minvalue, int *defvalue, int *maxvalue)
     }
 #endif
 #ifdef USE_VAAPI
+    if (VideoUsedModule == &VaapiModule
 #ifdef USE_GLX
-    if (VideoUsedModule == &VaapiModule || VideoUsedModule == &VaapiGlxModule) {
-#else
-    if (VideoUsedModule == &VaapiModule) {
+    || VideoUsedModule == &VaapiGlxModule
 #endif
+#ifdef USE_EGL
+    || VideoUsedModule == &VaapiEglModule
+#endif
+    ) {
         *minvalue = VaapiConfigSharpen.min_value;
         *defvalue = VaapiConfigSharpen.def_value;
         *maxvalue = VaapiConfigSharpen.max_value;
@@ -16454,7 +17311,7 @@ void VideoInit(const char *display_name)
 	Debug(3, "video: x11 already setup\n");
 	return;
     }
-#ifdef USE_GLX
+#if defined USE_GLX || defined USE_EGL
     if (!XInitThreads()) {
 	Error(_("video: Can't initialize X11 thread support on '%s'\n"),
 	    display_name);
@@ -16617,6 +17474,12 @@ void VideoExit(void)
     if (GlxEnabled) {
 	GlxExit();
         GlxEnabled = 0;
+    }
+#endif
+#ifdef USE_EGL
+    if (EglEnabled) {
+	EglExit();
+        EglEnabled = 0;
     }
 #endif
 

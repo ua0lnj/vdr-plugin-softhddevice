@@ -552,9 +552,16 @@ bool cOglOutputFb::Init(void) {
     }
 #endif
 #ifdef USE_VAAPI
+#ifdef USE_GLX
     if (!strcasecmp(VideoGetDriverName(), "va-api-glx")) {
         GetVaapiGlxOsdOutputTexture(texture);
     }
+#endif
+#ifdef USE_EGL
+    if (!strcasecmp(VideoGetDriverName(), "va-api-egl")) {
+        GetVaapiEglOsdOutputTexture(texture);
+    }
+#endif
 #endif
     glBindTexture(GL_TEXTURE_2D, texture);
 
@@ -1633,6 +1640,7 @@ void cOglThread::Action(void) {
 }
 
 bool cOglThread::InitOpenGL(void) {
+    int egl = 0;
 #ifdef USE_VDPAU
     if (VideoIsDriverVdpau()) {
         const char *displayName = X11DisplayName;
@@ -1669,15 +1677,25 @@ bool cOglThread::InitOpenGL(void) {
     }
 #endif
 #ifdef USE_VAAPI
+#ifdef USE_GLX
     if (!strcasecmp(VideoGetDriverName(), "va-api-glx")) {
         if (!VaapiInitGlx()) return false;
     }
 #endif
+#ifdef USE_EGL
+    if (!strcasecmp(VideoGetDriverName(), "va-api-egl")) {
+        if (!VaapiInitEgl()) return false;
+        egl = 1;
+    }
+#endif
+#endif
     glewExperimental = GL_TRUE;
     GLenum err = glewInit();
     if(err != GLEW_OK) {
-        esyslog("[softhddev]glewInit failed, aborting\n");
-        return false;
+        if (err != GLEW_ERROR_NO_GLX_DISPLAY && egl) {
+            esyslog("[softhddev]glewInit failed, aborting %s\n", glewGetErrorString(err));
+            return false;
+        }
     }
     VertexBuffers[vbText]->EnableBlending();
     glDisable(GL_DEPTH_TEST);
