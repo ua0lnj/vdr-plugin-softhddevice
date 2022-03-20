@@ -2,7 +2,7 @@
 
 Copyright (c) 2011 - 2013 by Johns.  All Rights Reserved.
 
-Contributor(s): 2019 - 2020 ua0lnj
+Contributor(s): 2019 - 2022 ua0lnj
 
 License: AGPLv3
 
@@ -19,10 +19,11 @@ GNU Affero General Public License for more details.
 $Id$
 
 A software and GPU emulated UHD output device plugin for VDR.
+Only 8-bit output now.
 
     o Video decoder CPU / VA-API / VDPAU / CUVID
-    o Video output VA-API / VDPAU / GLX (VA-API / CUVID)
-    o OSD accelerated by GPU VDPAU / CUVID
+    o Video output VA-API / VDPAU / GLX (VA-API / CUVID) / EGL (VA-API)
+    o OSD accelerated by GPU VDPAU / CUVID / VA-API-GLX/EGL
     o Audio FFMpeg / Alsa / Analog
     o Audio FFMpeg / Alsa / Digital
     o Audio FFMpeg / OSS / Analog
@@ -35,9 +36,8 @@ A software and GPU emulated UHD output device plugin for VDR.
     o Suspend / Dettach
     o Letterbox, Stretch and Center cut-out video display modes
     o atmo light support with plugin http://github.com/durchflieger/DFAtmo
-    o PIP (Picture-in-Picture) (VDPAU / CUVID)
+    o PIP (Picture-in-Picture) (VDPAU / CUVID / VA-API-GLX/EGL)
 
-    o planned: OSD accelerated by GPU VA-API
     o planned: Video output Opengl / Xv
     o planned: Improved software deinterlacer (yadif or/and ffmpeg filters)
     o XvBa support is no longer planned (use future Radeon UVD VDPAU)
@@ -81,6 +81,9 @@ Install:
 
 Setup:	environment
 ------
+	For GLX and VA-API (va-api-glx) need:
+	export allow_rgb10_configs=false
+
 	Following is supported:
 
 	DISPLAY=:0.0
@@ -311,7 +314,7 @@ Commandline:
     -f 			start with fullscreen window (only with window manager)
     -g geometry		x11 window geometry wxh+x+y
     -l loglevel		set the log level (0=none, 1=errors, 2=info, 3=debug)
-    -v device		video driver device (va-api, va-api-glx, vdpau, cuvid, noop)
+    -v device		video driver device (va-api, va-api-glx, va-api-egl, vdpau, cuvid, noop)
     -s 			start in suspended mode
     -x 			start x11 server, with -xx try to connect, if this fails
     -X args		X11 server arguments (f.e. -nocursor)
@@ -437,3 +440,6 @@ Optional:
 	for openGL accelerated OSD need
 	    libs gl glu glew freetype2
 
+Note:
+	For old Intel video use va-api and va-api-glx. For newest Intel video use va-api-egl.
+	For old Nvidia video use vdpau. For newest Nvidia video use cuvid.
