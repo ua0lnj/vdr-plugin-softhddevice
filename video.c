@@ -1605,6 +1605,11 @@ static inline void EglRenderTexture(GLuint texture, int x, int y, int width,
 
     glBindTexture(GL_TEXTURE_2D, 0);
     glUseProgram(0);
+
+    (void)x; //may be need later
+    (void)y;
+    (void)width;
+    (void)height;
 }
 
 ///
@@ -1792,11 +1797,6 @@ static int EglMaxPixmapSize (void)
 
 static void EglSetupWindow(xcb_window_t window, int width, int height, EGLContext context)
 {
-    uint32_t start;
-    uint32_t end;
-    int i;
-    unsigned count;
-
     Debug(3, "video/egl: %s %x %dx%d context: %p", __FUNCTION__, window, width, height, context);
     eglMakeCurrent(EglDisplay, EglSurface, EglSurface, context);
     EglCheck();
@@ -5179,12 +5179,15 @@ static void VaapiPutSurfaceGLX(VaapiDecoder * decoder, VASurfaceID surface,
 static void VaapiPutSurfaceEGL(VaapiDecoder * decoder, VASurfaceID surface,
     int interlaced, int deinterlaced, int top_field_first, int field)
 {
-//    unsigned type;
+    //unsigned type;
     int y;
     //uint32_t start;
     //uint32_t copy;
     //uint32_t end;
     VADRMPRIMESurfaceDescriptor prime;
+    float xcropf, ycropf;
+    GLint texLoc;
+
 /*
     // deinterlace
     if (interlaced && !deinterlaced
@@ -5245,10 +5248,6 @@ static void VaapiPutSurfaceEGL(VaapiDecoder * decoder, VASurfaceID surface,
     }
 
     glBindTexture(GL_TEXTURE_2D, 0);
-
-    float xcropf, ycropf;
-    GLint texLoc;
-
 
     xcropf = (float) decoder->CropX / (float) decoder->InputWidth;
     ycropf = (float) decoder->CropY / (float) decoder->InputHeight;

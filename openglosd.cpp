@@ -531,7 +531,7 @@ void cOglFb::Blit(GLint destX1, GLint destY1, GLint destX2, GLint destY2) {
     glBlitFramebuffer(0, 0, width, height, destX1, destY1, destX2, destY2, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 #ifdef USE_EGL
     if (!strcasecmp(VideoGetDriverName(), "va-api-egl"))
-        eglWaitClient();	//preventing openGL crach on Intel
+        eglWaitClient();	//preventing openGL crash on Intel
 #endif
     glFlush();
 }
@@ -765,7 +765,7 @@ void cOglVb::DrawArrays(int count) {
     glDrawArrays(drawMode, 0, count);
 #ifdef USE_EGL
     if (!strcasecmp(VideoGetDriverName(), "va-api-egl"))
-        eglWaitClient();	//preventing openGL crach on Intel
+        eglWaitClient();	//preventing openGL crash on Intel
 #endif
     glFlush();
 }
