@@ -1,5 +1,12 @@
 #define charsize(args...) snprintf(NULL, 0, args) + sizeof('\0')
 
+const char *Versions[] = {
+"#version 460 core ",
+"#version 330 core ",
+"#version 320 es  ",
+"#version 300 es  ",
+};
+
 // shader
 
 char vertex_osd[] = {"\
@@ -218,7 +225,7 @@ static const struct gl_vao_entry vertex_vao[] = {
 };
 
 
-static void compile_attach_shader(GLuint program, GLenum type, const char *source)
+static bool compile_attach_shader(GLuint program, GLenum type, const char *source)
 {
     GLuint shader;
     GLint status, log_length;
@@ -234,10 +241,12 @@ static void compile_attach_shader(GLuint program, GLenum type, const char *sourc
     if (!status)
         glGetShaderInfoLog(shader, 1024, NULL, infoLog);
     Debug(3,"compile Status %d loglen %d %s\n", status, log_length, status ? " " : infoLog);
+    if (!status) return false;
 
     GlxCheck();
     glAttachShader(program, shader);
     glDeleteShader(shader);
+    return true;
 }
 
 static void link_shader(GLuint program)
@@ -253,83 +262,95 @@ static void link_shader(GLuint program)
 
 }
 
-static GLuint sc_generate_osd(GLuint gl_prog, char *ver) {
+static GLuint sc_generate_osd(GLuint gl_prog) {
 
     char *frag, *vert;
+    int n, r;
     Debug(3,"vor create osd\n");
     gl_prog = glCreateProgram();
 
-    Debug(3,"vor compile vertex osd\n");
-    vert = malloc(charsize(vertex_osd, ver));
-    sprintf(vert, vertex_osd, ver);
-    compile_attach_shader(gl_prog, GL_VERTEX_SHADER, vert);
+    for (n=0;n<4;n++) {
+        Debug(3,"Try compile vertex osd %s\n", Versions[n]);
+        vert = malloc(charsize(vertex_osd, Versions[n]));
+        sprintf(vert, vertex_osd, Versions[n]);
+        r = compile_attach_shader(gl_prog, GL_VERTEX_SHADER, vert);
+        free(vert);
+        if (r) break;
+        else if (n>2) return 0;
+    }
 
-    Debug(3,"vor compile fragment osd \n");
-    frag = malloc(charsize(fragment_osd, ver));
-    sprintf(frag, fragment_osd, ver);
-    compile_attach_shader(gl_prog, GL_FRAGMENT_SHADER, frag);
+    Debug(3,"Try compile fragment osd %s\n", Versions[n]);
+    frag = malloc(charsize(fragment_osd, Versions[n]));
+    sprintf(frag, fragment_osd, Versions[n]);
+    r = compile_attach_shader(gl_prog, GL_FRAGMENT_SHADER, frag);
+    free(frag);
+    if (!r) return 0;
 
     glBindAttribLocation(gl_prog,0,"vertex_position");
     glBindAttribLocation(gl_prog,1,"vertex_texcoord0");
-    free(vert);
-    free(frag);
 
     link_shader(gl_prog);
     return gl_prog; 
 }
 
-static GLuint sc_generate(GLuint gl_prog, enum AVColorSpace colorspace, char *ver)
+static GLuint sc_generate(GLuint gl_prog, enum AVColorSpace colorspace)
 {
     char vname[80];
-    int n;
+    int n, r;
 	GLint cmsLoc;
 	float *m,*c,*cms;
-	char *frag, *vert;
+	char *frag, *vert, *Fragment;
 	
 	switch (colorspace) {
 	case AVCOL_SPC_RGB:
 		m = &yuv_bt601.m[0][0];
 		c = &yuv_bt601.c[0];
-		frag = malloc(charsize(fragment, ver));
-		sprintf(frag, fragment, ver);
+		Fragment = fragment;
 		Debug(3,"BT601 Colorspace used\n");
 		break;
 	case AVCOL_SPC_BT709:
 	case AVCOL_SPC_UNSPECIFIED:   //  comes with UHD
 		m = &yuv_bt709.m[0][0];
 		c = &yuv_bt709.c[0];
-		frag = malloc(charsize(fragment, ver));
-		sprintf(frag, fragment, ver);
+		Fragment = fragment;
 		Debug(3,"BT709 Colorspace used\n");
 		break;
 	case AVCOL_SPC_BT2020_NCL:
 		m = &yuv_bt2020ncl.m[0][0];
 		c = &yuv_bt2020ncl.c[0];
 		cms = &cms_matrix[0][0];
-		frag = malloc(charsize(fragment_bt2100, ver));
-		sprintf(frag, fragment_bt2100, ver);
+		Fragment = fragment_bt2100;
 		Debug(3,"BT2020NCL Colorspace used\n");
 		break;
 	default:								// fallback
 		m = &yuv_bt709.m[0][0];
 		c = &yuv_bt709.c[0];
-		frag = malloc(charsize(fragment, ver));
-		sprintf(frag, fragment, ver);
+		Fragment = fragment;
 		Debug(3,"default BT709 Colorspace used  %d\n",colorspace);
 		break;
 	}
 	
-	vert = malloc(charsize(vertex, ver));
-	sprintf(vert, vertex, ver);
 	Debug(3,"vor create\n");
 	gl_prog = glCreateProgram();
-	Debug(3,"vor compile vertex\n");
-	compile_attach_shader(gl_prog, GL_VERTEX_SHADER, vert);
-	Debug(3,"vor compile fragment\n");
-	compile_attach_shader(gl_prog, GL_FRAGMENT_SHADER, frag);
-	glBindAttribLocation(gl_prog,0,"vertex_position");
-	free(vert);
+	for (n=0;n<4;n++) {
+	    Debug(3,"Try compile vertex %s\n", Versions[n]);
+	    vert = malloc(charsize(vertex, Versions[n]));
+	    sprintf(vert, vertex, Versions[n]);
+	    r = (compile_attach_shader(gl_prog, GL_VERTEX_SHADER, vert));
+	    free(vert);
+	    if (r) break;
+	    else if (n>2) return 0;
+	}
+
+	Debug(3,"Try compile fragment %s\n", Versions[n]);
+
+	frag = malloc(charsize(Fragment, Versions[n]));
+	sprintf(frag, fragment, Versions[n]);
+	r = compile_attach_shader(gl_prog, GL_FRAGMENT_SHADER, frag);
 	free(frag);
+	if (!r) return 0;
+
+	glBindAttribLocation(gl_prog,0,"vertex_position");
 
 	for (n=0;n<6;n++) {
 		sprintf(vname,"vertex_texcoord%1d",n);

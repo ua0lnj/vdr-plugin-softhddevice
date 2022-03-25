@@ -28,6 +28,7 @@ void ConvertColor(const GLint &colARGB, glm::vec4 &col) {
 * cShader
 ****************************************************************************************/
 const char *ShaderVersions[] {
+"#version 460 core ",
 "#version 330 core ",
 "#version 320 es  ",
 "#version 300 es  ",
@@ -204,7 +205,7 @@ bool cShader::Compile(const char *vertexCode, const char *fragmentCode) {
     std::string vertexCodeStr, fragmentCodeStr;
     const GLchar *vertexCodeChr, *fragmentCodeChr;
     // try compile shaders
-    for (int a = 0; a < 3; a++) {
+    for (int a = 0; a < 4; a++) {
         dsyslog("[softhddev]:SHADER: Try compile %s\n",ShaderVersions[a]);
         vertexCodeStr = std::string(ShaderVersions[a]) + vertexCode;
         fragmentCodeStr = std::string(ShaderVersions[a]) + fragmentCode;
@@ -215,7 +216,7 @@ bool cShader::Compile(const char *vertexCode, const char *fragmentCode) {
         glShaderSource(sVertex, 1, &vertexCodeChr, NULL);
         glCompileShader(sVertex);
         if (CheckCompileErrors(sVertex)) break; //compiled ok
-        else if (a > 1) return false;          //no supported shaders
+        else if (a > 2) return false;          //no supported shaders
         glDeleteShader(sVertex);                //try yet
     }
     dsyslog("[softhddev]:SHADER: Compiled ok\n");

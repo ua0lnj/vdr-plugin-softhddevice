@@ -1592,7 +1592,8 @@ static inline void EglRenderTexture(GLuint texture, int x, int y, int width,
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     if (egl_prog_osd == 0)
-        egl_prog_osd = sc_generate_osd(egl_prog_osd, "#version 300 es ");
+        egl_prog_osd = sc_generate_osd(egl_prog_osd);
+    if (!egl_prog_osd) return;
 
     glUseProgram(egl_prog_osd);
     texLoc = glGetUniformLocation(egl_prog_osd, "texture0");
@@ -1635,7 +1636,7 @@ static void EglUploadOsdTexture(int x, int y, int width, int height,
 }
 
 ///
-///	GLX initialize OSD.
+///	EGL initialize OSD.
 ///
 ///	@param width	osd width
 ///	@param height	osd height
@@ -1681,7 +1682,7 @@ static void EglOsdInit(int width, int height)
 }
 
 ///
-///	GLX cleanup osd.
+///	EGL cleanup osd.
 ///
 static void EglOsdExit(void)
 {
@@ -5210,6 +5211,7 @@ static void VaapiPutSurfaceEGL(VaapiDecoder * decoder, VASurfaceID surface,
 	type = VA_FRAME_PICTURE;
     }
 */
+#if VA_CHECK_VERSION(1,1,0)
     // convert the frame into a pair of DRM-PRIME FDs
 
     if (vaExportSurfaceHandle(decoder->VaDisplay, surface, VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2,
@@ -5259,7 +5261,8 @@ static void VaapiPutSurfaceEGL(VaapiDecoder * decoder, VASurfaceID surface,
     glViewport(decoder->OutputX, y, decoder->OutputWidth, decoder->OutputHeight);
 
     if (gl_prog == 0)
-        gl_prog = sc_generate(gl_prog, decoder->ColorSpace, "#version 300 es ");    // generate shader programm
+        gl_prog = sc_generate(gl_prog, decoder->ColorSpace);    // generate shader programm
+    if (!gl_prog) return;
 
     glUseProgram(gl_prog);
     texLoc = glGetUniformLocation(gl_prog, "texture0");
@@ -5284,6 +5287,7 @@ static void VaapiPutSurfaceEGL(VaapiDecoder * decoder, VASurfaceID surface,
             close(prime.objects[i].fd);
     }
     glBindTexture(GL_TEXTURE_2D, 0);
+#endif
 }
 
 #endif
@@ -13760,7 +13764,8 @@ static void CuvidMixVideo(CuvidDecoder * decoder, int level)
     glViewport(decoder->OutputX, y, decoder->OutputWidth, decoder->OutputHeight);
 
     if (gl_prog == 0)
-        gl_prog = sc_generate(gl_prog, decoder->ColorSpace, "#version 330");    // generate shader programm
+        gl_prog = sc_generate(gl_prog, decoder->ColorSpace);    // generate shader programm
+    if (!gl_prog) return;
 
     glUseProgram(gl_prog);
     texLoc = glGetUniformLocation(gl_prog, "texture0");

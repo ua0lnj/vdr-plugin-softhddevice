@@ -22,7 +22,7 @@ VAAPI ?= $(shell pkg-config --exists libva && echo 1)
     # support glx output
 OPENGL ?= $(shell pkg-config --exists gl glu && echo 1)
     # support egl output
-EGL ?= $(shell pkg-config --exists egl glesv2 && echo 1)
+EGL ?= $(shell pkg-config --exists egl && echo 1)
     # screensaver disable/enable
 SCREENSAVER ?= 1
     # use ffmpeg libswscale
@@ -137,8 +137,8 @@ LIBS += $(shell pkg-config --libs gl glu)
 endif
 ifeq ($(EGL),1)
 CONFIG += -DUSE_EGL
-_CFLAGS += $(shell pkg-config --cflags egl glesv2)
-LIBS += -lGLESv2 -lEGL
+_CFLAGS += $(shell pkg-config --cflags egl)
+LIBS += -lEGL
 endif
 ifeq ($(SCREENSAVER),1)
 CONFIG += -DUSE_SCREENSAVER
