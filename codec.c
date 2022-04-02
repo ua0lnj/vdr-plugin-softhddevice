@@ -936,8 +936,13 @@ void CodecAudioOpen(AudioDecoder * audio_decoder, int codec_id)
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(53,61,100)
 	audio_decoder->AudioCtx->request_channels = 2;
 #endif
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59,24,100)
 	audio_decoder->AudioCtx->request_channel_layout =
 	    AV_CH_LAYOUT_STEREO;
+#else
+    AVChannelLayout dmlayout = AV_CHANNEL_LAYOUT_STEREO;
+    av_opt_set_chlayout(audio_decoder->AudioCtx->priv_data, "downmix", &dmlayout, 0);
+#endif
     }
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(53,61,100)
     // this has no effect (with ffmpeg and libav)
@@ -1147,7 +1152,11 @@ static int CodecAudioUpdateHelper(AudioDecoder * audio_decoder,
     audio_ctx = audio_decoder->AudioCtx;
     Debug(3, "codec/audio: format change %s %dHz *%d channels%s%s%s%s%s%s\n",
 	av_get_sample_fmt_name(audio_ctx->sample_fmt), audio_ctx->sample_rate,
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59,24,100)
 	audio_ctx->channels, CodecPassthrough & CodecPCM ? " PCM" : "",
+#else
+	audio_ctx->ch_layout.nb_channels, CodecPassthrough & CodecPCM ? " PCM" : "",
+#endif
 	CodecPassthrough & CodecMPA ? " MPA" : "",
 	CodecPassthrough & CodecAC3 ? " AC-3" : "",
 	CodecPassthrough & CodecEAC3 ? " E-AC-3" : "",
@@ -1157,8 +1166,13 @@ static int CodecAudioUpdateHelper(AudioDecoder * audio_decoder,
     *passthrough = 0;
     audio_decoder->SampleRate = audio_ctx->sample_rate;
     audio_decoder->HwSampleRate = audio_ctx->sample_rate;
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59,24,100)
     audio_decoder->Channels = audio_ctx->channels;
     audio_decoder->HwChannels = audio_ctx->channels;
+#else
+    audio_decoder->Channels = audio_ctx->ch_layout.nb_channels;
+    audio_decoder->HwChannels = audio_ctx->ch_layout.nb_channels;
+#endif
     audio_decoder->Passthrough = CodecPassthrough;
 
     // SPDIF/HDMI pass-through
@@ -1197,7 +1211,11 @@ static int CodecAudioUpdateHelper(AudioDecoder * audio_decoder,
 
     Debug(3, "codec/audio: resample %s %dHz *%d -> %s %dHz *%d\n",
 	av_get_sample_fmt_name(audio_ctx->sample_fmt), audio_ctx->sample_rate,
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59,24,100)
 	audio_ctx->channels, av_get_sample_fmt_name(AV_SAMPLE_FMT_S16),
+#else
+	audio_ctx->ch_layout.nb_channels, av_get_sample_fmt_name(AV_SAMPLE_FMT_S16),
+#endif
 	audio_decoder->HwSampleRate, audio_decoder->HwChannels);
 
     return 0;
@@ -1999,7 +2017,11 @@ static void CodecAudioSetClock(AudioDecoder * audio_decoder, int64_t pts)
 static void CodecAudioUpdateFormat(AudioDecoder * audio_decoder)
 {
     int passthrough;
+#if LIBSWRESAMPLE_VERSION_INT < AV_VERSION_INT(4,5,100)
     const AVCodecContext *audio_ctx;
+#else
+    AVCodecContext *audio_ctx;
+#endif
 
     if (CodecAudioUpdateHelper(audio_decoder, &passthrough)) {
 	// FIXME: handle swresample format conversions.
@@ -2021,10 +2043,16 @@ static void CodecAudioUpdateFormat(AudioDecoder * audio_decoder)
 #endif
 
 #ifdef USE_SWRESAMPLE
+#if LIBSWRESAMPLE_VERSION_INT < AV_VERSION_INT(4,5,100)
     audio_decoder->Resample =
 	swr_alloc_set_opts(audio_decoder->Resample, audio_ctx->channel_layout,
 	AV_SAMPLE_FMT_S16, audio_decoder->HwSampleRate,
 	audio_ctx->channel_layout, audio_ctx->sample_fmt,
+#else
+	swr_alloc_set_opts2(&audio_decoder->Resample, &audio_ctx->ch_layout,
+	AV_SAMPLE_FMT_S16, audio_decoder->HwSampleRate,
+	&audio_ctx->ch_layout, audio_ctx->sample_fmt,
+#endif
 	audio_ctx->sample_rate, 0, NULL);
     if (audio_decoder->Resample) {
 	swr_init(audio_decoder->Resample);
@@ -2037,15 +2065,21 @@ static void CodecAudioUpdateFormat(AudioDecoder * audio_decoder)
 	Error(_("codec/audio: can't setup resample\n"));
 	return;
     }
-
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59,24,100)
     av_opt_set_int(audio_decoder->Resample, "in_channel_layout",
 	audio_ctx->channel_layout, 0);
+    av_opt_set_int(audio_decoder->Resample, "out_channel_layout",
+	audio_ctx->channel_layout, 0);
+#else
+    av_opt_set_int(audio_decoder->Resample, "in_channel_layout",
+	audio_ctx->ch_layout, 0);
+    av_opt_set_int(audio_decoder->Resample, "out_channel_layout",
+	audio_ctx->ch_layout, 0);
+#endif
     av_opt_set_int(audio_decoder->Resample, "in_sample_fmt",
 	audio_ctx->sample_fmt, 0);
     av_opt_set_int(audio_decoder->Resample, "in_sample_rate",
 	audio_ctx->sample_rate, 0);
-    av_opt_set_int(audio_decoder->Resample, "out_channel_layout",
-	audio_ctx->channel_layout, 0);
     av_opt_set_int(audio_decoder->Resample, "out_sample_fmt",
 	AV_SAMPLE_FMT_S16, 0);
     av_opt_set_int(audio_decoder->Resample, "out_sample_rate",
@@ -2125,7 +2159,11 @@ void CodecAudioDecode(AudioDecoder * audio_decoder, const AVPacket * avpkt)
             // format change
             if (audio_decoder->Passthrough != CodecPassthrough
             || audio_decoder->SampleRate != audio_ctx->sample_rate
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59,24,100)
             || audio_decoder->Channels != audio_ctx->channels) {
+#else
+            || audio_decoder->Channels != audio_ctx->ch_layout.nb_channels) {
+#endif
                 CodecAudioUpdateFormat(audio_decoder);
             }
 
@@ -2143,6 +2181,7 @@ void CodecAudioDecode(AudioDecoder * audio_decoder, const AVPacket * avpkt)
                 int plane_sz;
 
                 data_sz =
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59,24,100)
                     av_samples_get_buffer_size(&plane_sz, audio_ctx->channels,
                     frame->nb_samples, audio_ctx->sample_fmt, 1);
                 fprintf(stderr, "codec/audio: sample_fmt %s\n",
@@ -2153,6 +2192,17 @@ void CodecAudioDecode(AudioDecoder * audio_decoder, const AVPacket * avpkt)
                 fprintf(stderr,
                     "codec/audio: channels %d samples %d plane %d data %d\n",
                     audio_ctx->channels, frame->nb_samples, plane_sz, data_sz);
+#else
+                    av_samples_get_buffer_size(&plane_sz, audio_ctx->ch_layout.nb_channels,
+                    frame->nb_samples, audio_ctx->sample_fmt, 1);
+                fprintf(stderr, "codec/audio: sample_fmt %s\n",
+                av_get_sample_fmt_name(audio_ctx->sample_fmt));
+                av_channel_layout_describe(&audio_ctx->ch_layout, strbuf, 32);
+                fprintf(stderr, "codec/audio: layout %s\n", strbuf);
+                fprintf(stderr,
+                    "codec/audio: channels %d samples %d plane %d data %d\n",
+                    audio_ctx->ch_layout.nb_channels, frame->nb_samples, plane_sz, data_sz);
+#endif
             }
 #ifdef USE_SWRESAMPLE
             if (audio_decoder->Resample) {
