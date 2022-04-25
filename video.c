@@ -564,7 +564,6 @@ static int OsdDirtyWidth;		///< osd dirty area width
 static int OsdDirtyHeight;		///< osd dirty area height
 
 #ifdef USE_OPENGLOSD
-static void (*VideoEventCallback)(void) = NULL;  /// callback function to notify VDR about Video Events
 static int OsdNeedRestart = 0;		/// osd restart flag for openglosd, use for VDPAU
 #endif
 
@@ -2191,6 +2190,11 @@ struct _vaapi_decoder_
     int VideoY;				///< video base y coordinate
     int VideoWidth;			///< video base width
     int VideoHeight;			///< video base height
+
+    int ScaleX;				///< video scale x coordinate
+    int ScaleY;				///< video scale y coordinate
+    int ScaleWidth;			///< video scale width
+    int ScaleHeight;			///< video scale height
 
     int OutputX;			///< real video output x coordinate
     int OutputY;			///< real video output y coordinate
@@ -7615,23 +7619,6 @@ static void VaapiSetBackground( __attribute__ ((unused)) uint32_t rgba)
 }
 
 ///
-///	Set VA-API video mode.
-///
-static void VaapiSetVideoMode(void)
-{
-    int i;
-
-    for (i = 0; i < VaapiDecoderN; ++i) {
-	// reset video window, upper level needs to fix the positions
-	VaapiDecoders[i]->VideoX = 0;
-	VaapiDecoders[i]->VideoY = 0;
-	VaapiDecoders[i]->VideoWidth = VideoWindowWidth;
-	VaapiDecoders[i]->VideoHeight = VideoWindowHeight;
-	VaapiUpdateOutput(VaapiDecoders[i]);
-    }
-}
-
-///
 ///     Set VA-API video output position.
 ///
 ///     @param decoder  VA-API decoder
@@ -7649,6 +7636,33 @@ static void VaapiSetOutputPosition(VaapiDecoder * decoder, int x, int y,
     decoder->VideoY = y;
     decoder->VideoWidth = width;
     decoder->VideoHeight = height;
+}
+
+///
+///	Set VA-API video mode.
+///
+static void VaapiSetVideoMode(void)
+{
+    int i;
+
+    for (i = 0; i < VaapiDecoderN; ++i) {
+	// reset video window, upper level needs to fix the positions
+	VaapiDecoders[i]->VideoX = 0;
+	VaapiDecoders[i]->VideoY = 0;
+	VaapiDecoders[i]->VideoWidth = VideoWindowWidth;
+	VaapiDecoders[i]->VideoHeight = VideoWindowHeight;
+	// for window mode need restore scale
+	if (VaapiDecoders[i]->ScaleX || VaapiDecoders[i]->ScaleY
+	 || VaapiDecoders[i]->ScaleWidth || VaapiDecoders[i]->ScaleHeight) {
+	    // convert OSD coordinates to window coordinates
+	    int x = (VaapiDecoders[i]->ScaleX * VideoWindowWidth) / OsdWidth;
+	    int width = (VaapiDecoders[i]->ScaleWidth * VideoWindowWidth) / OsdWidth;
+	    int y = (VaapiDecoders[i]->ScaleY * VideoWindowHeight) / OsdHeight;
+	    int height = (VaapiDecoders[i]->ScaleHeight * VideoWindowHeight) / OsdHeight;
+	    VaapiSetOutputPosition(VaapiDecoders[i], x, y, width, height);
+	}
+	VaapiUpdateOutput(VaapiDecoders[i]);
+    }
 }
 
 #ifdef USE_VIDEO_THREAD
@@ -8218,6 +8232,11 @@ typedef struct _vdpau_decoder_
     int VideoY;				///< video base y coordinate
     int VideoWidth;			///< video base width
     int VideoHeight;			///< video base height
+
+    int ScaleX;				///< video scale x coordinate
+    int ScaleY;				///< video scale y coordinate
+    int ScaleWidth;			///< video scale width
+    int ScaleHeight;			///< video scale height
 
     int OutputX;			///< real video output x coordinate
     int OutputY;			///< real video output y coordinate
@@ -11904,6 +11923,30 @@ static void VdpauSetBackground( __attribute__ ((unused)) uint32_t rgba)
 }
 
 ///
+///	Set video output position.
+///
+///	@param decoder	VDPAU hw decoder
+///	@param x	video output x coordinate inside the window
+///	@param y	video output y coordinate inside the window
+///	@param width	video output width
+///	@param height	video output height
+///
+///	@note FIXME: need to know which stream.
+///
+static void VdpauSetOutputPosition(VdpauDecoder * decoder, int x, int y,
+    int width, int height)
+{
+    Debug(3, "video/vdpau: output %dx%d%+d%+d\n", width, height, x, y);
+
+    decoder->VideoX = x;
+    decoder->VideoY = y;
+    decoder->VideoWidth = width;
+    decoder->VideoHeight = height;
+
+    // next video pictures are automatic rendered to correct position
+}
+
+///
 ///	Set VDPAU video mode.
 ///
 static void VdpauSetVideoMode(void)
@@ -11919,6 +11962,16 @@ static void VdpauSetVideoMode(void)
 	VdpauDecoders[i]->VideoY = 0;
 	VdpauDecoders[i]->VideoWidth = VideoWindowWidth;
 	VdpauDecoders[i]->VideoHeight = VideoWindowHeight;
+	// for window mode need restore scale
+	if (VdpauDecoders[i]->ScaleX || VdpauDecoders[i]->ScaleY
+	 || VdpauDecoders[i]->ScaleWidth || VdpauDecoders[i]->ScaleHeight) {
+	    // convert OSD coordinates to window coordinates
+	    int x = (VdpauDecoders[i]->ScaleX * VideoWindowWidth) / OsdWidth;
+	    int width = (VdpauDecoders[i]->ScaleWidth * VideoWindowWidth) / OsdWidth;
+	    int y = (VdpauDecoders[i]->ScaleY * VideoWindowHeight) / OsdHeight;
+	    int height = (VdpauDecoders[i]->ScaleHeight * VideoWindowHeight) / OsdHeight;
+	    VdpauSetOutputPosition(VdpauDecoders[i], x, y, width, height);
+	}
 	VdpauUpdateOutput(VdpauDecoders[i]);
     }
 }
@@ -12005,30 +12058,6 @@ static void VdpauDisplayHandlerThread(void)
 #endif
 
 #endif
-
-///
-///	Set video output position.
-///
-///	@param decoder	VDPAU hw decoder
-///	@param x	video output x coordinate inside the window
-///	@param y	video output y coordinate inside the window
-///	@param width	video output width
-///	@param height	video output height
-///
-///	@note FIXME: need to know which stream.
-///
-static void VdpauSetOutputPosition(VdpauDecoder * decoder, int x, int y,
-    int width, int height)
-{
-    Debug(3, "video/vdpau: output %dx%d%+d%+d\n", width, height, x, y);
-
-    decoder->VideoX = x;
-    decoder->VideoY = y;
-    decoder->VideoWidth = width;
-    decoder->VideoHeight = height;
-
-    // next video pictures are automatic rendered to correct position
-}
 
 //----------------------------------------------------------------------------
 //	VDPAU OSD
@@ -12365,6 +12394,11 @@ typedef struct _cuvid_decoder_
     int VideoY;				///< video base y coordinate
     int VideoWidth;			///< video base width
     int VideoHeight;			///< video base height
+
+    int ScaleX;				///< video scale x coordinate
+    int ScaleY;				///< video scale y coordinate
+    int ScaleWidth;			///< video scale width
+    int ScaleHeight;			///< video scale height
 
     int OutputX;			///< real video output x coordinate
     int OutputY;			///< real video output y coordinate
@@ -14327,6 +14361,30 @@ static void CuvidSetBackground( __attribute__ ((unused)) uint32_t rgba)
 }
 
 ///
+///	Set video output position.
+///
+///	@param decoder	CUVID hw decoder
+///	@param x	video output x coordinate inside the window
+///	@param y	video output y coordinate inside the window
+///	@param width	video output width
+///	@param height	video output height
+///
+///	@note FIXME: need to know which stream.
+///
+static void CuvidSetOutputPosition(CuvidDecoder * decoder, int x, int y,
+    int width, int height)
+{
+    Debug(3, "video/cuvid: output %dx%d%+d%+d\n", width, height, x, y);
+
+    decoder->VideoX = x;
+    decoder->VideoY = y;
+    decoder->VideoWidth = width;
+    decoder->VideoHeight = height;
+
+    // next video pictures are automatic rendered to correct position
+}
+
+///
 ///	Set CUVID video mode.
 ///
 static void CuvidSetVideoMode(void)
@@ -14339,6 +14397,16 @@ static void CuvidSetVideoMode(void)
 	CuvidDecoders[i]->VideoY = 0;
 	CuvidDecoders[i]->VideoWidth = VideoWindowWidth;
 	CuvidDecoders[i]->VideoHeight = VideoWindowHeight;
+	// for window mode need restore scale
+	if (CuvidDecoders[i]->ScaleX || CuvidDecoders[i]->ScaleY
+	 || CuvidDecoders[i]->ScaleWidth || CuvidDecoders[i]->ScaleHeight) {
+	    // convert OSD coordinates to window coordinates
+	    int x = (CuvidDecoders[i]->ScaleX * VideoWindowWidth) / OsdWidth;
+	    int width = (CuvidDecoders[i]->ScaleWidth * VideoWindowWidth) / OsdWidth;
+	    int y = (CuvidDecoders[i]->ScaleY * VideoWindowHeight) / OsdHeight;
+	    int height = (CuvidDecoders[i]->ScaleHeight * VideoWindowHeight) / OsdHeight;
+	    CuvidSetOutputPosition(CuvidDecoders[i], x, y, width, height);
+	}
 	CuvidUpdateOutput(CuvidDecoders[i]);
     }
 }
@@ -14425,30 +14493,6 @@ static void CuvidDisplayHandlerThread(void)
 #endif
 
 #endif
-
-///
-///	Set video output position.
-///
-///	@param decoder	CUVID hw decoder
-///	@param x	video output x coordinate inside the window
-///	@param y	video output y coordinate inside the window
-///	@param width	video output width
-///	@param height	video output height
-///
-///	@note FIXME: need to know which stream.
-///
-static void CuvidSetOutputPosition(CuvidDecoder * decoder, int x, int y,
-    int width, int height)
-{
-    Debug(3, "video/cuvid: output %dx%d%+d%+d\n", width, height, x, y);
-
-    decoder->VideoX = x;
-    decoder->VideoY = y;
-    decoder->VideoWidth = width;
-    decoder->VideoHeight = height;
-
-    // next video pictures are automatic rendered to correct position
-}
 
 //----------------------------------------------------------------------------
 //	CUVID OSD USE GLX
@@ -15075,13 +15119,6 @@ void VideoPollEvent(void)
 	VideoEvent();
     }
 }
-
-#ifdef USE_OPENGLOSD
-void VideoSetVideoEventCallback(void (*videoEventCallback)(void))
-{
-    VideoEventCallback = videoEventCallback;
-}
-#endif
 
 //----------------------------------------------------------------------------
 //	Thread
@@ -16531,6 +16568,8 @@ int VideoGetSkinToneEnhancementConfig(int *minvalue, int *defvalue, int *maxvalu
 void VideoSetOutputPosition(VideoHwDecoder * hw_decoder, int x, int y,
     int width, int height)
 {
+    int sx = x, sy = y, swidth = width, sheight = height;
+
     if (!OsdWidth || !OsdHeight) {
 	return;
     }
@@ -16560,6 +16599,12 @@ void VideoSetOutputPosition(VideoHwDecoder * hw_decoder, int x, int y,
 	    return;
 	}
 	VideoThreadLock();
+	//store scale for window mode
+	hw_decoder->Vdpau.ScaleX = sx;
+	hw_decoder->Vdpau.ScaleY = sy;
+	hw_decoder->Vdpau.ScaleWidth = swidth;
+	hw_decoder->Vdpau.ScaleHeight = sheight;
+
 	VdpauSetOutputPosition(&hw_decoder->Vdpau, x, y, width, height);
 	VdpauUpdateOutput(&hw_decoder->Vdpau);
 	VideoThreadUnlock();
@@ -16584,6 +16629,12 @@ void VideoSetOutputPosition(VideoHwDecoder * hw_decoder, int x, int y,
             return;
         }
         VideoThreadLock();
+	//store scale for window mode
+	hw_decoder->Vaapi.ScaleX = sx;
+	hw_decoder->Vaapi.ScaleY = sy;
+	hw_decoder->Vaapi.ScaleWidth = swidth;
+	hw_decoder->Vaapi.ScaleHeight = sheight;
+
         VaapiSetOutputPosition(&hw_decoder->Vaapi, x, y, width, height);
         VaapiUpdateOutput(&hw_decoder->Vaapi);
         VideoThreadUnlock();
@@ -16601,6 +16652,12 @@ void VideoSetOutputPosition(VideoHwDecoder * hw_decoder, int x, int y,
 	    return;
 	}
 	VideoThreadLock();
+	//store scale for window mode
+	hw_decoder->Cuvid.ScaleX = sx;
+	hw_decoder->Cuvid.ScaleY = sy;
+	hw_decoder->Cuvid.ScaleWidth = swidth;
+	hw_decoder->Cuvid.ScaleHeight = sheight;
+
 	CuvidSetOutputPosition(&hw_decoder->Cuvid, x, y, width, height);
 	CuvidUpdateOutput(&hw_decoder->Cuvid);
 	VideoThreadUnlock();
@@ -16629,19 +16686,12 @@ void VideoSetVideoMode( __attribute__ ((unused))
 	&& (unsigned)height == VideoWindowHeight) {
 	return;				// same size nothing todo
     }
-#ifdef USE_OPENGLOSD
-    if (VideoEventCallback)
-        VideoEventCallback();
-#endif
-    VideoOsdExit();
-    // FIXME: must tell VDR that the OsdSize has been changed!
 
     VideoThreadLock();
     VideoWindowWidth = width;
     VideoWindowHeight = height;
     VideoUsedModule->SetVideoMode();
     VideoThreadUnlock();
-    VideoOsdInit();
 }
 
 ///

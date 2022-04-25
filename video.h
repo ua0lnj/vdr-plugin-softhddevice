@@ -108,11 +108,6 @@ extern void VideoDrawRenderState(VideoHwDecoder *,
     /// Poll video events.
 extern void VideoPollEvent(void);
 
-#ifdef USE_OPENGLOSD
-    /// Set callback funktion to notify VDR about VideoEvents
-extern void VideoSetVideoEventCallback(void (*)(void));
-#endif
-
     /// Wakeup display handler.
 extern void VideoDisplayWakeup(void);
 
