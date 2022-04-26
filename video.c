@@ -4623,6 +4623,11 @@ static void VaapiPutSurfaceGLX(VaapiDecoder * decoder, VASurfaceID surface,
     }
     //copy = GetMsTicks();
 
+    glViewport(0, 0, VideoWindowWidth, VideoWindowHeight);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0.0, VideoWindowWidth, VideoWindowHeight, 0.0, -1.0, 1.0);
+
     //fix CropY
     y = decoder->OutputHeight * ((float)decoder->CropY/(float)decoder->CropHeight);
 
