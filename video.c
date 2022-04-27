@@ -5016,6 +5016,7 @@ static void VaapiPutSurfaceX11(VaapiDecoder * decoder, VASurfaceID surface,
     VAStatus status;
     uint32_t s;
     uint32_t e;
+    static unsigned int lastWindowWidth, lastWindowHeight;
 
     // deinterlace
     if (interlaced && !deinterlaced
@@ -5103,6 +5104,12 @@ static void VaapiPutSurfaceX11(VaapiDecoder * decoder, VASurfaceID surface,
 	    Debug(3, "video/vaapi: %2d %d\n", i, status);
 	    usleep(1 * 1000);
 	}
+    }
+    if (lastWindowWidth != VideoWindowWidth || lastWindowHeight != VideoWindowHeight) {
+        VaapiDeassociate(decoder);
+        VaapiAssociate(decoder);
+        lastWindowWidth = VideoWindowWidth;
+        lastWindowHeight = VideoWindowHeight;
     }
 }
 
