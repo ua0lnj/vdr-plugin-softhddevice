@@ -5198,35 +5198,10 @@ static void VaapiPutSurfaceEGL(VaapiDecoder * decoder, VASurfaceID surface,
 {
     //unsigned type;
     int y;
-    //uint32_t start;
-    //uint32_t copy;
-    //uint32_t end;
     VADRMPRIMESurfaceDescriptor prime;
     float xcropf, ycropf;
     GLint texLoc;
 
-/*
-    // deinterlace
-    if (interlaced && !deinterlaced
-	&& VideoDeinterlace[decoder->Resolution] < VideoDeinterlaceSoftBob
-	&& VideoDeinterlace[decoder->Resolution] != VideoDeinterlaceWeave) {
-	if (top_field_first) {
-	    if (field) {
-		type = VA_BOTTOM_FIELD;
-	    } else {
-		type = VA_TOP_FIELD;
-	    }
-	} else {
-	    if (field) {
-		type = VA_TOP_FIELD;
-	    } else {
-		type = VA_BOTTOM_FIELD;
-	    }
-	}
-    } else {
-	type = VA_FRAME_PICTURE;
-    }
-*/
 #if VA_CHECK_VERSION(1,1,0)
     // convert the frame into a pair of DRM-PRIME FDs
 
@@ -5304,6 +5279,7 @@ static void VaapiPutSurfaceEGL(VaapiDecoder * decoder, VASurfaceID surface,
     }
     glBindTexture(GL_TEXTURE_2D, 0);
 #endif
+    (void)interlaced; (void)deinterlaced; (void)top_field_first; (void)field;
 }
 
 #endif
