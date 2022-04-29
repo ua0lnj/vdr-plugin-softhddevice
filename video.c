@@ -13867,7 +13867,6 @@ static void CuvidDisplayFrame(void)
     uint64_t first_time = 0;
     static uint64_t last_time;
     int i;
-    static unsigned int Count;
 
     if (VideoSurfaceModesChanged) {	// handle changed modes
 	VideoSurfaceModesChanged = 0;
@@ -13877,7 +13876,6 @@ static void CuvidDisplayFrame(void)
     }
 
     glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
-    glXWaitVideoSyncSGI (2, (Count + 1) % 2, &Count);   // wait for previous frame to swap
     glClear(GL_COLOR_BUFFER_BIT);
 
     // check if surface was displayed for more than 1 frame
@@ -13955,7 +13953,6 @@ static void CuvidDisplayFrame(void)
         }
     }
 
-    glXGetVideoSyncSGI (&Count);    // get current frame
     glXSwapBuffers(XlibDisplay, VideoWindow);
     glXMakeCurrent(XlibDisplay, None, NULL);
 
