@@ -14208,10 +14208,44 @@ static void VideoEvent(void)
 	    Debug(3, "video/event: ReparentNotify\n");
 	    break;
 	case ConfigureNotify:
+	    {
 	    //Debug(3, "video/event: ConfigureNotify\n");
-	    VideoSetVideoMode(event.xconfigure.x, event.xconfigure.y,
-		event.xconfigure.width, event.xconfigure.height);
+	    //get window position and save it
+	    //x11 creates window with title and child window with video
+	    xcb_window_t parent = 0;
+	    int x = 0, y = 0;
+	    xcb_query_tree_cookie_t  cookie;
+	    xcb_query_tree_reply_t *reply = NULL;
+	    xcb_get_geometry_cookie_t geocookie;
+	    xcb_get_geometry_reply_t *georeply = NULL;
+	    //get video window position
+	    geocookie = xcb_get_geometry(Connection, VideoWindow);
+	    georeply = xcb_get_geometry_reply(Connection, geocookie, NULL);
+	    if (georeply) {
+	        x = georeply->x;
+	        y = 8;//georeply->y; //height of window title "softhddevice"
+	        free(georeply);
+	    }
+	    //get parent window
+	    cookie = xcb_query_tree(Connection, VideoWindow);
+	    reply = xcb_query_tree_reply(Connection, cookie, 0);
+	    if (reply) {
+	        parent = reply->parent;
+	        free(reply);
+	    }
+	    //get parent window position
+	    if (parent) {
+	        geocookie = xcb_get_geometry(Connection, parent);
+	        georeply = xcb_get_geometry_reply(Connection, geocookie, NULL);
+	        if (georeply) {
+	            x += georeply->x;
+	            y += georeply->y;
+	            free(georeply);
+	        }
+	    }
+	    VideoSetVideoMode(x, y, event.xconfigure.width, event.xconfigure.height);
 	    break;
+	    }
 	case ButtonPress:
 	    VideoSetFullscreen(-1);
 	    break;
@@ -15794,11 +15828,14 @@ void VideoSetVideoMode( __attribute__ ((unused))
     Debug(4, "video: %s %dx%d%+d%+d\n", __FUNCTION__, width, height, x, y);
 
     if ((unsigned)width == VideoWindowWidth
-	&& (unsigned)height == VideoWindowHeight) {
+	&& (unsigned)height == VideoWindowHeight
+	&& x == VideoWindowX && y == VideoWindowY) {
 	return;				// same size nothing todo
     }
 
     VideoThreadLock();
+    VideoWindowX = x;
+    VideoWindowY = y;
     VideoWindowWidth = width;
     VideoWindowHeight = height;
     VideoUsedModule->SetVideoMode();
