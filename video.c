@@ -440,6 +440,7 @@ static int VideoWindowX;		///< video output window x coordinate
 static int VideoWindowY;		///< video outout window y coordinate
 static unsigned VideoWindowWidth;	///< video output window width
 static unsigned VideoWindowHeight;	///< video output window height
+static char VideoGeometry[25];
 
 static const VideoModule NoopModule;	///< forward definition of noop module
 
@@ -15298,6 +15299,18 @@ int VideoSetGeometry(const char *geometry)
 	&VideoWindowHeight);
 
     return 0;
+}
+
+///
+///	Get video geometry.
+///
+///	@param geometry	 [=][<width>{xX}<height>][{+-}<xoffset>{+-}<yoffset>]
+///
+const char *VideoGetGeometry(void)
+{
+    snprintf(VideoGeometry, sizeof(VideoGeometry), "%dx%d%+d%+d", VideoWindowWidth, VideoWindowHeight, VideoWindowX, VideoWindowY);
+
+    return VideoGeometry;
 }
 
 ///

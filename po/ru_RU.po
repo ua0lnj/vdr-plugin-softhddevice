@@ -476,6 +476,9 @@ msgstr "Сделать основным устройством"
 msgid "Hide main menu entry"
 msgstr "Скрыть в основном меню"
 
+msgid "Store video geometry"
+msgstr "Сохранить геометрию видео"
+
 msgid "Osd size"
 msgstr "OSD размер"
 

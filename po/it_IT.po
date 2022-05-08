@@ -471,6 +471,9 @@ msgstr "Utilizza come dispositivo primario"
 msgid "Hide main menu entry"
 msgstr "Nascondi voce nel menu principale"
 
+msgid "Store video geometry"
+msgstr ""
+
 msgid "Osd size"
 msgstr "Dimensione OSD"
 

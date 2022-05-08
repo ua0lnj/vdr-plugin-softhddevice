@@ -476,6 +476,9 @@ msgstr "Erzeuge primäres Gerät"
 msgid "Hide main menu entry"
 msgstr "Verstecke Hauptmenüeintrag"
 
+msgid "Store video geometry"
+msgstr ""
+
 msgid "Osd size"
 msgstr "OSD Größe"
 
