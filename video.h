@@ -125,6 +125,9 @@ extern int VideoIsDriverCuvid(void);
     /// Set video geometry.
 extern int VideoSetGeometry(const char *);
 
+    /// Get video geometry.
+extern const char *VideoGetGeometry(void);
+
     /// Set 60Hz display mode.
 extern void VideoSet60HzMode(int);
 

@@ -64,7 +64,7 @@ extern "C"
     /// vdr-plugin version number.
     /// Makefile extracts the version number for generating the file name
     /// for the distribution archive.
-static const char *const VERSION = "1.6.0"
+static const char *const VERSION = "1.7.0"
 #ifdef GIT_REV
     "-GIT" GIT_REV
 #endif
@@ -163,6 +163,7 @@ static int ConfigAudioAutoAES;		///< config automatic AES handling
 static char *ConfigX11Display;		///< config x11 display
 static char *ConfigAudioDevice;		///< config audio stereo device
 static char *ConfigPassthroughDevice;	///< config audio pass-through device
+static const char *ConfigVideoGeometry;
 
 #ifdef USE_PIP
 static int ConfigPipX = 100 - 3 - 18;	///< config pip pip x in %
@@ -960,6 +961,7 @@ class cMenuSetupSoft:public cMenuSetupPage
     int General;
     int MakePrimary;
     int HideMainMenuEntry;
+    int StoreVideoGeometry;
     int DetachFromMainMenu;
     int OsdSize;
     int OsdWidth;
@@ -1152,6 +1154,8 @@ void cMenuSetupSoft::Create(void)
 		trVDR("no"), trVDR("yes")));
 	Add(new cMenuEditBoolItem(tr("Hide main menu entry"),
 		&HideMainMenuEntry, trVDR("no"), trVDR("yes")));
+	Add(new cMenuEditBoolItem(tr("Store video geometry"),
+		&StoreVideoGeometry, trVDR("no"), trVDR("yes")));
 	//
 	//	osd
 	//
@@ -1461,6 +1465,11 @@ cMenuSetupSoft::cMenuSetupSoft(void)
     General = 0;
     MakePrimary = ConfigMakePrimary;
     HideMainMenuEntry = ConfigHideMainMenuEntry;
+    if (ConfigVideoGeometry && strlen(ConfigVideoGeometry)) {
+	StoreVideoGeometry = 1;
+    } else {
+	StoreVideoGeometry = 0;
+    }
     DetachFromMainMenu = ConfigDetachFromMainMenu;
     //
     //	osd
@@ -1617,6 +1626,10 @@ void cMenuSetupSoft::Store(void)
     SetupStore("MakePrimary", ConfigMakePrimary = MakePrimary);
     SetupStore("HideMainMenuEntry", ConfigHideMainMenuEntry =
 	HideMainMenuEntry);
+    if (StoreVideoGeometry) {
+	SetupStore("VideoGeometry", ConfigVideoGeometry = VideoGetGeometry());
+    } else
+	SetupStore("VideoGeometry", ConfigVideoGeometry = "");
     SetupStore("DetachFromMainMenu", ConfigDetachFromMainMenu =
 	DetachFromMainMenu);
     switch (OsdSize) {
@@ -3375,7 +3388,8 @@ bool cPluginSoftHdDevice::Start(void)
 void cPluginSoftHdDevice::Stop(void)
 {
     //Debug(3, "[softhddev]%s:\n", __FUNCTION__);
-
+    if (ConfigVideoGeometry && strlen(ConfigVideoGeometry))
+        SetupStore("VideoGeometry", VideoGetGeometry());
     ::Stop();
     delete csoft;
     csoft = NULL;
@@ -3473,6 +3487,11 @@ bool cPluginSoftHdDevice::SetupParse(const char *name, const char *value)
     }
     if (!strcasecmp(name, "HideMainMenuEntry")) {
 	ConfigHideMainMenuEntry = atoi(value);
+	return true;
+    }
+    if (!strcasecmp(name, "VideoGeometry")) {
+	ConfigVideoGeometry = value;
+	VideoSetGeometry(ConfigVideoGeometry);
 	return true;
     }
     if (!strcasecmp(name, "DetachFromMainMenu")) {

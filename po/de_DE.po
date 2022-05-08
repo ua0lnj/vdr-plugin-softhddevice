@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: VDR \n"
 "Report-Msgid-Bugs-To: <see README>\n"
-"POT-Creation-Date: 2022-03-07 19:24+1000\n"
+"POT-Creation-Date: 2022-05-08 00:31+1000\n"
 "PO-Revision-Date: blabla\n"
 "Last-Translator: blabla\n"
 "Language-Team: blabla\n"
@@ -36,7 +36,9 @@ msgid "audio/alsa: snd_pcm_avail_update(): %s\n"
 msgstr ""
 
 #, c-format
-msgid "audio/alsa: broken driver %d state '%s'\n"
+msgid ""
+"audio/alsa: broken driver state '%s', retries: %d, avail: %d\n"
+"\n"
 msgstr ""
 
 #, c-format
@@ -473,6 +475,9 @@ msgstr "Erzeuge primäres Gerät"
 
 msgid "Hide main menu entry"
 msgstr "Verstecke Hauptmenüeintrag"
+
+msgid "Store video geometry"
+msgstr ""
 
 msgid "Osd size"
 msgstr "OSD Größe"
