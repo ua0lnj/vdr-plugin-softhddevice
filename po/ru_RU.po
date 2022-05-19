@@ -467,6 +467,18 @@ msgstr "ручной"
 msgid "None"
 msgstr "Нет"
 
+msgid "Shutdown VDR"
+msgstr "Выключить VDR"
+
+msgid "Suspend SoftHdDevice"
+msgstr "Приостановить SoftHdDevice"
+
+msgid "Detach SoftHdDevice"
+msgstr "Отцепить SoftHdDevice"
+
+msgid "Ignore"
+msgstr "Игнорировать"
+
 msgid "General"
 msgstr "Основное"
 
@@ -478,6 +490,9 @@ msgstr "Скрыть в основном меню"
 
 msgid "Store video geometry"
 msgstr "Сохранить геометрию видео"
+
+msgid "Do on window close"
+msgstr "Cделать при закрытии окна"
 
 msgid "Osd size"
 msgstr "OSD размер"
@@ -717,12 +732,6 @@ msgstr ""
 
 msgid "Channel not available!"
 msgstr "Канал не доступен!"
-
-msgid "Detach SoftHdDevice"
-msgstr "Отцепить SoftHdDevice"
-
-msgid "Suspend SoftHdDevice"
-msgstr "Приостановить SoftHdDevice"
 
 msgid "PIP toggle on/off: off"
 msgstr "PIP выключить"

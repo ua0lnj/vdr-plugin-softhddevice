@@ -64,7 +64,7 @@ extern "C"
     /// vdr-plugin version number.
     /// Makefile extracts the version number for generating the file name
     /// for the distribution archive.
-static const char *const VERSION = "1.7.0"
+static const char *const VERSION = "1.8.0"
 #ifdef GIT_REV
     "-GIT" GIT_REV
 #endif
@@ -91,6 +91,7 @@ static const char *const Resolution[RESOLUTIONS] = {
 
 static char ConfigMakePrimary;		///< config primary wanted
 static char ConfigHideMainMenuEntry;	///< config hide main menu entry
+static char ConfigDoOnWindowClose;	///< do on video window close
 static char ConfigDetachFromMainMenu;	///< detach from main menu entry instead of suspend
 static char ConfigSuspendClose;		///< suspend should close devices
 static char ConfigSuspendX11;		///< suspend should stop x11
@@ -959,6 +960,7 @@ class cMenuSetupSoft:public cMenuSetupPage
     int MakePrimary;
     int HideMainMenuEntry;
     int StoreVideoGeometry;
+    int DoOnWindowClose;
     int DetachFromMainMenu;
     int OsdSize;
     int OsdWidth;
@@ -1111,6 +1113,9 @@ void cMenuSetupSoft::Create(void)
     static const char *const resolution[RESOLUTIONS] = {
 	"576i", "720p", "fake 1080i", "1080i", "UHD"
     };
+    static const char *const closing[] = {
+	tr("Shutdown VDR"), tr("Suspend SoftHdDevice"),tr("Detach SoftHdDevice"), tr("Ignore"),
+    };
     int current;
     int i;
     const char* *scaling;
@@ -1153,6 +1158,8 @@ void cMenuSetupSoft::Create(void)
 		&HideMainMenuEntry, trVDR("no"), trVDR("yes")));
 	Add(new cMenuEditBoolItem(tr("Store video geometry"),
 		&StoreVideoGeometry, trVDR("no"), trVDR("yes")));
+	Add(new cMenuEditStraItem(tr("Do on window close"),
+		&DoOnWindowClose, 4, closing));
 	//
 	//	osd
 	//
@@ -1466,6 +1473,7 @@ cMenuSetupSoft::cMenuSetupSoft(void)
     } else {
 	StoreVideoGeometry = 0;
     }
+    DoOnWindowClose = ConfigDoOnWindowClose;
     DetachFromMainMenu = ConfigDetachFromMainMenu;
     //
     //	osd
@@ -1627,6 +1635,8 @@ void cMenuSetupSoft::Store(void)
 	SetupStore("VideoGeometry", ConfigVideoGeometry = VideoGetGeometry());
     } else
 	SetupStore("VideoGeometry", ConfigVideoGeometry = "");
+    SetupStore("DoOnWindowClose", ConfigDoOnWindowClose =
+	DoOnWindowClose);
     SetupStore("DetachFromMainMenu", ConfigDetachFromMainMenu =
 	DetachFromMainMenu);
     switch (OsdSize) {
@@ -3489,6 +3499,10 @@ bool cPluginSoftHdDevice::SetupParse(const char *name, const char *value)
 	VideoSetGeometry(ConfigVideoGeometry);
 	return true;
     }
+    if (!strcasecmp(name, "DoOnWindowClose")) {
+	ConfigDoOnWindowClose = atoi(value);
+	return true;
+    }
     if (!strcasecmp(name, "DetachFromMainMenu")) {
 	ConfigDetachFromMainMenu = atoi(value);
 	return true;
@@ -3986,7 +4000,7 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command,
 	cControl::Launch(new cSoftHdControl);
 	cControl::Attach();
 #ifdef USE_OPENGLOSD
-	dsyslog("[softhddev]stopping Ogl Thread svdrp STAT");
+	dsyslog("[softhddev]stopping Ogl Thread svdrp SUSP");
 	cSoftOsdProvider::StopOpenGlThread();
 #endif
 	Suspend(ConfigSuspendClose, ConfigSuspendClose, ConfigSuspendX11);
@@ -4137,6 +4151,35 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command,
     }
 
     return NULL;
+}
+
+extern "C" void Shutdown(void)
+{
+	switch(ConfigDoOnWindowClose) {
+	    case 0:
+		ShutdownHandler.Exit(0);
+		break;
+	    case 1:
+#ifdef USE_OPENGLOSD
+		dsyslog("[softhddev]stopping Ogl Thread DoOnWindowClose SUSP");
+		cSoftOsdProvider::StopOpenGlThread();
+#endif
+		Suspend(ConfigSuspendClose, ConfigSuspendClose, ConfigSuspendX11);
+		SuspendMode = SUSPEND_NORMAL;
+		break;
+	    case 2:
+#ifdef USE_OPENGLOSD
+		dsyslog("[softhddev]stopping Ogl Thread DoOnWindowClose DETA");
+		cSoftOsdProvider::StopOpenGlThread();
+#endif
+		Suspend(1, 1, 0);
+		SuspendMode = SUSPEND_DETACHED;
+		break;
+	    case 3:
+	    default:
+		break;
+	}
+
 }
 
 VDRPLUGINCREATOR(cPluginSoftHdDevice);	// Don't touch this!

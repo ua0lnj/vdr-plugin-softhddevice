@@ -467,6 +467,18 @@ msgstr ""
 msgid "None"
 msgstr ""
 
+msgid "Shutdown VDR"
+msgstr ""
+
+msgid "Suspend SoftHdDevice"
+msgstr "Unterbreche SoftHdDevice"
+
+msgid "Detach SoftHdDevice"
+msgstr ""
+
+msgid "Ignore"
+msgstr ""
+
 msgid "General"
 msgstr "Allgemeines"
 
@@ -477,6 +489,9 @@ msgid "Hide main menu entry"
 msgstr "Verstecke Hauptmenüeintrag"
 
 msgid "Store video geometry"
+msgstr ""
+
+msgid "Do on window close"
 msgstr ""
 
 msgid "Osd size"
@@ -717,12 +732,6 @@ msgstr ""
 
 msgid "Channel not available!"
 msgstr "Kanal nicht verfügbar!"
-
-msgid "Detach SoftHdDevice"
-msgstr ""
-
-msgid "Suspend SoftHdDevice"
-msgstr "Unterbreche SoftHdDevice"
 
 msgid "PIP toggle on/off: off"
 msgstr "PIP deaktivieren"
