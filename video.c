@@ -15000,7 +15000,7 @@ static void VideoEvent(void)
 	    Debug(3, "video/event: ClientMessage\n");
 	    if (event.xclient.data.l[0] == (long)WmDeleteWindowAtom) {
 		Debug(3, "video/event: wm-delete-message\n");
-		FeedKeyPress("XKeySym", "Close", 0, 0, NULL);
+		Shutdown();
 	    }
 	    break;
 
@@ -16002,8 +16002,7 @@ static void VideoCreateWindow(xcb_window_t parent, xcb_visualid_t visual,
 	sizeof("softhddevice") - 1, "softhddevice");
 #endif
 
-    // FIXME: size hints
-#if 0
+#if 1
     // register interest in the delete window message
     if ((reply =
 	    xcb_intern_atom_reply(Connection, xcb_intern_atom(Connection, 0,

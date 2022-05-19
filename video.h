@@ -330,4 +330,7 @@ extern void SetDPMSatBlackScreen(int);
     /// Raise the frontend window
 extern int VideoRaiseWindow(void);
 
+    /// Shutdown vdr
+extern void Shutdown(void);
+
 /// @}
