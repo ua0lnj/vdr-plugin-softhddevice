@@ -22,7 +22,7 @@ A software and GPU emulated UHD output device plugin for VDR.
 Only 8-bit output now.
 
     o Video decoder CPU / VA-API / VDPAU / CUVID
-    o Video output VA-API / VDPAU / GLX (VA-API / CUVID) / EGL (VA-API)
+    o Video output VA-API / VDPAU / GLX (VA-API / CUVID) / EGL (VA-API / CUVID)
     o OSD accelerated by GPU VDPAU / CUVID / VA-API-GLX/EGL
     o Audio FFMpeg / Alsa / Analog
     o Audio FFMpeg / Alsa / Digital
@@ -314,7 +314,7 @@ Commandline:
     -f 			start with fullscreen window (only with window manager)
     -g geometry		x11 window geometry wxh+x+y
     -l loglevel		set the log level (0=none, 1=errors, 2=info, 3=debug)
-    -v device		video driver device (va-api, va-api-glx, va-api-egl, vdpau, cuvid, noop)
+    -v device		video driver device (va-api, va-api-glx, va-api-egl, vdpau, cuvid, cuvid-egl, noop)
     -s 			start in suspended mode
     -x 			start x11 server, with -xx try to connect, if this fails
     -X args		X11 server arguments (f.e. -nocursor)
@@ -442,4 +442,4 @@ Optional:
 
 Note:
 	For old Intel video use va-api and va-api-glx. For newest Intel video use va-api-egl.
-	For old Nvidia video use vdpau. For newest Nvidia video use cuvid.
+	For old Nvidia video use vdpau. For newest Nvidia video use cuvid and cuvid-egl.
