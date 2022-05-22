@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: VDR \n"
 "Report-Msgid-Bugs-To: <see README>\n"
-"POT-Creation-Date: 2022-05-19 00:45+1000\n"
+"POT-Creation-Date: 2022-05-21 21:03+1000\n"
 "PO-Revision-Date: \n"
 "Last-Translator: fiveten_59\n"
 "Language-Team: fiveten_59\n"
@@ -1526,6 +1526,9 @@ msgid "Could not get CUDA device\n"
 msgstr ""
 
 msgid "video/cuvid: Start CUVID ok\n"
+msgstr ""
+
+msgid "video/cuvid: EGL error\n"
 msgstr ""
 
 msgid "video/cuvid: no valid cuvid pixfmt found\n"

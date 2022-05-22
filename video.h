@@ -254,6 +254,10 @@ extern void *GetVDPAUOsdOutputSurface(void);
 #ifdef USE_CUVID
 extern void *GetCuvidOsdOutputTexture(unsigned int);
 extern int CuvidInitGlx(void);
+#ifdef USE_EGL
+extern void *GetCuvidEglOsdOutputTexture(unsigned int);
+extern int CuvidInitEgl(void);
+#endif
 #endif
 #ifdef USE_VAAPI
 #ifdef USE_GLX

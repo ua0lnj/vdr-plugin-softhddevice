@@ -843,7 +843,7 @@ static GLuint OsdGlTextures[2];		///< gl texture for OSD
 static GLuint OsdGlTexture = 0;		///< texture for openglosd
 static int OsdIndex;			///< index into OsdGlTextures
 static GLint maxTextureSize;
-static void GlxCheck(void);
+static void GlCheck(void);
 
 
 GLuint vao_buffer, grab_buffer;
@@ -1921,6 +1921,18 @@ static void EglExit(void)
 }
 
 #endif
+
+void GlCheck(void)
+{
+#ifdef USE_GLX
+    if (GlxEnabled)
+        GlxCheck();
+#endif
+#ifdef USE_EGL
+    if (EglEnabled)
+        EglCheck();
+#endif
+}
 
 //----------------------------------------------------------------------------
 //	common functions
@@ -12532,15 +12544,22 @@ void CuvidCreateGlTexture(CuvidDecoder * decoder, unsigned int size_x, unsigned 
 {
     int n, i, ret;
 
-    glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
-    GlxCheck();
-
+    if (GlxEnabled) {
+        glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
+        GlxCheck();
+    }
+#ifdef USE_EGL
+    if (EglEnabled) {
+        eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EglThreadContext);
+        EglCheck();;
+    }
+#endif
     glGenBuffers(1,&vao_buffer);
-    GlxCheck();
+    GlCheck();
     // create texture planes
     for (n = 0; n < 2; n++) {       // number of planes
         glGenTextures(CODEC_SURFACES_MAX, decoder->gl_textures[n]);
-        GlxCheck();
+        GlCheck();
     }
     Debug(3,"video/cuvid: create %d Textures Format %s w %d h %d \n",
         decoder->SurfacesNeeded, decoder->PixFmt != AV_PIX_FMT_P010LE ? "NV12/YV12" : "P010", size_x, size_y);
@@ -12549,7 +12568,7 @@ void CuvidCreateGlTexture(CuvidDecoder * decoder, unsigned int size_x, unsigned 
         for (n = 0; n < 2; n++) {   // number of planes
 
             glBindTexture(GL_TEXTURE_2D, decoder->gl_textures[i][n]);
-            GlxCheck();
+            GlCheck();
             // set basic parameters
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -12562,7 +12581,7 @@ void CuvidCreateGlTexture(CuvidDecoder * decoder, unsigned int size_x, unsigned 
                 glTexImage2D(GL_TEXTURE_2D, 0, n == 0 ? GL_R16 : GL_RG16, n == 0 ? size_x : size_x/2, n == 0 ? size_y : size_y/2, 0,
                     n == 0 ? GL_RED : GL_RG, GL_UNSIGNED_SHORT, NULL);
 
-            GlxCheck();
+            GlCheck();
             // register this texture with CUDA, not need for software decoder YV12
             if (decoder->PixFmt == AV_PIX_FMT_NV12 || decoder->PixFmt == AV_PIX_FMT_P010LE) {
                 ret = CUStatus(cu->cuGraphicsGLRegisterImage(&decoder->cu_res[i][n], decoder->gl_textures[i][n],
@@ -12582,7 +12601,7 @@ void CuvidCreateGlTexture(CuvidDecoder * decoder, unsigned int size_x, unsigned 
         }
     }
     glBindTexture(GL_TEXTURE_2D, 0);
-    GlxCheck();
+    GlCheck();
 }
 
 ///
@@ -12628,10 +12647,20 @@ static void CuvidUnregisterSurface(CuvidDecoder * decoder)
     //not need for softdecoder
     if (decoder->PixFmt != AV_PIX_FMT_NV12 && decoder->PixFmt != AV_PIX_FMT_P010LE) return;
 
-    if(GlxThreadContext){
-        glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
-        GlxCheck();
+    if(GlxEnabled) {
+        if(GlxThreadContext){
+            glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
+            GlxCheck();
+        }
     }
+#ifdef USE_EGL
+    if (EglEnabled) {
+        if(EglThreadContext){
+            eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EglThreadContext);
+            EglCheck();
+        }
+    }
+#endif
     for (i = 0; i < decoder->SurfacesNeeded; i++) {
         for (n = 0; n < 2; n++) {   // number of planes
             if (decoder->cu_res[i][n]) {
@@ -12651,14 +12680,23 @@ static void CuvidDestroySurfaces(CuvidDecoder * decoder)
 {
     int i;
 
-    if(GlxThreadContext){
-        glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
-        GlxCheck();
+    if(GlxEnabled) {
+        if(GlxThreadContext){
+            glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
+            GlxCheck();
+        }
     }
-
+#ifdef USE_EGL
+    if (EglEnabled) {
+        if(EglThreadContext){
+            eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EglThreadContext);
+            EglCheck();;
+        }
+    }
+#endif
     for (i = 0; i < 2; i++) {       // number of planes
         glDeleteTextures(CODEC_SURFACES_MAX, decoder->gl_textures[i]);
-        GlxCheck();
+        GlCheck();
     }
     if (decoder == CuvidDecoders[0]) {   // only when last decoder closes
         Debug(3,"Last decoder closes\n");
@@ -12985,6 +13023,54 @@ static int CuvidInit(const char *display_name)
     return 1;
 }
 
+#ifdef USE_EGL
+static int CuvidEglInit(const char *display_name)
+{
+    int ret;
+
+    Info(_("video/cuvid: Start CUVID\n"));
+
+    EglEnabled = 1;
+
+    EglInit();
+    if (EglEnabled) {
+	EglSetupWindow(VideoWindow, VideoWindowWidth, VideoWindowHeight,
+	    EglSharedContext);
+    }
+    if (!EglEnabled) {
+        Error(_("video/cuvid: EGL error\n"));
+        return 0;
+    }
+    if (!cu) {
+        ret = cuda_load_functions(&cu, NULL);
+        if (ret < 0) {
+            Error(_("Could not dynamically load CUDA\n"));
+            return 0;
+        }
+    }
+    ret = CUStatus(cu->cuInit(0));
+    if (ret < 0) {
+        Error(_("Could not init CUDA device\n"));
+        return 0;
+    }
+    ret = CUStatus(cu->cuDeviceGet(&CuvidDevice, 0));
+    if (ret < 0) {
+        Error(_("Could not get CUDA device\n"));
+        return 0;
+    }
+    pthread_mutex_init(&CuvidGrabMutex, NULL);
+#ifdef USE_GRAB
+    glGenBuffers(1,&grab_buffer);
+    EglCheck();
+#endif
+    Info(_("video/cuvid: Start CUVID ok\n"));
+
+    (void)display_name;
+    return 1;
+}
+#endif
+
+
 ///
 ///	CUVID cleanup.
 ///
@@ -13260,9 +13346,19 @@ static uint8_t *CuvidGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int 
 	    return NULL;
 	}
 
-	glXMakeCurrent(XlibDisplay, VideoWindow, GlxSharedContext);
-	GlxCheck();
-
+        if (GlxEnabled) {
+	    glXMakeCurrent(XlibDisplay, VideoWindow, GlxSharedContext);
+	    GlxCheck();
+        }
+#ifdef USE_EGL
+        if (EglEnabled) {
+	    free(pixels);
+	    free(base);
+	    return NULL;
+//            eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EglSharedContext);
+//            EglCheck();
+        }
+#endif
 	glBindBuffer(GL_PIXEL_PACK_BUFFER, grab_buffer);
 	glBufferData(GL_PIXEL_PACK_BUFFER, VideoWindowWidth * VideoWindowHeight * 4 * sizeof(GLubyte), NULL, GL_STREAM_READ);
 
@@ -13281,9 +13377,16 @@ static uint8_t *CuvidGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int 
 	}
 
 	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-	glXMakeCurrent(XlibDisplay, None, NULL);
-	GlxCheck();
-
+        if (GlxEnabled) {
+	    glXMakeCurrent(XlibDisplay, None, NULL);
+	    GlxCheck();
+        }
+#ifdef USE_EGL
+        if (EglEnabled) {
+            eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+            EglCheck();
+        }
+#endif
 	scalew = (double)VideoWindowWidth / width;
 	scaleh = (double)VideoWindowHeight / height;
 
@@ -13724,19 +13827,27 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
             memcpy(outUV + i * 2, frame->data[1] + i, 1); // For NV12, U first
             memcpy(outUV + i * 2 + 1, frame->data[2] + i, 1); // For NV12, V second
         }
-        glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
-        GlxCheck();
 
+        if(GlxEnabled) {
+            glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
+            GlxCheck();
+        }
+#ifdef USE_EGL
+        if (EglEnabled) {
+            eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EglThreadContext);
+            EglCheck();
+        }
+#endif
         //Y
         glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[0]);
         glTextureSubImage2D(decoder->gl_textures[surface][0], 0, 0, 0, decoder->InputWidth,
             decoder->InputHeight, GL_RED, GL_UNSIGNED_BYTE, frame->data[0]);
-        GlxCheck();
+        GlCheck();
         //UV
         glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[1]);
         glTextureSubImage2D(decoder->gl_textures[surface][1], 0, 0, 0, decoder->InputWidth/2,
             decoder->InputHeight/2, GL_RG, GL_UNSIGNED_BYTE, outUV);
-        GlxCheck();
+        GlCheck();
 
         Debug(4, "video/cuvid: sw render hw surface %#08x\n", surface);
 
@@ -13876,9 +13987,16 @@ static void CuvidDisplayFrame(void)
 	}
     }
 
-    glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
-    glClear(GL_COLOR_BUFFER_BIT);
-
+    if (GlxEnabled) {
+	glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
+	glClear(GL_COLOR_BUFFER_BIT);
+    }
+#ifdef USE_EGL
+    if (EglEnabled) {
+	eglMakeCurrent(EglDisplay, EglSurface, EglSurface, EglThreadContext);
+	glClear(GL_COLOR_BUFFER_BIT);
+    }
+#endif
     // check if surface was displayed for more than 1 frame
     // FIXME: 21 only correct for 50Hz
     if (last_time && first_time > last_time + 21 * 1000 * 1000) {
@@ -13938,25 +14056,46 @@ static void CuvidDisplayFrame(void)
     //
     //	add osd to surface
     //
-    if (OsdShown) {
+    if(GlxEnabled) {
+        if (OsdShown) {
             glViewport(0, 0, VideoWindowWidth, VideoWindowHeight);
             glMatrixMode(GL_PROJECTION);
             glLoadIdentity();
             glOrtho(0.0, VideoWindowWidth, VideoWindowHeight, 0.0, -1.0, 1.0);
             GlxCheck();
 #ifdef USE_OPENGLOSD
-        if(!DisableOglOsd && OsdGlTexture) {
-            GlxRenderTexture(OsdGlTexture, 0,0, VideoWindowWidth, VideoWindowHeight);
-        } else
+            if(!DisableOglOsd && OsdGlTexture) {
+                GlxRenderTexture(OsdGlTexture, 0,0, VideoWindowWidth, VideoWindowHeight);
+            } else
 #endif
-        {
-            GlxRenderTexture(OsdGlTextures[OsdIndex], 0,0, VideoWindowWidth, VideoWindowHeight);
+                GlxRenderTexture(OsdGlTextures[OsdIndex], 0,0, VideoWindowWidth, VideoWindowHeight);
         }
+
+        glXSwapBuffers(XlibDisplay, VideoWindow);
+        glXMakeCurrent(XlibDisplay, None, NULL);
     }
+#ifdef USE_EGL
+    if (EglEnabled) {
+	if (OsdShown) {
+            glViewport(0, 0, VideoWindowWidth, VideoWindowHeight);
+            glMatrixMode(GL_PROJECTION);
+            glLoadIdentity();
+            glOrtho(0.0, VideoWindowWidth, VideoWindowHeight, 0.0, -1.0, 1.0);
+            EglCheck();
+#ifdef USE_OPENGLOSD
+            if(!DisableOglOsd && OsdGlTexture) {
+                EglRenderTexture(OsdGlTexture, 0,0, VideoWindowWidth, VideoWindowHeight);
+            } else
+#endif
+	    EglRenderTexture(OsdGlTextures[OsdIndex], 0, 0, VideoWindowWidth, VideoWindowHeight);
+	}
 
-    glXSwapBuffers(XlibDisplay, VideoWindow);
-    glXMakeCurrent(XlibDisplay, None, NULL);
-
+	eglSwapBuffers(EglDisplay, EglSurface);
+	EglCheck();
+	eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+	EglCheck();
+    }
+#endif
     // FIXME: CLOCK_MONOTONIC_RAW
     clock_gettime(CLOCK_MONOTONIC, &CuvidFrameTime);
     for (i = 0; i < CuvidDecoderN; ++i) {
@@ -14562,6 +14701,92 @@ static const VideoModule CuvidModule = {
     .Init = CuvidInit,
     .Exit = CuvidExit,
 };
+
+//----------------------------------------------------------------------------
+//	CUVID OSD USE EGL
+//----------------------------------------------------------------------------
+#ifdef USE_EGL
+
+#ifdef USE_OPENGLOSD
+void *GetCuvidEglOsdOutputTexture(GLuint texture) {
+    OsdGlTexture = texture;
+    return 0;
+}
+
+int CuvidInitEgl(void) {
+    int a = 0;
+
+    if (!EglEnabled) {
+        Debug(3,"video/osd: can't create egl context\n");
+        return 0;
+    }
+    //after run an external player from time to time vdr not set playmode 1
+    //then try start EGL forced.
+    //is it a vdr bug or external player plugin???
+    while (!EglContext || !EglThreadContext){
+        usleep(1000);
+        a++;
+        if (a > 10 && a < 1000) {
+            Debug(3,"Try start EGL forced\n");
+            VideoDisplayWakeup();
+            a = 1000;
+        }
+        if (a > 1010) return 0;
+    }
+    Debug(3,"Create OSD EGL context\n");
+    eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+    eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EglContext);
+    return 1;
+}
+#endif
+
+///
+///	CUVID EGL module.
+///
+static const VideoModule CuvidEglModule = {
+    .Name = "cuvid-egl",
+    .Enabled = 1,
+    .NewHwDecoder =
+	(VideoHwDecoder * (*const)(VideoStream *)) CuvidNewHwDecoder,
+    .DelHwDecoder = (void (*const) (VideoHwDecoder *))CuvidDelHwDecoder,
+    .GetSurface = (unsigned (*const) (VideoHwDecoder *,
+	    const AVCodecContext *))CuvidGetSurface,
+    .ReleaseSurface =
+	(void (*const) (VideoHwDecoder *, unsigned))CuvidReleaseSurface,
+    .UnregisterSurface =
+	(void (*const) (VideoHwDecoder *))CuvidUnregisterSurface,
+    .get_format = (enum AVPixelFormat(*const) (VideoHwDecoder *,
+	    AVCodecContext *, const enum AVPixelFormat *))Cuvid_get_format,
+    .RenderFrame = (void (*const) (VideoHwDecoder *,
+	    const AVCodecContext *, const AVFrame *))CuvidSyncRenderFrame,
+    .GetHwAccelContext = (void *(*const)(VideoHwDecoder *))
+	CuvidGetHwAccelContext,
+    .SetClock = (void (*const) (VideoHwDecoder *, int64_t))CuvidSetClock,
+    .GetClock = (int64_t(*const) (const VideoHwDecoder *))CuvidGetClock,
+    .SetClosing = (void (*const) (const VideoHwDecoder *))CuvidSetClosing,
+    .ResetStart = (void (*const) (const VideoHwDecoder *))CuvidResetStart,
+    .SetTrickSpeed =
+	(void (*const) (const VideoHwDecoder *, int))CuvidSetTrickSpeed,
+#ifdef USE_GRAB
+    .GrabOutput = CuvidGrabOutputSurface,
+#endif
+    .GetStats = (void (*const) (VideoHwDecoder *, int *, int *, int *,
+	    int *))CuvidGetStats,
+    .SetBackground = CuvidSetBackground,
+    .SetVideoMode = CuvidSetVideoMode,
+#ifdef USE_AUTOCROP
+    .ResetAutoCrop = CuvidResetAutoCrop,
+#endif
+    .DisplayHandlerThread = CuvidDisplayHandlerThread,
+    .OsdClear = EglOsdClear,
+    .OsdDrawARGB = EglOsdDrawARGB,
+    .OsdInit = EglOsdInit,
+    .OsdExit = EglOsdExit,
+    .MaxPixmapSize = EglMaxPixmapSize,
+    .Init = CuvidEglInit,
+    .Exit = CuvidExit,
+};
+#endif
 
 #endif
 
@@ -15314,6 +15539,9 @@ static const VideoModule *VideoModules[] = {
 #endif
 #ifdef USE_CUVID
     &CuvidModule,
+#ifdef USE_EGL
+    &CuvidEglModule,
+#endif
 #endif
     &NoopModule
 };
@@ -15801,7 +16029,11 @@ void VideoGetVideoSize(VideoHwDecoder * hw_decoder, int *width, int *height,
     }
 #endif
 #ifdef USE_CUVID
-    if (VideoUsedModule == &CuvidModule) {
+    if (VideoUsedModule == &CuvidModule
+#ifdef USE_EGL
+    || VideoUsedModule == &CuvidEglModule
+#endif
+    ) {
 	*width = hw_decoder->Cuvid.InputWidth;
 	*height = hw_decoder->Cuvid.InputHeight;
 	av_reduce(aspect_num, aspect_den,
@@ -16122,7 +16354,11 @@ int VideoIsDriverVaapi(void)
 int VideoIsDriverCuvid(void)
 {
 #ifdef USE_CUVID
-    if (VideoUsedModule == &CuvidModule) {
+    if (VideoUsedModule == &CuvidModule
+#ifdef USE_EGL
+    || VideoUsedModule == &CuvidEglModule
+#endif
+    ) {
 	return 1;
     }
 #endif
@@ -16281,7 +16517,11 @@ int VideoGetBrightnessConfig(int *minvalue, int *defvalue, int *maxvalue)
     }
 #endif
 #ifdef USE_CUVID
-    if (VideoUsedModule == &CuvidModule) {
+    if (VideoUsedModule == &CuvidModule
+#ifdef USE_EGL
+    || VideoUsedModule == &CuvidEglModule
+#endif
+    ) {
 	*minvalue = CuvidConfigBrightness.min_value;
 	*defvalue = CuvidConfigBrightness.def_value;
 	*maxvalue = CuvidConfigBrightness.max_value;
@@ -16356,7 +16596,11 @@ int VideoGetContrastConfig(int *minvalue, int *defvalue, int *maxvalue)
     }
 #endif
 #ifdef USE_CUVID
-    if (VideoUsedModule == &CuvidModule) {
+    if (VideoUsedModule == &CuvidModule
+#ifdef USE_EGL
+    || VideoUsedModule == &CuvidEglModule
+#endif
+    ) {
 	*minvalue = CuvidConfigContrast.min_value;
 	*defvalue = CuvidConfigContrast.def_value;
 	*maxvalue = CuvidConfigContrast.max_value;
@@ -16431,7 +16675,11 @@ int VideoGetSaturationConfig(int *minvalue, int *defvalue, int *maxvalue)
     }
 #endif
 #ifdef USE_CUVID
-    if (VideoUsedModule == &CuvidModule) {
+    if (VideoUsedModule == &CuvidModule
+#ifdef USE_EGL
+    || VideoUsedModule == &CuvidEglModule
+#endif
+    ) {
 	*minvalue = CuvidConfigSaturation.min_value;
 	*defvalue = CuvidConfigSaturation.def_value;
 	*maxvalue = CuvidConfigSaturation.max_value;
@@ -16505,7 +16753,11 @@ int VideoGetHueConfig(int *minvalue, int *defvalue, int *maxvalue)
     }
 #endif
 #ifdef USE_CUVID
-    if (VideoUsedModule == &CuvidModule) {
+    if (VideoUsedModule == &CuvidModule
+#ifdef USE_EGL
+    || VideoUsedModule == &CuvidEglModule
+#endif
+    ) {
 	*minvalue = CuvidConfigHue.min_value;
 	*defvalue = CuvidConfigHue.def_value;
 	*maxvalue = CuvidConfigHue.max_value;
@@ -16541,7 +16793,11 @@ void VideoSetSkinToneEnhancement(int stde)
     }
 #endif
 #ifdef USE_CUVID
-    if (VideoUsedModule == &CuvidModule) {
+    if (VideoUsedModule == &CuvidModule
+#ifdef USE_EGL
+    || VideoUsedModule == &CuvidEglModule
+#endif
+    ) {
 	VideoSkinToneEnhancement = VideoConfigClamp(&CuvidConfigStde, stde);
     }
 #endif
@@ -16577,7 +16833,11 @@ int VideoGetSkinToneEnhancementConfig(int *minvalue, int *defvalue, int *maxvalu
     }
 #endif
 #ifdef USE_CUVID
-    if (VideoUsedModule == &CuvidModule) {
+    if (VideoUsedModule == &CuvidModule
+#ifdef USE_EGL
+    || VideoUsedModule == &CuvidEglModule
+#endif
+    ) {
         *minvalue = CuvidConfigStde.min_value;
         *defvalue = CuvidConfigStde.def_value;
         *maxvalue = CuvidConfigStde.max_value;
@@ -16672,7 +16932,11 @@ void VideoSetOutputPosition(VideoHwDecoder * hw_decoder, int x, int y,
     }
 #endif
 #ifdef USE_CUVID
-    if (VideoUsedModule == &CuvidModule) {
+    if (VideoUsedModule == &CuvidModule
+#ifdef USE_EGL
+    || VideoUsedModule == &CuvidEglModule
+#endif
+    ) {
 	// check values to be able to avoid
 	// interfering with the video thread if possible
 
@@ -16912,7 +17176,11 @@ int VideoGetScalingModes(const char* **long_table, const char* **short_table)
     }
 #endif
 #ifdef USE_CUVID
-    if (VideoUsedModule == &CuvidModule) {
+    if (VideoUsedModule == &CuvidModule
+#ifdef USE_EGL
+    || VideoUsedModule == &CuvidEglModule
+#endif
+    ) {
 	*long_table = cuvid_scaling;
 	*short_table = cuvid_scaling_short;
 	return ARRAY_ELEMS(cuvid_scaling);
@@ -17007,7 +17275,11 @@ int VideoGetDeinterlaceModes(const char* **long_table, const char* **short_table
     }
 #endif
 #ifdef USE_CUVID
-    if (VideoUsedModule == &CuvidModule) {
+    if (VideoUsedModule == &CuvidModule
+#ifdef USE_EGL
+    || VideoUsedModule == &CuvidEglModule
+#endif
+    ) {
 	*long_table = cuvid_deinterlace;
 	*short_table = cuvid_deinterlace_short;
 	return ARRAY_ELEMS(cuvid_deinterlace);
@@ -17100,7 +17372,11 @@ void VideoSetDenoise(int level[VideoResolutionMax])
     }
 #endif
 #ifdef USE_CUVID
-    if (VideoUsedModule == &CuvidModule) {
+    if (VideoUsedModule == &CuvidModule
+#ifdef USE_EGL
+    || VideoUsedModule == &CuvidEglModule
+#endif
+    ) {
 	int i;
 	for (i = 0; i < VideoResolutionMax; ++i) {
 	    level[i] = VideoConfigClamp(&CuvidConfigDenoise, level[i]);
@@ -17144,7 +17420,11 @@ int VideoGetDenoiseConfig(int *minvalue, int *defvalue, int *maxvalue)
     }
 #endif
 #ifdef USE_CUVID
-    if (VideoUsedModule == &CuvidModule) {
+    if (VideoUsedModule == &CuvidModule
+#ifdef USE_EGL
+    || VideoUsedModule == &CuvidEglModule
+#endif
+    ) {
         *minvalue = CuvidConfigDenoise.min_value;
         *defvalue = CuvidConfigDenoise.def_value;
         *maxvalue = CuvidConfigDenoise.max_value;
@@ -17183,7 +17463,11 @@ void VideoSetSharpen(int level[VideoResolutionMax])
     }
 #endif
 #ifdef USE_CUVID
-    if (VideoUsedModule == &CuvidModule) {
+    if (VideoUsedModule == &CuvidModule
+#ifdef USE_EGL
+    || VideoUsedModule == &CuvidEglModule
+#endif
+    ) {
 	int i;
 	for (i = 0; i < VideoResolutionMax; ++i) {
 	    level[i] = VideoConfigClamp(&CuvidConfigSharpen, level[i]);
@@ -17227,7 +17511,11 @@ int VideoGetSharpenConfig(int *minvalue, int *defvalue, int *maxvalue)
     }
 #endif
 #ifdef USE_CUVID
-    if (VideoUsedModule == &CuvidModule) {
+    if (VideoUsedModule == &CuvidModule
+#ifdef USE_EGL
+    || VideoUsedModule == &CuvidEglModule
+#endif
+    ) {
         *minvalue = CuvidConfigSharpen.min_value;
         *defvalue = CuvidConfigSharpen.def_value;
         *maxvalue = CuvidConfigSharpen.max_value;

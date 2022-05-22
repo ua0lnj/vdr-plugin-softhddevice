@@ -243,7 +243,7 @@ static bool compile_attach_shader(GLuint program, GLenum type, const char *sourc
     Debug(3,"compile Status %d loglen %d %s\n", status, log_length, status ? " " : infoLog);
     if (!status) return false;
 
-    GlxCheck();
+    GlCheck();
     glAttachShader(program, shader);
     glDeleteShader(shader);
     return true;
@@ -363,19 +363,19 @@ static GLuint sc_generate(GLuint gl_prog, enum AVColorSpace colorspace)
 	Debug(3,"get uniform colormatrix %d \n",gl_colormatrix);
 	if (gl_colormatrix != -1)
 		glProgramUniformMatrix3fv(gl_prog,gl_colormatrix,1,0,m);
-	GlxCheck();
+	GlCheck();
 	  //glProgramUniform3fv(gl_prog,gl_colormatrix,3,&yuv_bt709.m[0][0]);
 	gl_colormatrix_c = glGetUniformLocation(gl_prog,"colormatrix_c");
 	Debug(3,"get uniform colormatrix_c %d %f\n",gl_colormatrix_c,*c);
 	if (gl_colormatrix_c != -1)
 	  glProgramUniform3fv(gl_prog,gl_colormatrix_c,1,c);
-	GlxCheck();
+	GlCheck();
 	
 	if (colorspace == AVCOL_SPC_BT2020_NCL) {
 		cmsLoc = glGetUniformLocation(gl_prog,"cms_matrix");
 		if (cmsLoc != -1)
 		  glProgramUniformMatrix3fv(gl_prog,cmsLoc,1,0,cms);
-		GlxCheck();
+		GlCheck();
 	}
 	
     return gl_prog;
