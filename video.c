@@ -1850,6 +1850,9 @@ static void VaapiDestroyDeinterlaceImages(VaapiDecoder *);
 
     /// forward definition release surface
 static void VaapiReleaseSurface(VaapiDecoder *, VASurfaceID);
+static void VaapiOsdInit(int width, int height);
+static void VaapiOsdExit();
+static unsigned int lastWindowWidth, lastWindowHeight;	/// for scaled osd
 
 //----------------------------------------------------------------------------
 //	VA-API Functions
@@ -1940,29 +1943,33 @@ static void VaapiAssociate(VaapiDecoder * decoder)
 	    != VA_STATUS_SUCCESS) {
 	    Error(_("video/vaapi: can't associate subpicture\n"));
 	}
+        va_status = vaAssociateSubpicture(VaDisplay, VaOsdSubpicture,
+                                      decoder->PostProcSurfacesRb, POSTPROC_SURFACES_MAX, x, y, w, h, 0, 0,
+                                      VideoWindowWidth, VideoWindowHeight,
+                                      VA_SUBPICTURE_DESTINATION_IS_SCREEN_COORD);
     } else {
 	if (decoder->SurfaceFreeN
 	    && vaAssociateSubpicture(VaDisplay, VaOsdSubpicture,
 		decoder->SurfacesFree, decoder->SurfaceFreeN, x, y, w, h,
-		decoder->CropX, decoder->CropY / 2, decoder->CropWidth,
-		decoder->CropHeight, 0)
+		0, 0, decoder->InputWidth,
+		decoder->InputHeight, 0)
 	    != VA_STATUS_SUCCESS) {
 	    Error(_("video/vaapi: can't associate subpicture\n"));
 	}
 	if (decoder->SurfaceUsedN
 	    && vaAssociateSubpicture(VaDisplay, VaOsdSubpicture,
 		decoder->SurfacesUsed, decoder->SurfaceUsedN, x, y, w, h,
-		decoder->CropX, decoder->CropY / 2, decoder->CropWidth,
-		decoder->CropHeight, 0)
+		0, 0, decoder->InputWidth,
+		decoder->InputHeight, 0)
 	    != VA_STATUS_SUCCESS) {
 	    Error(_("video/vaapi: can't associate subpicture\n"));
 	}
+        va_status = vaAssociateSubpicture(VaDisplay, VaOsdSubpicture,
+                                      decoder->PostProcSurfacesRb, POSTPROC_SURFACES_MAX, x, y, w, h, 0, 0,
+                                      decoder->InputWidth, decoder->InputHeight,
+                                      0);
     }
 
-    va_status = vaAssociateSubpicture(VaDisplay, VaOsdSubpicture,
-                                      decoder->PostProcSurfacesRb, POSTPROC_SURFACES_MAX, x, y, w, h, 0, 0,
-                                      VideoWindowWidth, VideoWindowHeight,
-                                      VA_SUBPICTURE_DESTINATION_IS_SCREEN_COORD);
     if (va_status != VA_STATUS_SUCCESS)
         Error(_("video/vaapi: can't associate subpicture\n"));
 }
@@ -2936,6 +2943,10 @@ static void VaapiExit(void)
     }
     VaapiDecoderN = 0;
 
+    //for scaled osd
+    lastWindowWidth = 0;
+    lastWindowHeight = 0;
+
     if (!VaDisplay) {
 	vaTerminate(VaDisplay);
 	VaDisplay = NULL;
@@ -3166,9 +3177,10 @@ static VAStatus VaapiPostprocessSurface(VAContextID ctx,
             return va_status;
         }
         if (va_surf_status != VASurfaceReady) {
-            if (!VaapiBuggyXvBA)
+            if (!VaapiBuggyXvBA) {
                 Info("Backward reference surface %d is not ready, surf_status = %d\n", i, va_surf_status);
-            return VA_STATUS_ERROR_SURFACE_BUSY;
+                return VA_STATUS_ERROR_SURFACE_BUSY;
+            }
         }
     }
 
@@ -3179,8 +3191,10 @@ static VAStatus VaapiPostprocessSurface(VAContextID ctx,
             return va_status;
         }
         if (va_surf_status != VASurfaceReady) {
-            Info("Forward reference surface %d is not ready, surf_status = %d\n", i, va_surf_status);
-            return VA_STATUS_ERROR_SURFACE_BUSY;
+            if (!VaapiBuggyXvBA) {
+                Info("Forward reference surface %d is not ready, surf_status = %d\n", i, va_surf_status);
+                return VA_STATUS_ERROR_SURFACE_BUSY;
+            }
         }
     }
 
@@ -4483,7 +4497,6 @@ static void VaapiPutSurfaceX11(VaapiDecoder * decoder, VASurfaceID surface,
     VAStatus status;
     uint32_t s;
     uint32_t e;
-    static unsigned int lastWindowWidth, lastWindowHeight;
 
     // deinterlace
     if (interlaced && !deinterlaced
@@ -4504,6 +4517,24 @@ static void VaapiPutSurfaceX11(VaapiDecoder * decoder, VASurfaceID surface,
 	}
     } else {
 	type = VA_FRAME_PICTURE;
+    }
+
+    //unscaled osd with any size can associate with any video surface
+    if (VaapiUnscaledOsd && (lastWindowWidth != VideoWindowWidth || lastWindowHeight != VideoWindowHeight)) {
+        VaapiDeassociate(decoder);
+        VaapiAssociate(decoder);
+        lastWindowWidth = VideoWindowWidth;
+        lastWindowHeight = VideoWindowHeight;
+    } //scaled osd can have size as video surface only
+    else if (!VaapiUnscaledOsd && ((int)lastWindowWidth != decoder->InputWidth || (int)lastWindowHeight != decoder->InputHeight)) {
+        VaapiDeassociate(decoder);
+        VaapiOsdExit();
+        OsdWidth = decoder->InputWidth;
+        OsdHeight = decoder->InputHeight;
+        VaapiOsdInit(OsdWidth, OsdHeight);
+        VaapiAssociate(decoder);
+        lastWindowWidth = decoder->InputWidth;
+        lastWindowHeight = decoder->InputHeight;
     }
 
     s = GetMsTicks();
@@ -4571,12 +4602,6 @@ static void VaapiPutSurfaceX11(VaapiDecoder * decoder, VASurfaceID surface,
 	    Debug(3, "video/vaapi: %2d %d\n", i, status);
 	    usleep(1 * 1000);
 	}
-    }
-    if (lastWindowWidth != VideoWindowWidth || lastWindowHeight != VideoWindowHeight) {
-        VaapiDeassociate(decoder);
-        VaapiAssociate(decoder);
-        lastWindowWidth = VideoWindowWidth;
-        lastWindowHeight = VideoWindowHeight;
     }
 }
 
@@ -5091,6 +5116,7 @@ static void VaapiBlackSurface(VaapiDecoder * decoder)
 #endif
     uint32_t sync;
     uint32_t put1;
+    int width, height;
 
 #ifdef USE_GLX
     if (GlxEnabled) {			// already done
@@ -5104,13 +5130,21 @@ static void VaapiBlackSurface(VaapiDecoder * decoder)
 	return;
     }
 
+    if (VaapiUnscaledOsd) {
+	width = VideoWindowWidth;
+	height = VideoWindowHeight;
+    } else {
+	width = OsdWidth;
+	height = OsdHeight;
+    }
+
     if (decoder->BlackSurface == VA_INVALID_ID) {
 	uint8_t *va_image_data;
 	unsigned u;
 
 	status =
 	    vaCreateSurfaces(decoder->VaDisplay, VA_RT_FORMAT_YUV420,
-	    VideoWindowWidth, VideoWindowHeight, &decoder->BlackSurface, 1,
+	    width, height, &decoder->BlackSurface, 1,
 	    NULL, 0);
 	if (status != VA_STATUS_SUCCESS) {
 	    Error(_("video/vaapi: can't create a surface: %s\n"),
@@ -5121,7 +5155,7 @@ static void VaapiBlackSurface(VaapiDecoder * decoder)
 	status =
 	    vaAssociateSubpicture(decoder->VaDisplay, VaOsdSubpicture,
 	    &decoder->BlackSurface, 1, 0, 0, VaOsdImage.width,
-	    VaOsdImage.height, 0, 0, VideoWindowWidth, VideoWindowHeight, 0);
+	    VaOsdImage.height, 0, 0, width, height, 0);
 	if (status != VA_STATUS_SUCCESS) {
 	    Error(_("video/vaapi: can't associate subpicture: %s\n"),
 		vaErrorStr(status));
@@ -5133,8 +5167,8 @@ static void VaapiBlackSurface(VaapiDecoder * decoder)
 
 	    VaapiFindImageFormat(decoder, AV_PIX_FMT_NV12, format);
 	    status =
-		vaCreateImage(VaDisplay, format, VideoWindowWidth,
-		VideoWindowHeight, decoder->Image);
+		vaCreateImage(VaDisplay, format, width,
+		height, decoder->Image);
 	    if (status != VA_STATUS_SUCCESS) {
 		Error(_("video/vaapi: can't create image: %s\n"),
 		    vaErrorStr(status));
@@ -5173,8 +5207,8 @@ static void VaapiBlackSurface(VaapiDecoder * decoder)
 	if (decoder->GetPutImage) {
 	    status =
 		vaPutImage(VaDisplay, decoder->BlackSurface,
-		decoder->Image->image_id, 0, 0, VideoWindowWidth,
-		VideoWindowHeight, 0, 0, VideoWindowWidth, VideoWindowHeight);
+		decoder->Image->image_id, 0, 0, width,
+		height, 0, 0, width, height);
 	    if (status != VA_STATUS_SUCCESS) {
 		Error(_("video/vaapi: can't put image!\n"));
 	    }
