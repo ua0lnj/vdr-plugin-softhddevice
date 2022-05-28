@@ -11759,8 +11759,6 @@ void CuvidCreateGlTexture(CuvidDecoder * decoder, unsigned int size_x, unsigned 
     glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
     GlxCheck();
 
-    glGenBuffers(1,&vao_buffer);
-    GlxCheck();
     // create texture planes
     for (n = 0; n < 2; n++) {       // number of planes
         glGenTextures(CODEC_SURFACES_MAX, decoder->gl_textures[n]);
@@ -11886,8 +11884,6 @@ static void CuvidDestroySurfaces(CuvidDecoder * decoder)
     }
     if (decoder == CuvidDecoders[0]) {   // only when last decoder closes
         Debug(3,"Last decoder closes\n");
-        glDeleteBuffers(1, &vao_buffer);
-        vao_buffer = 0;
         if (gl_prog)
             glDeleteProgram(gl_prog);
         gl_prog = 0;
@@ -12181,6 +12177,10 @@ static int CuvidInit(const char *display_name)
         Error(_("video/cuvid: GLX error\n"));
         return 0;
     }
+
+    glGenBuffers(1,&vao_buffer);
+    GlxCheck();
+
     if (!cu) {
         ret = cuda_load_functions(&cu, NULL);
         if (ret < 0) {
@@ -12225,6 +12225,9 @@ static void CuvidExit(void)
     }
     CuvidDecoderN = 0;
     pthread_mutex_destroy(&CuvidGrabMutex);
+
+    glDeleteBuffers(1, &vao_buffer);
+    vao_buffer = 0;
 #ifdef USE_GRAB
     glDeleteBuffers(1, &grab_buffer);
 #endif
@@ -12545,7 +12548,7 @@ static uint8_t *CuvidGrabOutputSurface(int *ret_size, int *ret_width,  int *ret_
 {
     uint8_t *img;
 
-    if (!vao_buffer) {
+    if (!gl_prog) {
         return NULL;			// cuvid video module not yet initialized
     }
 
