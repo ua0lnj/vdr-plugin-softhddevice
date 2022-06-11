@@ -2483,7 +2483,8 @@ static void VaapiCleanup(VaapiDecoder * decoder)
     for (i = 0; i < VIDEO_SURFACES_MAX; ++i) {
 	decoder->SurfacesRb[i] = VA_INVALID_ID;
     }
-    vaDestroySurfaces(VaDisplay, decoder->PostProcSurfacesRb, POSTPROC_SURFACES_MAX);
+    if(!VaapiBuggyVdpau)
+        vaDestroySurfaces(VaDisplay, decoder->PostProcSurfacesRb, POSTPROC_SURFACES_MAX);
     for (i = 0; i < POSTPROC_SURFACES_MAX; ++i) {
 	decoder->PostProcSurfacesRb[i] = VA_INVALID_ID;
     }
