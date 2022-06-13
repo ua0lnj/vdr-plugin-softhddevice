@@ -14218,6 +14218,7 @@ static void VideoEvent(void)
     char letter[64];
     int letter_len;
     uint32_t values[1];
+    static Time clicktime;
 
     VideoThreadLock();
     XNextEvent(XlibDisplay, &event);
@@ -14286,7 +14287,26 @@ static void VideoEvent(void)
 	    break;
 	    }
 	case ButtonPress:
-	    VideoSetFullscreen(-1);
+	    if (event.xbutton.button == 1) {
+		Time difftime = event.xbutton.time - clicktime;
+		if (difftime < 500)
+		    VideoSetFullscreen(-1);
+		clicktime = event.xbutton.time;
+	    }
+	    else if (event.xbutton.button == 2) {
+		FeedKeyPress("XKeySym", "Ok", 0, 0, NULL);
+	    }
+	    else if (event.xbutton.button == 3) {
+		FeedKeyPress("XKeySym", "Menu", 0, 0, NULL);
+	    }
+	    if (event.xbutton.button == 4) {
+		FeedKeyPress("XKeySym", "Volume+", 0, 0, NULL);
+	    }
+	    if (event.xbutton.button == 5) {
+		FeedKeyPress("XKeySym", "Volume-", 0, 0, NULL);
+	    }
+	    break;
+	case ButtonRelease:
 	    break;
 	case KeyPress:
 	    VideoThreadLock();
