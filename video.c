@@ -450,6 +450,8 @@ static int VideoWindowX;		///< video output window x coordinate
 static int VideoWindowY;		///< video outout window y coordinate
 static unsigned VideoWindowWidth;	///< video output window width
 static unsigned VideoWindowHeight;	///< video output window height
+static unsigned VideoScreenWidth;	///< video screen width
+static unsigned VideoScreenHeight;	///< video screen height
 static char VideoGeometry[25];
 
 static const VideoModule NoopModule;	///< forward definition of noop module
@@ -15164,8 +15166,8 @@ void VideoOsdInit(void)
 	OsdWidth = OsdConfigWidth;
 	OsdHeight = OsdConfigHeight;
     } else {
-	OsdWidth = VideoWindowWidth;
-	OsdHeight = VideoWindowHeight;
+	OsdWidth = VideoScreenWidth;
+	OsdHeight = VideoScreenHeight;
     }
 
     VideoThreadLock();
@@ -17793,6 +17795,9 @@ void VideoInit(const char *display_name)
     }
     screen = screen_iter.data;
     VideoScreen = screen;
+
+    VideoScreenWidth = screen->width_in_pixels;
+    VideoScreenHeight = screen->height_in_pixels;
 
     //
     //	Default window size
