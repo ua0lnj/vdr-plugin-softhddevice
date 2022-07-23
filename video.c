@@ -11685,7 +11685,7 @@ static CudaFunctions *cu;
 static CUdevice CuvidDevice;
 static int CuvidSurfaceQueued;          ///< number of display surfaces queued
 
-GLuint vao_buffer, grab_buffer;
+GLuint vao_buffer;
 GLuint gl_shader=0, gl_prog = 0, gl_fbo=0;      // shader programm
 GLint gl_colormatrix, gl_colormatrix_c;
 
@@ -12202,10 +12202,7 @@ static int CuvidInit(const char *display_name)
         return 0;
     }
     pthread_mutex_init(&CuvidGrabMutex, NULL);
-#ifdef USE_GRAB
-    glGenBuffers(1,&grab_buffer);
-    GlxCheck();
-#endif
+
     Info(_("video/cuvid: Start CUVID ok\n"));
 
     (void)display_name;
@@ -12231,9 +12228,7 @@ static void CuvidExit(void)
 
     glDeleteBuffers(1, &vao_buffer);
     vao_buffer = 0;
-#ifdef USE_GRAB
-    glDeleteBuffers(1, &grab_buffer);
-#endif
+
     CuvidDevice = (CUdevice)(uintptr_t)NULL;
     cuda_free_functions(&cu);
 }
@@ -12418,7 +12413,6 @@ static uint8_t *CuvidGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int 
     size_t i, j, k, cur_gl, cur_rgb;
     GLubyte *pixels;
     double scalew, scaleh;
-    unsigned char* ptr;
 
     typedef struct {
         uint32_t x0;
@@ -12490,30 +12484,17 @@ static uint8_t *CuvidGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int 
 	    return NULL;
 	}
 
+	pthread_mutex_lock(&VideoLockMutex);
 	glXMakeCurrent(XlibDisplay, VideoWindow, GlxSharedContext);
 	GlxCheck();
 
-	glBindBuffer(GL_PIXEL_PACK_BUFFER, grab_buffer);
-	glBufferData(GL_PIXEL_PACK_BUFFER, VideoWindowWidth * VideoWindowHeight * 4 * sizeof(GLubyte), NULL, GL_STREAM_READ);
-
-	pthread_mutex_lock(&VideoLockMutex);
-
 	/* Get BGRA to align to 32 bits instead of just 24 for RGB */
-	glReadPixels(source_rect.x0, source_rect.y0, VideoWindowWidth, VideoWindowHeight, GL_BGRA, GL_UNSIGNED_BYTE, 0);
+	glReadPixels(source_rect.x0, source_rect.y0, VideoWindowWidth, VideoWindowHeight, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
 
-	ptr = (unsigned char*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-
-	pthread_mutex_unlock(&VideoLockMutex);
-
-	if (NULL != ptr) {
-	    memcpy(pixels, ptr, VideoWindowWidth * VideoWindowHeight * 4 * sizeof(GLubyte));
-	    glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-	}
-
-	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 	glXMakeCurrent(XlibDisplay, None, NULL);
 	GlxCheck();
 
+	pthread_mutex_unlock(&VideoLockMutex);
 	scalew = (double)VideoWindowWidth / width;
 	scaleh = (double)VideoWindowHeight / height;
 
