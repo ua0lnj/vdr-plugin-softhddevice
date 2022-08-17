@@ -10375,6 +10375,7 @@ static void VdpauMixVideo(VdpauDecoder * decoder, int level)
 	}
 #endif
 	// FIXME: can use VDP_INVALID_HANDLE to support less surface on start
+	if (atomic_read(&decoder->SurfacesFilled) < 3) return;
 
 	if (VideoDeinterlaceSurfaces == 5) {
 	    past_n = 2;
