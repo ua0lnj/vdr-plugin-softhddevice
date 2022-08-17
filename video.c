@@ -14936,6 +14936,14 @@ static int NoopInit(const char *display_name)
     return 1;
 }
 
+static uint8_t *NoopGrabOutputSurface(int *ret_size, int *ret_width,  int *ret_height)
+{
+    *ret_size = 0;
+    *ret_width = 0;
+    *ret_height = 0;
+    return NULL;
+}
+
 #ifdef USE_VIDEO_THREAD
 
 ///
@@ -14996,10 +15004,10 @@ static const VideoModule NoopModule = {
 #endif
     .SetClosing = (void (*const) (const VideoHwDecoder *))NoopSetClosing,
     .ResetStart = (void (*const) (const VideoHwDecoder *))NoopResetStart,
+    .GrabOutput = NoopGrabOutputSurface,
 #if 0
     .SetTrickSpeed =
 	(void (*const) (const VideoHwDecoder *, int))NoopSetTrickSpeed,
-    .GrabOutput = NoopGrabOutputSurface,
     .GetStats = (void (*const) (VideoHwDecoder *, int *, int *, int *,
 	    int *))NoopGetStats,
 #endif
@@ -15185,6 +15193,8 @@ int VideoMaxPixmapSize (void)
 
 /// C callback feed key press
 extern void FeedKeyPress(const char *, const char *, int, int, const char *);
+
+extern uint8_t *GrabExtService(int *, int *, int *);
 
 ///
 ///	Handle XLib I/O Errors.
@@ -15889,7 +15899,12 @@ uint8_t *VideoGrab(int *size, int *width, int *height, int write_header)
 	scale_width = *width;
 	scale_height = *height;
 	n = 0;
-	data = VideoUsedModule->GrabOutput(size, width, height);
+	if (VideoUsedModule != &NoopModule)
+	    data = VideoUsedModule->GrabOutput(size, width, height);
+	// try external service
+	else
+	    data = GrabExtService(size, width, height);
+
 	if (data == NULL)
 	    return NULL;
 
@@ -15991,7 +16006,10 @@ uint8_t *VideoGrabService(int *size, int *width, int *height)
 
 #ifdef USE_GRAB
     if (VideoUsedModule->GrabOutput) {
-	return VideoUsedModule->GrabOutput(size, width, height);
+	if (VideoUsedModule != &NoopModule)
+	    return VideoUsedModule->GrabOutput(size, width, height);
+	else
+	    return GrabExtService(size, width, height);
     } else
 #endif
     {

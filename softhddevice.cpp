@@ -64,7 +64,7 @@ extern "C"
     /// vdr-plugin version number.
     /// Makefile extracts the version number for generating the file name
     /// for the distribution archive.
-static const char *const VERSION = "1.8.2"
+static const char *const VERSION = "1.9.0"
 #ifdef GIT_REV
     "-GIT" GIT_REV
 #endif
@@ -3189,7 +3189,7 @@ uchar *cSoftHdDevice::GrabImage(int &size, bool jpeg, int quality, int width,
     Debug(3, "[softhddev]%s: %d, %d, %d, %dx%d\n", __FUNCTION__, size, jpeg,
 	quality, width, height);
 
-    if (SuspendMode != NOT_SUSPENDED) {
+    if (SuspendMode != NOT_SUSPENDED && SuspendMode != SUSPEND_EXTERNAL) {
 	return NULL;
     }
     if (quality < 0) {			// caller should care, but fix it
@@ -3197,6 +3197,32 @@ uchar *cSoftHdDevice::GrabImage(int &size, bool jpeg, int quality, int width,
     }
 
     return::GrabImage(&size, jpeg, quality, width, height);
+}
+
+extern "C" uint8_t *GrabExtService(int *size, int *width, int *height)
+{
+    if (SuspendMode != SUSPEND_EXTERNAL) {
+	return NULL;
+    }
+        typedef struct
+        {
+            uint8_t *image;
+            int size;
+            int width;
+            int height;
+        } grabImage;
+
+        grabImage data;
+        data.image = NULL;
+        data.size = 0;
+        data.width = *width;
+        data.height = *height;
+        cPluginManager::CallFirstService("GrabImage", &data);
+        *size = data.size;
+        *width = data.width;
+        *height = data.height;
+
+        return data.image;
 }
 
 #if APIVERSNUM >= 10733
