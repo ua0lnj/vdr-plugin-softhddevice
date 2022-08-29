@@ -391,7 +391,7 @@ static int Ac3Check(const uint8_t * data, int size)
 	if ((data[4] & 0xF0) == 0xF0) {	// invalid fscod fscod2
 	    return 0;
 	}
-	frame_size = ((data[2] & 0x03) << 8) + data[3] + 1;
+	frame_size = ((data[2] & 0x07) << 8) + data[3] + 1;
 	frame_size *= 2;
     } else {				// AC-3
 	int fscod;
