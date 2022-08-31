@@ -90,6 +90,7 @@
 #include <X11/keysym.h>
 
 #include <xcb/xcb.h>
+#include <xcb/randr.h>
 //#include <xcb/bigreq.h>
 #ifdef xcb_USE_GLX
 #include <xcb/glx.h>
@@ -15181,6 +15182,10 @@ static void VideoCreateWindow(xcb_window_t parent, xcb_visualid_t visual,
     xcb_intern_atom_reply_t *reply;
     xcb_pixmap_t pixmap;
     xcb_cursor_t cursor;
+    xcb_randr_get_screen_resources_current_reply_t *randr_reply;
+    xcb_timestamp_t timestamp;
+    xcb_randr_output_t *randr_outputs;
+    int len;
 
     const uint32_t coords[2] = { VideoWindowX, VideoWindowY };
 
@@ -15285,6 +15290,39 @@ static void VideoCreateWindow(xcb_window_t parent, xcb_visualid_t visual,
     VideoCursorPixmap = pixmap;
     VideoBlankCursor = cursor;
     VideoBlankTick = 0;
+
+    //get screen size for multimonitor systems
+    randr_reply = xcb_randr_get_screen_resources_current_reply(
+        Connection, xcb_randr_get_screen_resources_current(Connection, VideoWindow), NULL);
+
+    timestamp = randr_reply->config_timestamp;
+    len = xcb_randr_get_screen_resources_current_outputs_length(randr_reply);
+    randr_outputs = xcb_randr_get_screen_resources_current_outputs(randr_reply);
+
+    for (int i = 0; i < len; i++) {
+        xcb_randr_get_crtc_info_reply_t *crtc;
+        xcb_randr_get_output_info_reply_t *output = xcb_randr_get_output_info_reply(
+            Connection, xcb_randr_get_output_info(Connection, randr_outputs[i], timestamp), NULL);
+        if (output == NULL)
+            continue;
+
+        if (output->crtc == XCB_NONE || output->connection == XCB_RANDR_CONNECTION_DISCONNECTED)
+            continue;
+
+        crtc = xcb_randr_get_crtc_info_reply(Connection,
+            xcb_randr_get_crtc_info(Connection, output->crtc, timestamp), NULL);
+        Debug(3, "video: crtc = %d | x = %d | y = %d | w = %d | h = %d\n", i, crtc->x, crtc->y, crtc->width, crtc->height);
+
+        //set video screen size to crtc size where video window was created
+        if (VideoWindowX > crtc->x && VideoWindowX < crtc->x + crtc->width) {
+            VideoScreenWidth = crtc->width;
+            VideoScreenHeight = crtc->height;
+        }
+        free(crtc);
+        free(output);
+    }
+
+    free(randr_reply);
 }
 
 ///
