@@ -1081,7 +1081,7 @@ static void GlxOsdDrawARGB(int xi, int yi, int width, int height, int pitch,
     Debug(3, "video/glx: osd context %p <-> %p\n", glXGetCurrentContext(),
 	GlxContext);
 #endif
-    if (!GlxThreadContext) return;
+    if (!GlxContext) return;
 
     // FIXME: faster way
     tmp = malloc(width * height * 4);
@@ -1093,7 +1093,7 @@ static void GlxOsdDrawARGB(int xi, int yi, int width, int height, int pitch,
 		width * 4);
 	}
 	// set glx context
-	if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext)) {
+	if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxContext)) {
 	    Error(_("video/glx: can't make glx context current\n"));
 	    return;
 	}
