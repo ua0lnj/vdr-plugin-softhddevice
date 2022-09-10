@@ -121,6 +121,7 @@ extern const char *VideoGetDriverName(void);
 extern int VideoIsDriverVdpau(void);
 extern int VideoIsDriverVaapi(void);
 extern int VideoIsDriverCuvid(void);
+extern int VideoIsDriverCpu(void);
 
     /// Set video geometry.
 extern int VideoSetGeometry(const char *);
@@ -258,6 +259,14 @@ extern int CuvidInitGlx(void);
 extern void *GetCuvidEglOsdOutputTexture(unsigned int);
 extern int CuvidInitEgl(void);
 #endif
+#endif
+#ifdef USE_GLX
+extern void *GetCpuGlxOsdOutputTexture(unsigned int);
+extern int CpuInitGlx(void);
+#endif
+#ifdef USE_EGL
+extern void *GetCpuEglOsdOutputTexture(unsigned int);
+extern int CpuInitEgl(void);
 #endif
 #ifdef USE_VAAPI
 #ifdef USE_GLX

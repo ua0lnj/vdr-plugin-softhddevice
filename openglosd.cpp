@@ -555,6 +555,16 @@ cOglOutputFb::~cOglOutputFb(void) {
 
 bool cOglOutputFb::Init(void) {
     glGenTextures(1, &texture);
+#ifdef USE_EGL
+    if (!strcasecmp(VideoGetDriverName(), "cpu-egl")) {
+        GetCpuEglOsdOutputTexture(texture);
+    }
+#endif
+#ifdef USE_GLX
+    if (!strcasecmp(VideoGetDriverName(), "cpu-glx")) {
+        GetCpuGlxOsdOutputTexture(texture);
+    }
+#endif
 #ifdef USE_CUVID
 #ifdef USE_EGL
     if (!strcasecmp(VideoGetDriverName(), "cuvid-egl")) {
@@ -1698,6 +1708,17 @@ bool cOglThread::InitOpenGL(void) {
 #endif
     if (VideoIsDriverCuvid()) {
         if (!CuvidInitGlx()) return false;
+    }
+#endif
+#ifdef USE_EGL
+    if (!strcasecmp(VideoGetDriverName(), "cpu-egl")) {
+        if (!CpuInitEgl()) return false;
+        egl = 1;
+    }
+#endif
+#ifdef USE_GLX
+    if (!strcasecmp(VideoGetDriverName(), "cpu-glx")) {
+        if (!CpuInitGlx()) return false;
     }
 #endif
 #ifdef USE_VAAPI

@@ -435,6 +435,30 @@ static VideoConfigValues CuvidConfigStde =
 { .active = 0, .min_value = 0.0, .max_value = 1.0, .def_value = 1.0, .step = 1.0, .scale = 1.0, .drv_scale = 1.0 };
 #endif
 
+#if defined USE_GLX || defined USE_EGL
+static VideoConfigValues CpuConfigBrightness =
+{ .active = 1, .min_value = -1000.0, .max_value = 1000.0, .def_value = 0.0, .step = 1.0, .scale = 0.001, .drv_scale = 1.0 };
+
+static VideoConfigValues CpuConfigContrast =
+{ .active = 1, .min_value = 0.0, .max_value = 10000.0, .def_value = 1000.0, .step = 1.0, .scale = 0.001, .drv_scale = 1.0 };
+
+static VideoConfigValues CpuConfigSaturation =
+{ .active = 1, .min_value = 0.0, .max_value = 10000.0, .def_value = 1000.0, .step = 1.0, .scale = 0.001, .drv_scale = 1.0 };
+
+static VideoConfigValues CpuConfigHue =
+{ .active = 1, .min_value = -1000.0 * M_PI, .max_value = 1000.0 * M_PI, .def_value = 0.0, .step = 1.0, .scale = 0.001, .drv_scale = 1.0 };
+
+static VideoConfigValues CpuConfigDenoise =
+{ .active = 1, .min_value = 0.0, .max_value = 1000.0, .def_value = 0.0, .step = 1.0, .scale = 0.001, .drv_scale = 1.0 };
+
+static VideoConfigValues CpuConfigSharpen =
+{ .active = 1, .min_value = -1000.0, .max_value = 1000.0, .def_value = 0.0, .step = 1.0, .scale = 0.001, .drv_scale = 1.0 };
+
+static VideoConfigValues CpuConfigStde =
+{ .active = 0, .min_value = 0.0, .max_value = 1.0, .def_value = 1.0, .step = 1.0, .scale = 1.0, .drv_scale = 1.0 };
+#endif
+
+
 char VideoIgnoreRepeatPict;		///< disable repeat pict warning
 
 static const char *VideoDriverName;	///< video output device
@@ -844,7 +868,7 @@ static void VideoUpdateOutput(AVRational input_aspect_ratio, int input_width,
 
 static GLuint OsdGlTextures[2];		///< gl texture for OSD
 static GLuint OsdGlTexture = 0;		///< texture for openglosd
-static int OsdIndex;			///< index into OsdGlTextures
+static int OsdIndex = 0;			///< index into OsdGlTextures
 static GLint maxTextureSize;
 static void GlCheck(void);
 
@@ -1108,7 +1132,7 @@ static void GlxOsdDrawARGB(int xi, int yi, int width, int height, int pitch,
     Debug(3, "video/glx: osd context %p <-> %p\n", glXGetCurrentContext(),
 	GlxContext);
 #endif
-    if (!GlxThreadContext) return;
+    if (!GlxContext) return;
 
     // FIXME: faster way
     tmp = malloc(width * height * 4);
@@ -1120,8 +1144,9 @@ static void GlxOsdDrawARGB(int xi, int yi, int width, int height, int pitch,
 		width * 4);
 	}
 	// set glx context
-	if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext)) {
+	if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxContext)) {
 	    Error(_("video/glx: can't make glx context current\n"));
+	    free(tmp);
 	    return;
 	}
 	GlxUploadOsdTexture(x, y, width, height, tmp);
@@ -12522,7 +12547,6 @@ static pthread_mutex_t CuvidGrabMutex;
 unsigned int size_tex_data;
 unsigned int num_texels;
 unsigned int num_values;
-int window_width,window_height;
 
 //----------------------------------------------------------------------------
 
@@ -14807,6 +14831,2192 @@ static const VideoModule CuvidEglModule = {
 #endif
 
 //----------------------------------------------------------------------------
+//	CPU
+//----------------------------------------------------------------------------
+
+#if defined USE_GLX || defined USE_EGL
+
+///
+///	CPU decoder
+///
+typedef struct _cpudecoder_
+{
+     xcb_window_t Window;		///< output window
+
+    int VideoX;				///< video base x coordinate
+    int VideoY;				///< video base y coordinate
+    int VideoWidth;			///< video base width
+    int VideoHeight;			///< video base height
+
+    int ScaleX;				///< video scale x coordinate
+    int ScaleY;				///< video scale y coordinate
+    int ScaleWidth;			///< video scale width
+    int ScaleHeight;			///< video scale height
+
+    int OutputX;			///< real video output x coordinate
+    int OutputY;			///< real video output y coordinate
+    int OutputWidth;			///< real video output width
+    int OutputHeight;			///< real video output height
+
+    enum AVPixelFormat PixFmt;		///< ffmpeg frame pixfmt
+    enum AVColorSpace  ColorSpace;	/// ffmpeg ColorSpace
+    enum AVColorTransferCharacteristic  trc;  // 
+    enum AVColorPrimaries color_primaries;
+
+    int WrongInterlacedWarned;		///< warning about interlace flag issued
+    int Interlaced;			///< ffmpeg interlaced flag
+    int TopFieldFirst;			///< ffmpeg top field displayed first
+
+    int InputWidth;			///< video input width
+    int InputHeight;			///< video input height
+    AVRational InputAspect;		///< video input aspect ratio
+    VideoResolutions Resolution;	///< resolution group
+
+    int CropX;				///< video crop x
+    int CropY;				///< video crop y
+    int CropWidth;			///< video crop width
+    int CropHeight;			///< video crop height
+
+#ifdef USE_AUTOCROP
+    void *AutoCropBuffer;		///< auto-crop buffer cache
+    unsigned AutoCropBufferSize;	///< auto-crop buffer size
+    AutoCropCtx AutoCrop[1];		///< auto-crop variables
+#endif
+    int SurfacesNeeded;			///< number of surface to request
+    int SurfaceUsedN;			///< number of used video surfaces
+    /// used video surface ids
+    int SurfacesUsed[CODEC_SURFACES_MAX];
+    int SurfaceFreeN;			///< number of free video surfaces
+    /// free video surface ids
+    int SurfacesFree[CODEC_SURFACES_MAX];
+    /// video surface ring buffer
+    int SurfacesRb[VIDEO_SURFACES_MAX *2];
+
+    int SurfaceWrite;			///< write pointer
+    int SurfaceRead;			///< read pointer
+    atomic_t SurfacesFilled;		///< how many of the buffer is used
+
+    GLuint gl_textures[CODEC_SURFACES_MAX][2];  // where we will copy the CPU result
+
+    AVCodecContext *video_ctx;
+
+    int SurfaceField;			///< current displayed field
+    int TrickSpeed;			///< current trick speed
+    int TrickCounter;			///< current trick speed counter
+    struct timespec FrameTime;		///< time of last display
+    VideoStream *Stream;		///< video stream
+    int Closing;			///< flag about closing current stream
+    int SyncOnAudio;			///< flag sync to audio
+    int64_t PTS;			///< video PTS clock
+
+    int LastAVDiff;			///< last audio - video difference
+    int SyncCounter;			///< counter to sync frames
+    int StartCounter;			///< counter for video start
+    int FramesDuped;			///< number of frames duplicated
+    int FramesMissed;			///< number of frames missed
+    int FramesDropped;			///< number of frames dropped
+    int FrameCounter;			///< number of frames decoded
+    int FramesDisplayed;		///< number of frames displayed
+} CpuDecoder;
+
+static CpuDecoder *CpuDecoders[2];	///< open decoder streams
+static int CpuDecoderN;		///< number of decoder streams
+static int CpuSurfaceQueued;          ///< number of display surfaces queued
+
+static struct timespec CpuFrameTime;	///< time of last display
+
+static pthread_mutex_t CpuGrabMutex;
+
+unsigned int size_tex_data;
+unsigned int num_texels;
+unsigned int num_values;
+
+//----------------------------------------------------------------------------
+
+///
+///	Output video messages.
+///
+///	Reduce output.
+///
+///	@param level	message level (Error, Warning, Info, Debug, ...)
+///	@param format	printf format string (NULL to flush messages)
+///	@param ...	printf arguments
+///
+///	@returns true, if message shown
+///
+int CpuMessage(int level, const char *format, ...)
+{
+    if (LogLevel > level || DebugLevel > level) {
+	static const char *last_format;
+	static char buf[256];
+	va_list ap;
+
+	va_start(ap, format);
+	if (format != last_format) {	// don't repeat same message
+	    if (buf[0]) {		// print last repeated message
+		syslog(LOG_ERR, "%s", buf);
+		buf[0] = '\0';
+	    }
+
+	    if (format) {
+		last_format = format;
+		vsyslog(LOG_ERR, format, ap);
+	    }
+	    va_end(ap);
+	    return 1;
+	}
+	vsnprintf(buf, sizeof(buf), format, ap);
+	va_end(ap);
+    }
+    return 0;
+}
+
+//	Surfaces -------------------------------------------------------------
+
+void CpuCreateGlTexture(CpuDecoder * decoder, unsigned int size_x, unsigned int size_y)
+{
+    int n, i;
+
+    if (GlxEnabled) {
+        glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
+        GlxCheck();
+    }
+#ifdef USE_EGL
+    if (EglEnabled) {
+        eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EglThreadContext);
+        EglCheck();;
+    }
+#endif
+    // create texture planes
+    for (n = 0; n < 2; n++) {       // number of planes
+        glGenTextures(CODEC_SURFACES_MAX, decoder->gl_textures[n]);
+        GlCheck();
+    }
+    Debug(3,"video/cpu: create %d Textures Format %s w %d h %d \n",
+        decoder->SurfacesNeeded, decoder->PixFmt != AV_PIX_FMT_P010LE ? "YV12" : "P010", size_x, size_y);
+
+    for (i = 0; i < decoder->SurfacesNeeded; i++) {
+        for (n = 0; n < 2; n++) {   // number of planes
+
+            glBindTexture(GL_TEXTURE_2D, decoder->gl_textures[i][n]);
+            GlCheck();
+            // set basic parameters
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            if (decoder->PixFmt != AV_PIX_FMT_P010LE)
+                glTexImage2D(GL_TEXTURE_2D, 0, n == 0 ? GL_R8 : GL_RG8, n == 0 ? size_x : size_x/2, n == 0 ? size_y : size_y/2, 0,
+                     n == 0 ? GL_RED : GL_RG, GL_UNSIGNED_BYTE, NULL);
+            else
+                glTexImage2D(GL_TEXTURE_2D, 0, n == 0 ? GL_R16 : GL_RG16, n == 0 ? size_x : size_x/2, n == 0 ? size_y : size_y/2, 0,
+                    n == 0 ? GL_RED : GL_RG, GL_UNSIGNED_SHORT, NULL);
+
+            GlCheck();
+        }
+    }
+    glBindTexture(GL_TEXTURE_2D, 0);
+    GlCheck();
+}
+
+///
+///	Create surfaces for CPU decoder.
+///
+///	@param decoder	CPU hw decoder
+///	@param width	surface source/video width
+///	@param height	surface source/video height
+///
+static void CpuCreateSurfaces(CpuDecoder * decoder, int width, int height)
+{
+    int i;
+
+#ifdef DEBUG
+    if (!decoder->SurfacesNeeded) {
+	Error(_("video/cpu: surface needed not set\n"));
+	decoder->SurfacesNeeded = VIDEO_SURFACES_MAX * 2;
+    }
+#endif
+    Debug(3, "video/cpu: %s: %dx%d * %d\n", __FUNCTION__, width, height,
+	decoder->SurfacesNeeded);
+
+    // allocate only the number of needed surfaces
+    decoder->SurfaceFreeN = decoder->SurfacesNeeded;
+
+    CpuCreateGlTexture(decoder, width, height);
+
+    for (i = 0; i < decoder->SurfaceFreeN; ++i) {
+	    decoder->SurfacesFree[i] = i;
+	}
+	Debug(4, "video/cpu: created video surface %dx%d with id 0x%08x\n",
+	    width, height, decoder->SurfacesFree[i]);
+}
+
+///
+///	Destroy surfaces of CPU decoder.
+///
+///	@param decoder	CPU hw decoder
+///
+static void CpuDestroySurfaces(CpuDecoder * decoder)
+{
+    int i;
+
+    if(GlxEnabled) {
+        if(GlxThreadContext){
+            glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
+            GlxCheck();
+        }
+    }
+#ifdef USE_EGL
+    if (EglEnabled) {
+        if(EglThreadContext){
+            eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EglThreadContext);
+            EglCheck();
+        }
+    }
+#endif
+    for (i = 0; i < 2; i++) {       // number of planes
+        glDeleteTextures(CODEC_SURFACES_MAX, decoder->gl_textures[i]);
+        GlCheck();
+    }
+    if (decoder == CpuDecoders[0]) {   // only when last decoder closes
+        Debug(3,"Last decoder closes\n");
+        if (gl_prog)
+            glDeleteProgram(gl_prog);
+        gl_prog = 0;
+    }
+
+    for (i = 0; i < decoder->SurfaceFreeN; ++i) {
+	Debug(4, "video/cpu: destroy video surface with id 0x%08x\n",
+	    decoder->SurfacesFree[i]);
+	decoder->SurfacesFree[i] = -1;
+    }
+    for (i = 0; i < decoder->SurfaceUsedN; ++i) {
+	Debug(4, "video/cpu: destroy video surface with id 0x%08x\n",
+	    decoder->SurfacesUsed[i]);
+	decoder->SurfacesUsed[i] = -1;
+    }
+    decoder->SurfaceFreeN = 0;
+    decoder->SurfaceUsedN = 0;
+}
+
+///
+///	Get a free surface.
+///
+///	@param decoder	CPU hw decoder
+///
+///	@returns the oldest free surface
+///
+static unsigned CpuGetSurface0(CpuDecoder * decoder)
+{
+    int surface;
+    int i;
+
+    if (!decoder->SurfaceFreeN) {
+	Error(_("video/cpu: out of surfaces\n"));
+	return -1;
+    }
+    // use oldest surface
+    surface = decoder->SurfacesFree[0];
+
+    decoder->SurfaceFreeN--;
+    for (i = 0; i < decoder->SurfaceFreeN; ++i) {
+	decoder->SurfacesFree[i] = decoder->SurfacesFree[i + 1];
+    }
+    decoder->SurfacesFree[i] = -1;
+
+    // save as used
+    decoder->SurfacesUsed[decoder->SurfaceUsedN++] = surface;
+
+    return surface;
+}
+
+///
+///	Release a surface.
+///
+///	@param decoder	CPU hw decoder
+///	@param surface	surface no longer used
+///
+static void CpuReleaseSurface(CpuDecoder * decoder, int surface)
+{
+    int i;
+
+    for (i = 0; i < decoder->SurfaceUsedN; ++i) {
+	if (decoder->SurfacesUsed[i] == surface) {
+	    // no problem, with last used
+	    decoder->SurfacesUsed[i] =
+		decoder->SurfacesUsed[--decoder->SurfaceUsedN];
+	    decoder->SurfacesFree[decoder->SurfaceFreeN++] = surface;
+	    return;
+	}
+    }
+    Error(_("video/cpu: release surface %#08x, which is not in use\n"),
+	surface);
+}
+
+///
+///	Debug CPU decoder frames drop...
+///
+///	@param decoder	CPU hw decoder
+///
+static void CpuPrintFrames(const CpuDecoder * decoder)
+{
+    Debug(3, "video/cpu: %d missed, %d duped, %d dropped frames of %d,%d\n",
+	decoder->FramesMissed, decoder->FramesDuped, decoder->FramesDropped,
+	decoder->FrameCounter, decoder->FramesDisplayed);
+#ifndef DEBUG
+    (void)decoder;
+#endif
+}
+
+static void CpuMixerSetup(CpuDecoder * decoder)
+{
+    (void) decoder;
+/*
+    int mode = 0;
+    int drop = 0;
+
+    if (decoder->video_ctx) {
+        if (decoder->PixFmt == AV_PIX_FMT_NV12 || decoder->PixFmt == AV_PIX_FMT_P010LE) {
+            if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceWeave) {
+                Debug(3, "video/cuvid: set weave");
+                mode = 0;
+                drop = 0;
+            } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceBob) {
+                Debug(3, "video/cuvid: set bob");
+                mode = 1;
+                drop = 1;
+            } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceTemporal) {
+                Debug(3, "video/cuvid: set adap");
+                mode = 2;
+                drop = 0;
+            }
+            if (av_opt_set_int(decoder->video_ctx->priv_data, "deint", mode, 0) < 0)
+                Error(_("Can't set deinterlace mode\n"));
+            if (av_opt_set(decoder->video_ctx->priv_data, "drop_second_field", drop ? "true" : "false", 0) < 0)
+                Error(_("Can't set drop second field to false\n"));
+        }//else soft deinterlace
+    }*/
+}
+
+///
+///	Allocate new CPU decoder.
+///
+///	@param stream	video stream
+///
+///	@returns a new prepared cuvid hardware decoder.
+///
+static CpuDecoder *CpuNewHwDecoder(VideoStream * stream)
+{
+    CpuDecoder *decoder;
+    int i;
+
+    Debug(3, "video/cpu: %s\n", __FUNCTION__);
+    if ((unsigned)CpuDecoderN >=
+	sizeof(CpuDecoders) / sizeof(*CpuDecoders)) {
+    	Error(_("video/cpu: out of decoders\n"));
+	return NULL;
+    }
+
+    if (!(decoder = calloc(1, sizeof(*decoder)))) {
+	Error(_("video/cpu: out of memory\n"));
+	return NULL;
+    }
+    decoder->Window = VideoWindow;
+    decoder->VideoWidth = VideoWindowWidth;
+    decoder->VideoHeight = VideoWindowHeight;
+
+    for (i = 0; i < CODEC_SURFACES_MAX; ++i) {
+	decoder->SurfacesUsed[i] = -1;
+	decoder->SurfacesFree[i] = -1;
+    }
+
+    //
+    // setup video surface ring buffer
+    //
+    atomic_set(&decoder->SurfacesFilled, 0);
+
+    for (i = 0; i < (VIDEO_SURFACES_MAX * 2); ++i) {
+	decoder->SurfacesRb[i] = -1;
+    }
+
+#ifdef DEBUG
+    if ((VIDEO_SURFACES_MAX) < 1 + 1 + 1 + 1) {
+	Error(_
+	    ("video/cpu: need 1 future, 1 current, 1 back and 1 work surface\n"));
+    }
+#endif
+
+    // Procamp operation parameterization data
+//    decoder->Procamp.struct_version = VDP_PROCAMP_VERSION;
+//    decoder->Procamp.brightness = 0.0;
+//    decoder->Procamp.contrast = 1.0;
+//    decoder->Procamp.saturation = 1.0;
+//    decoder->Procamp.hue = 0.0;		// default values
+
+    decoder->OutputWidth = VideoWindowWidth;
+    decoder->OutputHeight = VideoWindowHeight;
+
+    decoder->PixFmt = AV_PIX_FMT_NONE;
+
+#ifdef USE_AUTOCROP
+    //decoder->AutoCropBuffer = NULL;	// done by calloc
+    //decoder->AutoCropBufferSize = 0;
+#endif
+
+    decoder->Stream = stream;
+    if (!CpuDecoderN) {		// FIXME: hack sync on audio
+	decoder->SyncOnAudio = 1;
+    }
+    decoder->Closing = -300 - 1;
+
+    decoder->PTS = AV_NOPTS_VALUE;
+
+    CpuDecoders[CpuDecoderN++] = decoder;
+
+    decoder->SurfaceUsedN = 1; // for correct cleanup after resume
+
+    return decoder;
+}
+
+///
+///	Cleanup CPU.
+///
+///	@param decoder	CPU hw decoder
+///
+static void CpuCleanup(CpuDecoder * decoder)
+{
+    int i;
+    Debug(3, "video/cpu: %s\n", __FUNCTION__);
+    if (decoder->SurfaceFreeN || decoder->SurfaceUsedN) {
+	CpuDestroySurfaces(decoder);
+    }
+    //
+    // reset video surface ring buffer
+    //
+    atomic_set(&decoder->SurfacesFilled, 0);
+
+    for (i = 0; i < VIDEO_SURFACES_MAX * 2; ++i) {
+	decoder->SurfacesRb[i] = -1;
+    }
+
+    decoder->SurfaceRead = 0;
+    decoder->SurfaceWrite = 0;
+    decoder->SurfaceField = 0;
+    decoder->SyncCounter = 0;
+    decoder->Interlaced = 0;
+    decoder->FrameCounter = 0;
+    decoder->FramesDisplayed = 0;
+    decoder->StartCounter = 0;
+    decoder->Closing = 0;
+    decoder->PTS = AV_NOPTS_VALUE;
+    VideoDeltaPTS = 0;
+}
+
+///
+///	Destroy a CPU decoder.
+///
+///	@param decoder	CPU hw decoder
+///
+static void CpuDelHwDecoder(CpuDecoder * decoder)
+{
+    int i;
+    Debug(3, "video/cpu: %s\n", __FUNCTION__);
+    for (i = 0; i < CpuDecoderN; ++i) {
+	if (CpuDecoders[i] == decoder) {
+	    CpuDecoders[i] = NULL;
+	    // copy last slot into empty slot
+	    if (i < --CpuDecoderN) {
+		CpuDecoders[i] = CpuDecoders[CpuDecoderN];
+	    }
+
+	    CpuCleanup(decoder);
+	    CpuPrintFrames(decoder);
+
+#ifdef USE_AUTOCROP
+	    free(decoder->AutoCropBuffer);
+#endif
+	    free(decoder);
+
+	    return;
+	}
+    }
+    Error(_("video/cpu: decoder not in decoder list.\n"));
+}
+
+///
+///	CPU setup.
+///
+///	@param display_name	x11/xcb display name
+///
+///	@returns true if CPU could be initialized, false otherwise.
+///
+static int CpuGlxInit(const char *display_name)
+{
+    Info(_("video/cpu: Start CPU\n"));
+
+    GlxEnabled = 1;
+
+    GlxInit();
+    if (GlxEnabled) {
+        GlxSetupWindow(VideoWindow, VideoWindowWidth, VideoWindowHeight, GlxSharedContext);
+    }
+    if (!GlxEnabled) {
+        Error(_("video/cpu: GLX error\n"));
+        return 0;
+    }
+
+    glGenBuffers(1,&vao_buffer);
+    GlxCheck();
+
+    pthread_mutex_init(&CpuGrabMutex, NULL);
+
+    Info(_("video/cpu: Start CPU ok\n"));
+
+    (void)display_name;
+    return 1;
+}
+
+#ifdef USE_EGL
+static int CpuEglInit(const char *display_name)
+{
+    Info(_("video/cpu: Start CPU\n"));
+
+    EglEnabled = 1;
+
+    EglInit();
+    if (EglEnabled) {
+	EglSetupWindow(VideoWindow, VideoWindowWidth, VideoWindowHeight,
+	    EglSharedContext);
+    }
+    if (!EglEnabled) {
+        Error(_("video/cpu: EGL error\n"));
+        return 0;
+    }
+    pthread_mutex_init(&CpuGrabMutex, NULL);
+
+    Info(_("video/cpu: Start CPU ok\n"));
+
+    (void)display_name;
+    return 1;
+}
+#endif
+
+
+///
+///	CPU cleanup.
+///
+static void CpuExit(void)
+{
+    int i;
+    Debug(3, "video/cpu: %s\n", __FUNCTION__);
+
+    for (i = 0; i < CpuDecoderN; ++i) {
+	if (CpuDecoders[i]) {
+	    CpuDelHwDecoder(CpuDecoders[i]);
+	    CpuDecoders[i] = NULL;
+	}
+    }
+    CpuDecoderN = 0;
+    pthread_mutex_destroy(&CpuGrabMutex);
+
+    glDeleteBuffers(1, &vao_buffer);
+    vao_buffer = 0;
+}
+
+///
+///	Update output for new size or aspect ratio.
+///
+///	@param decoder	CPU hw decoder
+///
+static void CpuUpdateOutput(CpuDecoder * decoder)
+{
+    Debug(3, "video/cpu: %s\n", __FUNCTION__);
+
+    VideoUpdateOutput(decoder->InputAspect, decoder->InputWidth,
+	decoder->InputHeight, decoder->Resolution, decoder->VideoX,
+	decoder->VideoY, decoder->VideoWidth, decoder->VideoHeight,
+	&decoder->OutputX, &decoder->OutputY, &decoder->OutputWidth,
+	&decoder->OutputHeight, &decoder->CropX, &decoder->CropY,
+	&decoder->CropWidth, &decoder->CropHeight);
+#ifdef USE_AUTOCROP
+    decoder->AutoCrop->State = 0;
+    decoder->AutoCrop->Count = AutoCropDelay;
+#endif
+}
+
+///
+///	Configure CPU for new video format.
+///
+///	@param decoder	CPU hw decoder
+///
+static void CpuSetupOutput(CpuDecoder * decoder)
+{
+    // FIXME: need only to create and destroy surfaces for size changes
+    //		or when number of needed surfaces changed!
+    decoder->Resolution =
+	VideoResolutionGroup(decoder->InputWidth, decoder->InputHeight,
+	decoder->Interlaced);
+
+    CpuMixerSetup(decoder);
+
+    CpuCreateSurfaces(decoder, decoder->InputWidth, decoder->InputHeight);
+
+    CpuUpdateOutput(decoder);		// update aspect/scaling
+}
+
+///
+///	Get a free surface.  Called from ffmpeg.
+///
+///	@param decoder		CPU hw decoder
+///	@param video_ctx	ffmpeg video codec context
+///
+///	@returns the oldest free surface
+///
+static unsigned CpuGetSurface(CpuDecoder * decoder,
+    const AVCodecContext * video_ctx)
+{
+
+#ifdef FFMPEG_BUG1_WORKAROUND
+    // get_format not called with valid informations.
+    if (video_ctx->width != decoder->InputWidth
+	|| video_ctx->height != decoder->InputHeight) {
+
+	CpuCleanup(decoder);
+
+	decoder->InputWidth = video_ctx->width;
+	decoder->InputHeight = video_ctx->height;
+	decoder->InputAspect = video_ctx->sample_aspect_ratio;
+	CpuSetupOutput(decoder);
+    }
+#else
+    (void)video_ctx;
+#endif
+    return CpuGetSurface0(decoder);
+}
+
+///
+///	Callback to negotiate the PixelFormat.
+///
+///	@param fmt	is the list of formats which are supported by the codec,
+///			it is terminated by -1 as 0 is a valid format, the
+///			formats are ordered by quality.
+///
+static enum AVPixelFormat Cpu_get_format(CpuDecoder * decoder,
+    AVCodecContext * video_ctx, const enum AVPixelFormat *fmt)
+{
+    VideoDecoder *ist = video_ctx->opaque;
+
+    Debug(3,"get format  %dx%d\n",video_ctx->width,video_ctx->height);
+
+    ist->active_hwaccel_id = HWACCEL_NONE;
+    ist->hwaccel_pix_fmt   = AV_PIX_FMT_NONE;
+    ist->hwaccel_get_buffer = NULL;
+    decoder->SurfacesNeeded = VIDEO_SURFACES_MAX * 2 + 2;
+    decoder->PixFmt = AV_PIX_FMT_NONE;
+    video_ctx->thread_count = 0;
+    decoder->InputWidth = 0;
+    decoder->InputHeight = 0;
+    video_ctx->hwaccel_context = NULL;
+    video_ctx->draw_horiz_band = NULL;
+
+    ist->GetFormatDone = 1;
+    return avcodec_default_get_format(video_ctx, fmt);
+}
+
+#ifdef USE_GRAB
+///
+///	Grab output surface already locked.
+//	Grab openGL video + osd (screenshot)
+///
+///	@param ret_size[out]		size of allocated surface copy
+///	@param ret_width[in,out]	width of output
+///	@param ret_height[in,out]	height of output
+///
+static uint8_t *CpuGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int *ret_height)
+{
+    uint32_t size;
+    uint32_t width;
+    uint32_t height;
+    uint8_t *base;
+    size_t i, j, k, cur_gl, cur_rgb;
+    GLubyte *pixels;
+    double scalew, scaleh;
+
+    typedef struct {
+        uint32_t x0;
+        uint32_t y0;
+        uint32_t x1;
+        uint32_t y1;
+    } CuRect;
+    CuRect source_rect;
+
+    CpuDecoder *decoder;
+
+    decoder = CpuDecoders[0];
+    if (decoder == NULL)   // no video aktiv
+	return NULL;
+
+    //get real surface size
+    width = VideoWindowWidth;
+    height = VideoWindowHeight;
+
+
+    Debug(3, "video/cpu: grab %dx%d\n", width, height);
+
+    source_rect.x0 = 0;
+    source_rect.y0 = 0;
+    source_rect.x1 = width;
+    source_rect.y1 = height;
+
+    if (ret_width && ret_height) {
+	if (*ret_width <= -64) {	// this is an Atmo grab service request
+	    int overscan;
+
+	    // calculate aspect correct size of analyze image
+	    width = *ret_width * -1;
+	    height = (width * source_rect.y1) / source_rect.x1;
+
+	    // calculate size of grab (sub) window
+	    overscan = *ret_height;
+
+	    if (overscan > 0 && overscan <= 200) {
+		source_rect.x0 = source_rect.x1 * overscan / 1000;
+		source_rect.x1 -= source_rect.x0;
+		source_rect.y0 = source_rect.y1 * overscan / 1000;
+		source_rect.y1 -= source_rect.y0;
+	    }
+	} else {
+	    if (*ret_width > 0 && (unsigned)*ret_width < width) {
+		width = *ret_width;
+	    }
+	    if (*ret_height > 0 && (unsigned)*ret_height < height) {
+		height = *ret_height;
+	    }
+	}
+
+	Debug(3, "video/cpu: grab source rect %d,%d:%d,%d dest dim %dx%d\n",
+	source_rect.x0, source_rect.y0, source_rect.x1, source_rect.y1, width, height);
+
+	size = width * height * 4;;
+
+	base = malloc(size*sizeof(uint8_t));
+	if (!base) {
+	    Error(_("video/cpu: grab out of memory\n"));
+	    return NULL;
+	}
+
+	pixels = malloc(VideoWindowWidth * VideoWindowHeight * 4 * sizeof(GLubyte));
+	if (!pixels) {
+	    Error(_("video/cpu: grab out of memory\n"));
+	    free(base);
+	    return NULL;
+	}
+	pthread_mutex_lock(&VideoLockMutex);
+        if (GlxEnabled) {
+	    glXMakeCurrent(XlibDisplay, VideoWindow, GlxSharedContext);
+	    GlxCheck();
+        }
+#ifdef USE_EGL
+        if (EglEnabled) {
+            eglMakeCurrent(EglDisplay, EglSurface, EglSurface, EglSharedContext);
+            EglCheck();
+        }
+#endif
+	/* Get BGRA to align to 32 bits instead of just 24 for RGB */
+	glReadPixels(source_rect.x0, source_rect.y0, VideoWindowWidth, VideoWindowHeight, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
+        GlCheck();
+
+        if (GlxEnabled) {
+	    glXMakeCurrent(XlibDisplay, None, NULL);
+	    GlxCheck();
+        }
+#ifdef USE_EGL
+        if (EglEnabled) {
+            eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+            EglCheck();
+        }
+#endif
+	pthread_mutex_unlock(&VideoLockMutex);
+	scalew = (double)VideoWindowWidth / width;
+	scaleh = (double)VideoWindowHeight / height;
+
+	// convert 32 -> 24 and simple scale
+	for (i = 0; i < height; i++) {
+	    for (j = 0; j < width; j++) {
+	        cur_gl  = 4 * (VideoWindowWidth * (int)(scaleh * (height - i - 1)) + (int)(scalew * j));
+	        cur_rgb = 4 * (width * i + j);
+	            for (k = 0; k < 4; k++)
+	                (base)[cur_rgb + k] = (pixels)[cur_gl + k];
+	    }
+	}
+
+	free(pixels);
+
+	Debug(3,"got grab data\n");
+
+	*ret_size = size;
+	*ret_width = width;
+	*ret_height = height;
+	return base;
+    }
+
+    return NULL;
+}
+
+///
+///	Grab output surface.
+///
+///	@param ret_size[out]		size of allocated surface copy
+///	@param ret_width[in,out]	width of output
+///	@param ret_height[in,out]	height of output
+///
+static uint8_t *CpuGrabOutputSurface(int *ret_size, int *ret_width,  int *ret_height)
+{
+    uint8_t *img;
+
+    if (!gl_prog) {
+        return NULL;			// cuvid video module not yet initialized
+    }
+
+    pthread_mutex_lock(&CpuGrabMutex);
+//	pthread_mutex_lock(&VideoLockMutex);
+    img = CpuGrabOutputSurfaceLocked(ret_size, ret_width, ret_height);
+//	pthread_mutex_unlock(&VideoLockMutex);
+    pthread_mutex_unlock(&CpuGrabMutex);
+    return img;
+}
+
+#endif
+
+#ifdef USE_AUTOCROP
+
+///
+///	CPU auto-crop support.
+///
+///	@param decoder	CPU hw decoder
+///
+static void CpuAutoCrop(CpuDecoder * decoder)
+{
+    int surface;
+    uint32_t size;
+    uint32_t width;
+    uint32_t height;
+    void *base;
+    void *data[3];
+    uint32_t pitches[3];
+    int crop14;
+    int crop16;
+    int next_state;
+
+    surface = decoder->SurfacesRb[(decoder->SurfaceRead + 1) %  (VIDEO_SURFACES_MAX * 2)];
+
+    width = decoder->InputWidth;
+    height = decoder->InputHeight;
+
+    size = width * height + ((width + 1) / 2) * ((height + 1) / 2)
+	+ ((width + 1) / 2) * ((height + 1) / 2);
+    // cache buffer for reuse
+    base = decoder->AutoCropBuffer;
+    if (size > decoder->AutoCropBufferSize) {
+	free(base);
+	decoder->AutoCropBuffer = malloc(size);
+	base = decoder->AutoCropBuffer;
+	decoder->AutoCropBufferSize = size;
+    }
+    if (!base) {
+	Error(_("video/cpu: out of memory\n"));
+	return;
+    }
+    pitches[0] = width;
+    pitches[1] = width / 2;
+    pitches[2] = width / 2;
+    data[0] = base;
+    data[1] = base + width * height;
+    data[2] = base + width * height + width * height / 4;
+
+    //we need Y in data[0] only
+    glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[surface][0]);
+    glGetTexImage(GL_TEXTURE_2D,0,GL_RED, GL_UNSIGNED_BYTE,base);
+    //glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[surface][1]);
+    //glGetTexImage(GL_TEXTURE_2D,0,GL_RG, GL_UNSIGNED_BYTE,base + width * height);
+
+    AutoCropDetect(decoder->AutoCrop, width, height, data, pitches);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    // ignore black frames
+    if (decoder->AutoCrop->Y1 >= decoder->AutoCrop->Y2) {
+	return;
+    }
+
+    crop14 =
+	(decoder->InputWidth * decoder->InputAspect.num * 9) /
+	(decoder->InputAspect.den * 14);
+    crop14 = (decoder->InputHeight - crop14) / 2;
+    crop16 =
+	(decoder->InputWidth * decoder->InputAspect.num * 9) /
+	(decoder->InputAspect.den * 16);
+    crop16 = (decoder->InputHeight - crop16) / 2;
+
+    if (decoder->AutoCrop->Y1 >= crop16 - AutoCropTolerance
+	&& decoder->InputHeight - decoder->AutoCrop->Y2 >=
+	crop16 - AutoCropTolerance) {
+	next_state = 16;
+    } else if (decoder->AutoCrop->Y1 >= crop14 - AutoCropTolerance
+	&& decoder->InputHeight - decoder->AutoCrop->Y2 >=
+	crop14 - AutoCropTolerance) {
+	next_state = 14;
+    } else {
+	next_state = 0;
+    }
+
+    if (decoder->AutoCrop->State == next_state) {
+	return;
+    }
+
+    Debug(3, "video: crop aspect %d:%d %d/%d %d%+d\n",
+	decoder->InputAspect.num, decoder->InputAspect.den, crop14, crop16,
+	decoder->AutoCrop->Y1, decoder->InputHeight - decoder->AutoCrop->Y2);
+
+    Debug(3, "video: crop aspect %d -> %d\n", decoder->AutoCrop->State,	next_state);
+
+    switch (decoder->AutoCrop->State) {
+	case 16:
+	case 14:
+	    if (decoder->AutoCrop->Count++ < AutoCropDelay / 2) {
+		return;
+	    }
+	    break;
+	case 0:
+	    if (decoder->AutoCrop->Count++ < AutoCropDelay) {
+		return;
+	    }
+	    break;
+    }
+
+    decoder->AutoCrop->State = next_state;
+    if (next_state) {
+		decoder->CropX = VideoCutLeftRight[decoder->Resolution];
+		decoder->CropY =
+			(next_state ==
+			16 ? crop16 : crop14) + VideoCutTopBottom[decoder->Resolution];
+		decoder->CropWidth = decoder->InputWidth - decoder->CropX * 2;
+		decoder->CropHeight = decoder->InputHeight - decoder->CropY * 2;
+
+		// FIXME: this overwrites user choosen output position
+		// FIXME: resize kills the auto crop values
+		// FIXME: support other 4:3 zoom modes
+		decoder->OutputX = decoder->VideoX;
+		decoder->OutputY = decoder->VideoY;
+		decoder->OutputWidth = (decoder->VideoHeight * next_state) / 9;
+		decoder->OutputHeight = (decoder->VideoWidth * 9) / next_state;
+		if (decoder->OutputWidth > decoder->VideoWidth) {
+			decoder->OutputWidth = decoder->VideoWidth;
+			decoder->OutputY +=
+			(decoder->VideoHeight - decoder->OutputHeight) / 2;
+		} else if (decoder->OutputHeight > decoder->VideoHeight) {
+			decoder->OutputHeight = decoder->VideoHeight;
+			decoder->OutputX +=
+			(decoder->VideoWidth - decoder->OutputWidth) / 2;
+		}
+		Debug(3, "video: aspect output %dx%d %dx%d%+d%+d\n",
+			decoder->InputWidth, decoder->InputHeight, decoder->OutputWidth,
+			decoder->OutputHeight, decoder->OutputX, decoder->OutputY);
+    } else {
+		// sets AutoCrop->Count
+		CpuUpdateOutput(decoder);
+    }
+    decoder->AutoCrop->Count = 0;
+}
+
+///
+///	CPU check if auto-crop todo.
+///
+///	@param decoder	CPU hw decoder
+///
+///	@note a copy of VaapiCheckAutoCrop
+///	@note auto-crop only supported with normal 4:3 display mode
+///
+static void CpuCheckAutoCrop(CpuDecoder * decoder)
+{
+    // reduce load, check only n frames
+    if (Video4to3ZoomMode == VideoNormal && AutoCropInterval
+	&& !(decoder->FrameCounter % AutoCropInterval)) {
+	AVRational input_aspect_ratio;
+	AVRational tmp_ratio;
+	av_reduce(&input_aspect_ratio.num, &input_aspect_ratio.den,
+	    decoder->InputWidth * decoder->InputAspect.num,
+	    decoder->InputHeight * decoder->InputAspect.den, 1024 * 1024);
+
+	tmp_ratio.num = 4;
+	tmp_ratio.den = 3;
+	// 4:3 with 16:9/14:9 inside
+	if (!av_cmp_q(input_aspect_ratio, tmp_ratio)) {
+	    CpuAutoCrop(decoder);
+	} else {
+	// 15:11 with 16:9/14:9 inside
+	    tmp_ratio.num = 15;
+	    tmp_ratio.den = 11;
+	    if (!av_cmp_q(input_aspect_ratio, tmp_ratio)) {
+	        CpuAutoCrop(decoder);
+	    } else {
+	        decoder->AutoCrop->Count = 0;
+	        decoder->AutoCrop->State = 0;
+	    }
+	}
+    }
+}
+
+///
+///	CPU reset auto-crop.
+///
+static void CpuResetAutoCrop(void)
+{
+    int i;
+
+    for (i = 0; i < CpuDecoderN; ++i) {
+	CpuDecoders[i]->AutoCrop->State = 0;
+	CpuDecoders[i]->AutoCrop->Count = 0;
+    }
+}
+
+#endif
+
+///
+///	Queue output surface.
+///
+///	@param decoder	CPU hw decoder
+///	@param surface	output surface
+///	@param softdec	software decoder
+///
+///	@note we can't mix software and hardware decoder surfaces
+///
+static void CpuQueueSurface(CpuDecoder * decoder, int surface,
+    int softdec)
+{
+    int old;
+
+    ++decoder->FrameCounter;
+
+    if (1) {				// can't wait for output queue empty
+	if (atomic_read(&decoder->SurfacesFilled) >= (VIDEO_SURFACES_MAX * 2)) {
+	    Warning(_
+		("video/cpu: output buffer full, dropping frame (%d/%d)\n"),
+		++decoder->FramesDropped, decoder->FrameCounter);
+	    if (!(decoder->FramesDisplayed % 300)) {
+		CpuPrintFrames(decoder);
+	    }
+	    // software surfaces only
+	    if (softdec) {
+		CpuReleaseSurface(decoder, surface);
+	    }
+	    return;
+	}
+#if 0
+    } else {				// wait for output queue empty
+	while (atomic_read(&decoder->SurfacesFilled) >= (VIDEO_SURFACES_MAX * 2)) {
+	    VideoDisplayHandler();
+	}
+#endif
+    }
+
+    //
+    //	    Check and release, old surface
+    //
+    if ((old = decoder->SurfacesRb[decoder->SurfaceWrite])
+	!= -1) {
+
+	// now we can release the surface, software surfaces only
+	if (softdec) {
+	    CpuReleaseSurface(decoder, old);
+	}
+    }
+
+    Debug(4, "video/cpu: yy video surface %#08x@%d ready\n", surface,
+	decoder->SurfaceWrite);
+
+    decoder->SurfacesRb[decoder->SurfaceWrite] = surface;
+    decoder->SurfaceWrite = (decoder->SurfaceWrite + 1)
+	% (VIDEO_SURFACES_MAX * 2);
+    atomic_inc(&decoder->SurfacesFilled);
+}
+
+///
+///	Render a ffmpeg frame.
+///
+///	@param decoder		CPU hw decoder
+///	@param video_ctx	ffmpeg video codec context
+///	@param frame		frame to display
+///
+static void CpuRenderFrame(CpuDecoder * decoder,
+    const AVCodecContext * video_ctx, const AVFrame * frame)
+{
+    int surface;
+    VideoDecoder        *ist = video_ctx->opaque;
+    int interlaced;
+    enum AVColorSpace color;
+
+    AVRational aspect_ratio;
+
+    // FIXME: some tv-stations toggle interlace on/off
+    // frame->interlaced_frame isn't always correct set
+    interlaced = frame->interlaced_frame;
+
+    // FIXME: should be done by init video_ctx->field_order
+    if (decoder->Interlaced != interlaced
+	|| decoder->TopFieldFirst != frame->top_field_first) {
+
+	Debug(3, "video/cpu: interlaced %d top-field-first %d\n", interlaced,
+	    frame->top_field_first);
+
+	if (decoder->Interlaced < interlaced) decoder->Interlaced = 1; //for wrong interlace detecting
+	decoder->TopFieldFirst = frame->top_field_first;
+	decoder->SurfaceField = 0;
+    }
+
+    //aspect correction
+    aspect_ratio = frame->sample_aspect_ratio;
+    if ((video_ctx->width == 720 && video_ctx->height == 288) ||
+	(video_ctx->width == 1920 && video_ctx->height == 540)) {
+	aspect_ratio.den *= 2;
+    }
+    // update aspect ratio changes
+    if (decoder->InputWidth && decoder->InputHeight
+	&& av_cmp_q(decoder->InputAspect, aspect_ratio)) {
+	Debug(3, "video/cpu: aspect ratio changed\n");
+	decoder->InputAspect = aspect_ratio;
+	CpuUpdateOutput(decoder);
+    }
+
+    color = frame->colorspace;
+    if (color == AVCOL_SPC_UNSPECIFIED)   // if unknown
+        color = AVCOL_SPC_BT709;
+
+    //
+    // render
+    //
+    //
+    // Check image, format, size
+    //
+
+    if (ist->hwaccel_pix_fmt != video_ctx->pix_fmt
+        || video_ctx->width != decoder->InputWidth
+        || video_ctx->height != decoder->InputHeight) {
+
+            decoder->PixFmt = video_ctx->pix_fmt;
+            ist->hwaccel_pix_fmt = video_ctx->pix_fmt;
+            ist->active_hwaccel_id = HWACCEL_NONE;
+
+        decoder->InputWidth = video_ctx->width;
+        decoder->InputHeight = video_ctx->height;
+
+        CpuCleanup(decoder);
+        decoder->SurfacesNeeded = VIDEO_SURFACES_MAX * 2 + 1;
+        CpuSetupOutput(decoder);
+    }
+    //
+    // Copy data from frame to image
+    //
+    switch (video_ctx->pix_fmt) {
+//        case AV_PIX_FMT_CUDA:
+//        case AV_PIX_FMT_NV12:
+        case AV_PIX_FMT_YUV420P:      // for softdecode
+//        case AV_PIX_FMT_YUVJ420P:     // some streams produce this
+        case AV_PIX_FMT_YUV420P10LE:  // for softdecode of HEVC 10 Bit
+        break;
+//        case AV_PIX_FMT_YUV422P:
+//        case AV_PIX_FMT_YUV444P:
+        default:
+            Error(_("video/cpu: pixel format %d not supported\n"),
+            video_ctx->pix_fmt);
+            // FIXME: no fatals!
+    }
+    decoder->ColorSpace = color;     // save colorspace
+    decoder->trc = frame->color_trc;
+    decoder->color_primaries = frame->color_primaries;
+
+    surface = CpuGetSurface0(decoder);
+
+    if (surface == -1)     // no free surfaces
+        return;
+    {
+        //YV12 -> NV12
+        uint8_t *outUV;
+
+        int size = frame->linesize[0] * decoder->InputHeight;
+        int quarter = size / 4;
+
+        outUV = (uint8_t*) malloc(size / 2 * sizeof(uint8_t));
+
+        if (!outUV) {
+            Error(_("video/cpu: out of memory\n"));
+            return;
+        }
+        //TODO use shader or direct yuv render?
+        for (int i = 0; i < quarter; i++) {
+            memcpy(outUV + i * 2, frame->data[1] + i, 1); // For NV12, U first
+            memcpy(outUV + i * 2 + 1, frame->data[2] + i, 1); // For NV12, V second
+        }
+
+        if(GlxEnabled) {
+            glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
+            GlxCheck();
+        }
+#ifdef USE_EGL
+        if (EglEnabled) {
+            eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EglThreadContext);
+            EglCheck();
+        }
+#endif
+        //Y
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[0]);
+        glTextureSubImage2D(decoder->gl_textures[surface][0], 0, 0, 0, decoder->InputWidth,
+            decoder->InputHeight, GL_RED, GL_UNSIGNED_BYTE, frame->data[0]);
+        GlCheck();
+        //UV
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[1]);
+        glTextureSubImage2D(decoder->gl_textures[surface][1], 0, 0, 0, decoder->InputWidth/2,
+            decoder->InputHeight/2, GL_RG, GL_UNSIGNED_BYTE, outUV);
+        GlCheck();
+
+        Debug(4, "video/cpu: sw render hw surface %#08x\n", surface);
+
+        CpuQueueSurface(decoder, surface, 1);
+        free(outUV);
+    }
+
+    if (decoder->Interlaced) {
+	++decoder->FrameCounter;
+    }
+}
+
+///
+///	Get hwaccel context for ffmpeg.
+///
+///	@param decoder	CPU hw decoder
+///
+static void *CpuGetHwAccelContext(CpuDecoder * decoder)
+{
+    (void)decoder;
+
+    return NULL;
+}
+
+static void CpuMixVideo(CpuDecoder * decoder, int level)
+{
+    int current;
+    int y;
+    float xcropf, ycropf;
+    GLint texLoc;
+
+#ifdef USE_AUTOCROP
+    // FIXME: can move to render frame
+    CpuCheckAutoCrop(decoder);
+#endif
+
+    xcropf = (float) decoder->CropX / (float) decoder->InputWidth;
+    ycropf = (float) decoder->CropY / (float) decoder->InputHeight;
+
+    current = decoder->SurfacesRb[decoder->SurfaceRead];
+
+    if (!decoder->gl_textures[current][0] || !decoder->gl_textures[current][1]) return;
+    // Render Progressive frame and simple interlaced
+    y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
+    if (y < 0)
+        y = 0;
+    glViewport(decoder->OutputX, y, decoder->OutputWidth, decoder->OutputHeight);
+
+    if (gl_prog == 0)
+        gl_prog = sc_generate(gl_prog, decoder->ColorSpace);    // generate shader programm
+    if (!gl_prog) return;
+
+    glUseProgram(gl_prog);
+    texLoc = glGetUniformLocation(gl_prog, "texture0");
+    glUniform1i(texLoc, 0);
+    texLoc = glGetUniformLocation(gl_prog, "texture1");
+    glUniform1i(texLoc, 1);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[current][0]);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[current][1]);
+
+    render_pass_quad(0, xcropf, ycropf);
+
+    glUseProgram(0);
+    glActiveTexture(GL_TEXTURE0);
+
+    Debug(4,"video/cpu: yy video surface %d displayed\n", current);
+    (void)level;
+}
+
+///
+///	Create and display a black empty surface.
+///
+///	@param decoder	CPU hw decoder
+///
+///	@FIXME: render only video area, not fullscreen!
+///	decoder->Output.. isn't correct setup for radio stations
+///
+static void CpuBlackSurface(CpuDecoder * decoder)
+{
+    glClear(GL_COLOR_BUFFER_BIT);
+    (void)decoder;
+    return;
+}
+
+///
+///	Advance displayed frame of decoder.
+///
+///	@param decoder	CPU hw decoder
+///
+static void CpuAdvanceDecoderFrame(CpuDecoder * decoder)
+{
+    // next surface, if complete frame is displayed (1 -> 0)
+    if (decoder->SurfaceField) {
+	int filled;
+
+	// FIXME: this should check the caller
+	// check decoder, if new surface is available
+	// need 2 frames for progressive
+	// need 4 frames for interlaced
+	filled = atomic_read(&decoder->SurfacesFilled);
+	if (filled < 1 + 2 * decoder->Interlaced) {
+	    // keep use of last surface
+	    ++decoder->FramesDuped;
+	    // FIXME: don't warn after stream start, don't warn during pause
+	    Debug(4,"video: display buffer empty, duping frame (%d/%d) %d\n",
+		decoder->FramesDuped, decoder->FrameCounter,
+		VideoGetBuffers(decoder->Stream));
+	    return;
+	}
+	decoder->SurfaceRead = (decoder->SurfaceRead + 1) % (VIDEO_SURFACES_MAX * 2);
+	atomic_dec(&decoder->SurfacesFilled);
+	decoder->SurfaceField = !decoder->Interlaced;
+	return;
+    }
+    // next field
+    decoder->SurfaceField = 1;
+    (void)decoder;
+}
+
+///
+///	Display a video frame.
+///
+static void CpuDisplayFrame(void)
+{
+    uint64_t first_time = 0;
+    static uint64_t last_time;
+    int i;
+
+    if (VideoSurfaceModesChanged) {	// handle changed modes
+	VideoSurfaceModesChanged = 0;
+	for (i = 0; i < CpuDecoderN; ++i) {
+		CpuMixerSetup(CpuDecoders[i]);
+	}
+    }
+
+    if (GlxEnabled) {
+	glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
+	glClear(GL_COLOR_BUFFER_BIT);
+    }
+#ifdef USE_EGL
+    if (EglEnabled) {
+	eglMakeCurrent(EglDisplay, EglSurface, EglSurface, EglThreadContext);
+	glClear(GL_COLOR_BUFFER_BIT);
+    }
+#endif
+    // check if surface was displayed for more than 1 frame
+    // FIXME: 21 only correct for 50Hz
+    if (last_time && first_time > last_time + 21 * 1000 * 1000) {
+	// FIXME: ignore still-frame, trick-speed
+	Debug(3, "video/cpu: %" PRId64 " display time %" PRId64 "\n",
+	    first_time / 1000, (first_time - last_time) / 1000);
+	// FIXME: can be more than 1 frame long shown
+	for (i = 0; i < CpuDecoderN; ++i) {
+	    CpuDecoders[i]->FramesMissed++;
+	    CpuMessage(2, _("video/cpu: missed frame (%d/%d)\n"),
+		CpuDecoders[i]->FramesMissed,
+		CpuDecoders[i]->FrameCounter);
+	}
+    }
+    last_time = first_time;
+
+    //
+    //	Render videos into output
+    //
+    for (i = 0; i < CpuDecoderN; ++i) {
+	int filled;
+	CpuDecoder *decoder;
+
+	decoder = CpuDecoders[i];
+	decoder->FramesDisplayed++;
+	decoder->StartCounter++;
+
+	filled = atomic_read(&decoder->SurfacesFilled);
+	// need 1 frame for progressive, 3 frames for interlaced
+	if (filled < 1 + 2 * decoder->Interlaced && decoder->Closing) {
+	    // FIXME: rewrite MixVideo to support less surfaces
+	    if ((VideoShowBlackPicture && !decoder->TrickSpeed)
+		|| (VideoShowBlackPicture && decoder->Closing < -300)) {
+		CpuBlackSurface(decoder);
+		CpuMessage(4, "video/cpu: black surface displayed\n");
+#ifdef USE_SCREENSAVER
+		if (EnableDPMSatBlackScreen && DPMSDisabled) {
+		    CpuMessage(4, "Black surface, DPMS enabled\n");
+		    X11DPMSReenable(Connection);
+		    X11SuspendScreenSaver(Connection, 1);
+		}
+#endif
+	    }
+	    if (VideoShowBlackPicture)
+		continue;
+#ifdef USE_SCREENSAVER
+	} else if (!DPMSDisabled) {	// always disable
+	    CpuMessage(4, "DPMS disabled\n");
+	    X11DPMSDisable(Connection);
+	    X11SuspendScreenSaver(Connection, 0);
+#endif
+	}
+
+	CpuMixVideo(decoder, i);
+    }
+
+    //
+    //	add osd to surface
+    //
+    if(GlxEnabled) {
+        if (OsdShown) {
+            glViewport(0, 0, VideoWindowWidth, VideoWindowHeight);
+            glMatrixMode(GL_PROJECTION);
+            glLoadIdentity();
+            glOrtho(0.0, VideoWindowWidth, VideoWindowHeight, 0.0, -1.0, 1.0);
+            GlxCheck();
+#ifdef USE_OPENGLOSD
+            if(!DisableOglOsd && OsdGlTexture) {
+                GlxRenderTexture(OsdGlTexture, 0,0, VideoWindowWidth, VideoWindowHeight);
+            } else
+#endif
+                GlxRenderTexture(OsdGlTextures[OsdIndex], 0,0, VideoWindowWidth, VideoWindowHeight);
+        }
+
+        glXSwapBuffers(XlibDisplay, VideoWindow);
+        glXMakeCurrent(XlibDisplay, None, NULL);
+    }
+#ifdef USE_EGL
+    if (EglEnabled) {
+	if (OsdShown) {
+            glViewport(0, 0, VideoWindowWidth, VideoWindowHeight);
+            glMatrixMode(GL_PROJECTION);
+            glLoadIdentity();
+            glOrtho(0.0, VideoWindowWidth, VideoWindowHeight, 0.0, -1.0, 1.0);
+            EglCheck();
+#ifdef USE_OPENGLOSD
+            if(!DisableOglOsd && OsdGlTexture) {
+                EglRenderTexture(OsdGlTexture, 0,0, VideoWindowWidth, VideoWindowHeight);
+            } else
+#endif
+	    EglRenderTexture(OsdGlTextures[OsdIndex], 0, 0, VideoWindowWidth, VideoWindowHeight);
+	}
+
+	eglSwapBuffers(EglDisplay, EglSurface);
+	eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+	EglCheck();
+    }
+#endif
+    // FIXME: CLOCK_MONOTONIC_RAW
+    clock_gettime(CLOCK_MONOTONIC, &CpuFrameTime);
+    for (i = 0; i < CpuDecoderN; ++i) {
+	// remember time of last shown surface
+	CpuDecoders[i]->FrameTime = CpuFrameTime;
+    }
+
+    xcb_flush(Connection);
+}
+
+
+///
+///	Set CPU decoder video clock.
+///
+///	@param decoder	CPU hardware decoder
+///	@param pts	audio presentation timestamp
+///
+void CpuSetClock(CpuDecoder * decoder, int64_t pts)
+{
+    decoder->PTS = pts;
+}
+
+///
+///	Get CPU decoder video clock.
+///
+///	@param decoder	CPU hw decoder
+///
+///	FIXME: 20 wrong for 60hz dvb streams
+///
+static int64_t CpuGetClock(const CpuDecoder * decoder)
+{
+    // pts is the timestamp of the latest decoded frame
+    if (decoder->PTS == (int64_t) AV_NOPTS_VALUE) {
+	return AV_NOPTS_VALUE;
+    }
+    // subtract buffered decoded frames
+    if (decoder->Interlaced) {
+	/*
+	   Info("video: %s =pts field%d #%d\n",
+	   Timestamp2String(decoder->PTS),
+	   decoder->SurfaceField,
+	   atomic_read(&decoder->SurfacesFilled));
+	 */
+	// 1 field is future, 2 fields are past, + 2 in driver queue
+	return decoder->PTS -
+	    20 * 90 * (2 * atomic_read(&decoder->SurfacesFilled)
+	    - decoder->SurfaceField - 2 + 2);
+    }
+    // + 2 in driver queue
+    return decoder->PTS - 20 * 90 * (atomic_read(&decoder->SurfacesFilled) + 2);
+}
+
+///
+///	Set CPU decoder closing stream flag.
+///
+///	@param decoder	CPU decoder
+///
+static void CpuSetClosing(CpuDecoder * decoder)
+{
+    decoder->Closing = 1;
+}
+
+///
+///	Reset start of frame counter.
+///
+///	@param decoder	CPU decoder
+///
+static void CpuResetStart(CpuDecoder * decoder)
+{
+    decoder->StartCounter = 0;
+}
+
+///
+///	Set trick play speed.
+///
+///	@param decoder	CPU decoder
+///	@param speed	trick speed (0 = normal)
+///
+static void CpuSetTrickSpeed(CpuDecoder * decoder, int speed)
+{
+    decoder->TrickSpeed = speed;
+    decoder->TrickCounter = speed;
+    if (speed) {
+	decoder->Closing = 0;
+    }
+}
+
+///
+///	Get CPU decoder statistics.
+///
+///	@param decoder		CPU decoder
+///	@param[out] missed	missed frames
+///	@param[out] duped	duped frames
+///	@param[out] dropped	dropped frames
+///	@param[out] count	number of decoded frames
+///
+void CpuGetStats(CpuDecoder * decoder, int *missed, int *duped,
+    int *dropped, int *counter)
+{
+    *missed = decoder->FramesMissed;
+    *duped = decoder->FramesDuped;
+    *dropped = decoder->FramesDropped;
+    *counter = decoder->FrameCounter;
+}
+
+///
+///	Sync decoder output to audio.
+///
+///	trick-speed	show frame <n> times
+///	still-picture	show frame until new frame arrives
+///	60hz-mode	repeat every 5th picture
+///	video>audio	slow down video by duplicating frames
+///	video<audio	speed up video by skipping frames
+///	soft-start	show every second frame
+///
+///	@param decoder	CPU hw decoder
+///
+static void CpuSyncDecoder(CpuDecoder * decoder)
+{
+    int err;
+    int filled;
+    int64_t audio_clock;
+    int64_t video_clock;
+
+    err = 0;
+    video_clock = CpuGetClock(decoder);
+    filled = atomic_read(&decoder->SurfacesFilled);
+
+    if (!decoder->SyncOnAudio) {
+	audio_clock = AV_NOPTS_VALUE;
+	// FIXME: 60Hz Mode
+	goto skip_sync;
+    }
+    mutex_start_time = GetMsTicks();
+    pthread_mutex_lock(&PTS_mutex);
+    pthread_mutex_lock(&ReadAdvance_mutex);
+    audio_clock = AudioGetClock();
+    pthread_mutex_unlock(&ReadAdvance_mutex);
+    pthread_mutex_unlock(&PTS_mutex);
+    if (GetMsTicks() - mutex_start_time > max_mutex_delay) {
+	max_mutex_delay = GetMsTicks() - mutex_start_time;
+	Debug(3, "video: mutex delay: %"PRIu32"ms\n", max_mutex_delay);
+    }
+
+    // 60Hz: repeat every 5th field
+    if (Video60HzMode && !(decoder->FramesDisplayed % 6)) {
+	if (audio_clock == (int64_t) AV_NOPTS_VALUE
+	    || video_clock == (int64_t) AV_NOPTS_VALUE) {
+	    goto out;
+	}
+	// both clocks are known
+	if (audio_clock + VideoAudioDelay <= video_clock + 25 * 90) {
+	    goto out;
+	}
+	// out of sync: audio before video
+	if (!decoder->TrickSpeed) {
+	    goto skip_sync;
+	}
+    }
+    // TrickSpeed
+    if (decoder->TrickSpeed) {
+	if (decoder->TrickCounter--) {
+	    goto out;
+	}
+	decoder->TrickCounter = decoder->TrickSpeed;
+	goto skip_sync;
+    }
+    // at start of new video stream, soft or hard sync video to audio
+    if (!VideoSoftStartSync && decoder->StartCounter < VideoSoftStartFrames
+	&& video_clock != (int64_t) AV_NOPTS_VALUE
+	&& (audio_clock == (int64_t) AV_NOPTS_VALUE
+	    || video_clock > audio_clock + VideoAudioDelay + 120 * 90)) {
+	err =
+	    CpuMessage(3, "video: initial slow down video, frame %d\n",
+	    decoder->StartCounter);
+	goto out;
+    }
+
+    if (decoder->SyncCounter && decoder->SyncCounter--) {
+	goto skip_sync;
+    }
+
+    if (audio_clock != (int64_t) AV_NOPTS_VALUE
+	&& video_clock != (int64_t) AV_NOPTS_VALUE) {
+	// both clocks are known
+	int diff;
+	int lower_limit;
+
+	diff = video_clock - audio_clock - VideoAudioDelay;
+	lower_limit = !IsReplay() ? -25 : 32;
+	diff = (decoder->LastAVDiff + diff) / 2;
+	decoder->LastAVDiff = diff;
+	//Debug(4, "video/cpu: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, filled);
+	if (abs(diff) > 5000 * 90) {	// more than 5s
+	    err = CpuMessage(3, "video: audio/video difference too big\n");
+	}
+	if (diff > 100 * 90) {
+	    // FIXME: this quicker sync step, did not work with new code!
+	    err = CpuMessage(3, "video: slow down video, duping frame\n");
+	    ++decoder->FramesDuped;
+	    if (VideoSoftStartSync) {
+		decoder->SyncCounter = diff > 100 * 90 ? diff % 2 : 1; //softsync :)
+	    }
+		goto out;
+	} else if (diff > 55 * 90) {
+	    err = CpuMessage(3, "video: slow down video, duping frame\n");
+	    ++decoder->FramesDuped;
+		decoder->SyncCounter = 1;
+		goto out;
+	} else if (diff < lower_limit * 90 && filled > 1 + 2 * decoder->Interlaced) {
+	    err = CpuMessage(3, "video: speed up video, droping frame\n");
+	    ++decoder->FramesDropped;
+	    CpuAdvanceDecoderFrame(decoder);
+		decoder->SyncCounter = 1;
+	} else if (diff < lower_limit * 90 && !filled) {
+		err = CpuMessage(3, "video: speed up audio, delay audio\n");
+		AudioDelayms(-diff / 90);
+	}
+#if defined(DEBUG) || defined(AV_INFO)
+	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
+#ifdef DEBUG
+	    Debug(3, "video/cpu: synced after %d frames %dms\n",
+		decoder->StartCounter, GetMsTicks() - VideoSwitch);
+#else
+	    Info("video/cpu: synced after %d frames\n",
+		decoder->StartCounter);
+#endif
+	    decoder->StartCounter += 1000;
+	}
+#endif
+    }
+
+  skip_sync:
+    // check if next field is available
+    if (decoder->SurfaceField && filled <= 1 + 2 * decoder->Interlaced) {
+	if (filled == 1 + 2 * decoder->Interlaced) {
+	    ++decoder->FramesDuped;
+	    // FIXME: don't warn after stream start, don't warn during pause
+	    err =
+		CpuMessage(3,
+		_("video: decoder buffer empty, "
+		    "duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
+		decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
+	    // some time no new picture or black video configured
+	    if (decoder->Closing < -300 || (VideoShowBlackPicture
+		    && decoder->Closing)) {
+		// clear ring buffer to trigger black picture
+		atomic_set(&decoder->SurfacesFilled, 0);
+	    }
+	}
+	goto out;
+    }
+
+    CpuAdvanceDecoderFrame(decoder);
+  out:
+#if defined(DEBUG) || defined(AV_INFO)
+    // debug audio/video sync
+    if (err || !(decoder->FramesDisplayed % AV_INFO_TIME)) {
+	if (!err) {
+	    CpuMessage(0, NULL);
+	}
+	Info("video: %s%+5" PRId64 " %4" PRId64 " %3d/\\ms %3d%+d%+d v-buf\n",
+	    Timestamp2String(video_clock),
+	    abs((int)(video_clock - audio_clock) / 90) <
+	    8888 ? ((video_clock - audio_clock) / 90) : 8888,
+	    AudioGetDelay() / 90, (int)VideoDeltaPTS / 90,
+	    VideoGetBuffers(decoder->Stream),
+	    decoder->Interlaced ? 2 * atomic_read(&decoder->SurfacesFilled)
+	    - decoder->SurfaceField : atomic_read(&decoder->SurfacesFilled),
+	    CpuSurfaceQueued);
+	if (!(decoder->FramesDisplayed % (5 * 60 * 60))) {
+	    CpuPrintFrames(decoder);
+	}
+    }
+#endif
+    return;				// fix gcc bug!
+}
+
+///
+///	Sync a video frame.
+///
+static void CpuSyncFrame(void)
+{
+    int i;
+
+    //
+    //	Sync video decoder to audio
+    //
+    for (i = 0; i < CpuDecoderN; ++i) {
+	CpuSyncDecoder(CpuDecoders[i]);
+    }
+}
+
+///
+///	Sync and display surface.
+///
+static void CpuSyncDisplayFrame(void)
+{
+    CpuDisplayFrame();
+    CpuSyncFrame();
+}
+
+///
+///	Sync and render a ffmpeg frame
+///
+///	@param decoder		CPU hw decoder
+///	@param video_ctx	ffmpeg video codec context
+///	@param frame		frame to display
+///
+static void CpuSyncRenderFrame(CpuDecoder * decoder,
+    const AVCodecContext * video_ctx, const AVFrame * frame)
+{
+    // FIXME: temp debug
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,61,100)
+    if (0 && frame->pkt_pts != (int64_t) AV_NOPTS_VALUE) {
+	Debug(3, "video: render frame pts %s\n",
+	    Timestamp2String(frame->pkt_pts));
+#else
+    if (0 && frame->pts != (int64_t) AV_NOPTS_VALUE) {
+	Debug(3, "video: render frame pts %s\n",
+	    Timestamp2String(frame->pts));
+#endif
+    }
+#ifdef DEBUG
+    if (!atomic_read(&decoder->SurfacesFilled)) {
+	Debug(3, "video: new stream frame %dms\n", GetMsTicks() - VideoSwitch);
+    }
+#endif
+
+#if 1
+#ifndef USE_PIP
+#error	"-DUSE_PIP or #define USE_PIP is needed,"
+#endif
+    // if video output buffer is full, wait and display surface.
+    // loop for interlace
+    if (atomic_read(&decoder->SurfacesFilled) >= (VIDEO_SURFACES_MAX * 2)) {
+	Info("video/cpu: this code part shouldn't be used\n");
+	return;
+    }
+#else
+    // FIXME: disabled for remove
+    // FIXME: wrong for multiple streams
+    // FIXME: this part code should be no longer be needed with new mpeg fix
+    while (atomic_read(&decoder->SurfacesFilled) >= (VIDEO_SURFACES_MAX * 2)) {
+	struct timespec abstime;
+
+	pthread_mutex_unlock(&VideoLockMutex);
+
+	abstime = decoder->FrameTime;
+	abstime.tv_nsec += 14 * 1000 * 1000;
+	if (abstime.tv_nsec >= 1000 * 1000 * 1000) {
+	    // avoid overflow
+	    abstime.tv_sec++;
+	    abstime.tv_nsec -= 1000 * 1000 * 1000;
+	}
+
+	VideoPollEvent();
+
+	// fix dead-lock with VdpauExit
+	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+	pthread_testcancel();
+	pthread_mutex_lock(&VideoLockMutex);
+	// give osd some time slot
+	while (pthread_cond_timedwait(&VideoWakeupCond, &VideoLockMutex,
+		&abstime) != ETIMEDOUT) {
+	    // SIGUSR1
+	    Debug(3, "video/cpu: pthread_cond_timedwait error\n");
+	}
+	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+
+	CpuSyncDisplayFrame();
+    }
+#endif
+
+    if (!decoder->Closing) {
+	VideoSetPts(&decoder->PTS, decoder->Interlaced, video_ctx, frame);
+    }
+    CpuRenderFrame(decoder, video_ctx, frame);
+}
+
+///
+///	Set CPU background color.
+///
+///	@param rgba	32 bit RGBA color.
+///
+static void CpuSetBackground( __attribute__ ((unused)) uint32_t rgba)
+{
+}
+
+///
+///	Set video output position.
+///
+///	@param decoder	CPU hw decoder
+///	@param x	video output x coordinate inside the window
+///	@param y	video output y coordinate inside the window
+///	@param width	video output width
+///	@param height	video output height
+///
+///	@note FIXME: need to know which stream.
+///
+static void CpuSetOutputPosition(CpuDecoder * decoder, int x, int y,
+    int width, int height)
+{
+    Debug(3, "video/cpu: output %dx%d%+d%+d\n", width, height, x, y);
+
+    decoder->VideoX = x;
+    decoder->VideoY = y;
+    decoder->VideoWidth = width;
+    decoder->VideoHeight = height;
+
+    // next video pictures are automatic rendered to correct position
+}
+
+///
+///	Set CPU video mode.
+///
+static void CpuSetVideoMode(void)
+{
+    int i;
+
+    for (i = 0; i < CpuDecoderN; ++i) {
+	// reset video window, upper level needs to fix the positions
+	CpuDecoders[i]->VideoX = 0;
+	CpuDecoders[i]->VideoY = 0;
+	CpuDecoders[i]->VideoWidth = VideoWindowWidth;
+	CpuDecoders[i]->VideoHeight = VideoWindowHeight;
+	// for window mode need restore scale
+	if (CpuDecoders[i]->ScaleX || CpuDecoders[i]->ScaleY
+	 || CpuDecoders[i]->ScaleWidth || CpuDecoders[i]->ScaleHeight) {
+	    // convert OSD coordinates to window coordinates
+	    int x = (CpuDecoders[i]->ScaleX * VideoWindowWidth) / OsdWidth;
+	    int width = (CpuDecoders[i]->ScaleWidth * VideoWindowWidth) / OsdWidth;
+	    int y = (CpuDecoders[i]->ScaleY * VideoWindowHeight) / OsdHeight;
+	    int height = (CpuDecoders[i]->ScaleHeight * VideoWindowHeight) / OsdHeight;
+	    CpuSetOutputPosition(CpuDecoders[i], x, y, width, height);
+	}
+	CpuUpdateOutput(CpuDecoders[i]);
+    }
+}
+
+#ifdef USE_VIDEO_THREAD2
+
+#else
+
+#ifdef USE_VIDEO_THREAD
+
+///
+///	Handle a CPU display.
+///
+static void CpuDisplayHandlerThread(void)
+{
+    int i;
+    int err;
+    int allfull;
+    int decoded;
+    struct timespec nowtime;
+    CpuDecoder *decoder;
+
+    allfull = 1;
+    decoded = 0;
+    pthread_mutex_lock(&VideoLockMutex);
+    for (i = 0; i < CpuDecoderN; ++i) {
+	int filled;
+
+	decoder = CpuDecoders[i];
+
+	//
+	// fill frame output ring buffer
+	//
+	filled = atomic_read(&decoder->SurfacesFilled);
+	if (filled <= 1 + 2 * decoder->Interlaced) {
+	    // FIXME: hot polling
+	    // fetch+decode or reopen
+	    allfull = 0;
+	    err = VideoDecodeInput(decoder->Stream);
+	} else {
+	    err = VideoPollInput(decoder->Stream);
+	}
+	// decoder can be invalid here
+	if (err) {
+	    // nothing buffered?
+	    if (err == -1 && decoder->Closing) {
+		decoder->Closing--;
+		if (!decoder->Closing) {
+		    Debug(3, "video/cpu: closing eof\n");
+		    decoder->Closing = -1;
+		}
+	    }
+	    continue;
+	}
+	decoded = 1;
+    }
+    pthread_mutex_unlock(&VideoLockMutex);
+
+    if (!decoded) {			// nothing decoded, sleep
+	// FIXME: sleep on wakeup
+	usleep(1 * 1000);
+    }
+    // all decoder buffers are full
+    // and display is not preempted
+    // speed up filling display queue, wait on display queue empty
+    if (!allfull) {
+	clock_gettime(CLOCK_MONOTONIC, &nowtime);
+	// time for one frame over?
+	if ((nowtime.tv_sec - CpuFrameTime.tv_sec) * 1000 * 1000 * 1000 +
+	    (nowtime.tv_nsec - CpuFrameTime.tv_nsec) < 15 * 1000 * 1000) {
+	    return;
+	}
+    }
+
+    pthread_mutex_lock(&VideoLockMutex);
+    CpuSyncDisplayFrame();
+    pthread_mutex_unlock(&VideoLockMutex);
+}
+
+#else
+
+#define CpuDisplayHandlerThread	NULL
+
+#endif
+
+#endif
+
+//----------------------------------------------------------------------------
+//	CPU OSD USE GLX
+//----------------------------------------------------------------------------
+#ifdef USE_OPENGLOSD
+void *GetCpuGlxOsdOutputTexture(GLuint texture) {
+    OsdGlTexture = texture;
+    return 0;
+}
+
+int CpuInitGlx(void) {
+    int a = 0;
+
+    if (!GlxEnabled) {
+        Debug(3,"video/osd: can't create glx context\n");
+        return 0;
+    }
+    //after run an external player from time to time vdr not set playmode 1
+    //then try start GLX forced.
+    //is it a vdr bug or external player plugin???
+    while (!GlxContext || !GlxThreadContext){
+        usleep(1000);
+        a++;
+        if (a > 10 && a < 1000) {
+            Debug(3,"Try start GLX forced\n");
+            VideoDisplayWakeup();
+            a = 1000;
+        }
+        if (a > 1010) return 0;
+    }
+    Debug(3,"Create OSD GLX context\n");
+    glXMakeCurrent(XlibDisplay, None, NULL);
+    glXMakeCurrent(XlibDisplay, VideoWindow, GlxContext);
+    return 1;
+}
+#endif
+
+///
+///	CPU module.
+///
+static const VideoModule CpuGlxModule = {
+    .Name = "cpu-glx",
+    .Enabled = 1,
+    .NewHwDecoder =
+	(VideoHwDecoder * (*const)(VideoStream *)) CpuNewHwDecoder,
+    .DelHwDecoder = (void (*const) (VideoHwDecoder *))CpuDelHwDecoder,
+    .GetSurface = (unsigned (*const) (VideoHwDecoder *,
+	    const AVCodecContext *))CpuGetSurface,
+    .ReleaseSurface =
+	(void (*const) (VideoHwDecoder *, unsigned))CpuReleaseSurface,
+    .get_format = (enum AVPixelFormat(*const) (VideoHwDecoder *,
+	    AVCodecContext *, const enum AVPixelFormat *))Cpu_get_format,
+    .RenderFrame = (void (*const) (VideoHwDecoder *,
+	    const AVCodecContext *, const AVFrame *))CpuSyncRenderFrame,
+    .GetHwAccelContext = (void *(*const)(VideoHwDecoder *))
+	CpuGetHwAccelContext,
+    .SetClock = (void (*const) (VideoHwDecoder *, int64_t))CpuSetClock,
+    .GetClock = (int64_t(*const) (const VideoHwDecoder *))CpuGetClock,
+    .SetClosing = (void (*const) (const VideoHwDecoder *))CpuSetClosing,
+    .ResetStart = (void (*const) (const VideoHwDecoder *))CpuResetStart,
+    .SetTrickSpeed =
+	(void (*const) (const VideoHwDecoder *, int))CpuSetTrickSpeed,
+#ifdef USE_GRAB
+    .GrabOutput = CpuGrabOutputSurface,
+#endif
+    .GetStats = (void (*const) (VideoHwDecoder *, int *, int *, int *,
+	    int *))CpuGetStats,
+    .SetBackground = CpuSetBackground,
+    .SetVideoMode = CpuSetVideoMode,
+#ifdef USE_AUTOCROP
+    .ResetAutoCrop = CpuResetAutoCrop,
+#endif
+    .DisplayHandlerThread = CpuDisplayHandlerThread,
+    .OsdClear = GlxOsdClear,
+    .OsdDrawARGB = GlxOsdDrawARGB,
+    .OsdInit = GlxOsdInit,
+    .OsdExit = GlxOsdExit,
+    .MaxPixmapSize = GlxMaxPixmapSize,
+    .Init = CpuGlxInit,
+    .Exit = CpuExit,
+};
+
+//----------------------------------------------------------------------------
+//	CPU OSD USE EGL
+//----------------------------------------------------------------------------
+#ifdef USE_EGL
+
+#ifdef USE_OPENGLOSD
+void *GetCpuEglOsdOutputTexture(GLuint texture) {
+    OsdGlTexture = texture;
+    return 0;
+}
+
+int CpuInitEgl(void) {
+    int a = 0;
+
+    if (!EglEnabled) {
+        Debug(3,"video/osd: can't create egl context\n");
+        return 0;
+    }
+    //after run an external player from time to time vdr not set playmode 1
+    //then try start EGL forced.
+    //is it a vdr bug or external player plugin???
+    while (!EglContext || !EglThreadContext){
+        usleep(1000);
+        a++;
+        if (a > 10 && a < 1000) {
+            Debug(3,"Try start EGL forced\n");
+            VideoDisplayWakeup();
+            a = 1000;
+        }
+        if (a > 1010) return 0;
+    }
+    Debug(3,"Create OSD EGL context\n");
+    eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+    eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EglContext);
+    return 1;
+}
+#endif
+
+///
+///	CPU EGL module.
+///
+static const VideoModule CpuEglModule = {
+    .Name = "cpu-egl",
+    .Enabled = 1,
+    .NewHwDecoder =
+	(VideoHwDecoder * (*const)(VideoStream *)) CpuNewHwDecoder,
+    .DelHwDecoder = (void (*const) (VideoHwDecoder *))CpuDelHwDecoder,
+    .GetSurface = (unsigned (*const) (VideoHwDecoder *,
+	    const AVCodecContext *))CpuGetSurface,
+    .ReleaseSurface =
+	(void (*const) (VideoHwDecoder *, unsigned))CpuReleaseSurface,
+    .get_format = (enum AVPixelFormat(*const) (VideoHwDecoder *,
+	    AVCodecContext *, const enum AVPixelFormat *))Cpu_get_format,
+    .RenderFrame = (void (*const) (VideoHwDecoder *,
+	    const AVCodecContext *, const AVFrame *))CpuSyncRenderFrame,
+    .GetHwAccelContext = (void *(*const)(VideoHwDecoder *))
+	CpuGetHwAccelContext,
+    .SetClock = (void (*const) (VideoHwDecoder *, int64_t))CpuSetClock,
+    .GetClock = (int64_t(*const) (const VideoHwDecoder *))CpuGetClock,
+    .SetClosing = (void (*const) (const VideoHwDecoder *))CpuSetClosing,
+    .ResetStart = (void (*const) (const VideoHwDecoder *))CpuResetStart,
+    .SetTrickSpeed =
+	(void (*const) (const VideoHwDecoder *, int))CpuSetTrickSpeed,
+#ifdef USE_GRAB
+    .GrabOutput = CpuGrabOutputSurface,
+#endif
+    .GetStats = (void (*const) (VideoHwDecoder *, int *, int *, int *,
+	    int *))CpuGetStats,
+    .SetBackground = CpuSetBackground,
+    .SetVideoMode = CpuSetVideoMode,
+#ifdef USE_AUTOCROP
+    .ResetAutoCrop = CpuResetAutoCrop,
+#endif
+    .DisplayHandlerThread = CpuDisplayHandlerThread,
+    .OsdClear = EglOsdClear,
+    .OsdDrawARGB = EglOsdDrawARGB,
+    .OsdInit = EglOsdInit,
+    .OsdExit = EglOsdExit,
+    .MaxPixmapSize = EglMaxPixmapSize,
+    .Init = CpuEglInit,
+    .Exit = CpuExit,
+};
+#endif
+
+#endif
+
+
+
+//----------------------------------------------------------------------------
 //	NOOP
 //----------------------------------------------------------------------------
 
@@ -15589,6 +17799,12 @@ static const VideoModule *VideoModules[] = {
     &CuvidEglModule,
 #endif
 #endif
+#ifdef USE_GLX
+    &CpuGlxModule,
+#endif
+#ifdef USE_EGL
+    &CpuEglModule,
+#endif
     &NoopModule
 };
 
@@ -15608,6 +17824,7 @@ struct _video_hw_decoder_
 #ifdef USE_CUVID
 	CuvidDecoder Cuvid;		///< cuvid decoder structure
 #endif
+	CpuDecoder Cpu;			///< cpu software decoder structure
     };
 };
 
@@ -16096,7 +18313,22 @@ void VideoGetVideoSize(VideoHwDecoder * hw_decoder, int *width, int *height,
 	    1024 * 1024);
     }
 #endif
-
+#ifdef USE_GLX
+    if (VideoUsedModule == &CpuGlxModule
+#endif
+#ifdef USE_EGL
+    || VideoUsedModule == &CpuEglModule
+#endif
+#if defined USE_GLX || defined USE_EGL
+    ) {
+	*width = hw_decoder->Cpu.InputWidth;
+	*height = hw_decoder->Cpu.InputHeight;
+	av_reduce(aspect_num, aspect_den,
+	    hw_decoder->Cpu.InputWidth * hw_decoder->Cpu.InputAspect.num,
+	    hw_decoder->Cpu.InputHeight * hw_decoder->Cpu.InputAspect.den,
+	    1024 * 1024);
+    }
+#endif
 }
 
 #ifdef USE_SCREENSAVER
@@ -16456,6 +18688,22 @@ int VideoIsDriverCuvid(void)
    return 0;
 }
 
+int VideoIsDriverCpu(void)
+{
+#ifdef USE_GLX
+    if (VideoUsedModule == &CpuGlxModule
+#endif
+#ifdef USE_EGL
+    || VideoUsedModule == &CpuEglModule
+#endif
+#if defined USE_GLX || defined USE_EGL
+    ) {
+	return 1;
+    }
+#endif
+   return 0;
+}
+
 ///
 ///	Set video geometry.
 ///
@@ -16577,6 +18825,10 @@ void VideoSetBrightness(int brightness)
 //					       CuvidConfigBrightness.scale;
 //    }
 #endif
+//    if (VideoUsedModule == &CpuGlxModule) {
+//	CpuDecoders[0]->VOparams.brightness = VideoConfigClamp(&CpuConfigBrightness, brightness) *
+//					       CpuConfigBrightness.scale;
+//    }
 }
 
 ///
@@ -16619,6 +18871,20 @@ int VideoGetBrightnessConfig(int *minvalue, int *defvalue, int *maxvalue)
 	return CuvidConfigBrightness.active;
     }
 #endif
+#ifdef USE_GLX
+    if (VideoUsedModule == &CpuGlxModule
+#endif
+#ifdef USE_EGL
+    || VideoUsedModule == &CpuEglModule
+#endif
+#if defined USE_GLX || defined USE_EGL
+    ) {
+	*minvalue = CpuConfigBrightness.min_value;
+	*defvalue = CpuConfigBrightness.def_value;
+	*maxvalue = CpuConfigBrightness.max_value;
+	return CpuConfigBrightness.active;
+    }
+#endif
     return 0;
 }
 
@@ -16656,6 +18922,10 @@ void VideoSetContrast(int contrast)
 //					     CuvidConfigContrast.scale;
 //    }
 #endif
+//    if (VideoUsedModule == &CpuGlxModule) {
+//	CpuDecoders[0]->Procamp.contrast = VideoConfigClamp(&CpuConfigContrast, contrast) *
+//					     CpuConfigContrast.scale;
+//    }
 }
 
 ///
@@ -16698,6 +18968,20 @@ int VideoGetContrastConfig(int *minvalue, int *defvalue, int *maxvalue)
 	return CuvidConfigContrast.active;
     }
 #endif
+#ifdef USE_GLX
+    if (VideoUsedModule == &CpuGlxModule
+#endif
+#ifdef USE_EGL
+    || VideoUsedModule == &CpuEglModule
+#endif
+#if defined USE_GLX || defined USE_EGL
+    ) {
+	*minvalue = CpuConfigContrast.min_value;
+	*defvalue = CpuConfigContrast.def_value;
+	*maxvalue = CpuConfigContrast.max_value;
+	return CpuConfigContrast.active;
+    }
+#endif
     return 0;
 }
 
@@ -16735,6 +19019,10 @@ void VideoSetSaturation(int saturation)
 //					       CuvidConfigSaturation.scale;
 //    }
 #endif
+//    if (VideoUsedModule == &CpuGlxModule) {
+//	CpuDecoders[0]->Procamp.saturation = VideoConfigClamp(&CpuConfigSaturation, saturation) *
+//					       CpuConfigSaturation.scale;
+//    }
 }
 
 ///
@@ -16777,6 +19065,20 @@ int VideoGetSaturationConfig(int *minvalue, int *defvalue, int *maxvalue)
 	return CuvidConfigSaturation.active;
     }
 #endif
+#ifdef USE_GLX
+    if (VideoUsedModule == &CpuGlxModule
+#endif
+#ifdef USE_EGL
+    || VideoUsedModule == &CpuEglModule
+#endif
+#if defined USE_GLX || defined USE_EGL
+    ) {
+	*minvalue = CpuConfigSaturation.min_value;
+	*defvalue = CpuConfigSaturation.def_value;
+	*maxvalue = CpuConfigSaturation.max_value;
+	return CpuConfigSaturation.active;
+    }
+#endif
     return 0;
 }
 
@@ -16813,6 +19115,10 @@ void VideoSetHue(int hue)
 //					CuvidConfigHue.scale;
 //    }
 #endif
+//    if (VideoUsedModule == &CpuGlxModule) {
+//	CpuDecoders[0]->Procamp.hue = VideoConfigClamp(&CpuConfigHue, hue) *
+//					CpuConfigHue.scale;
+//    }
 }
 
 ///
@@ -16855,6 +19161,20 @@ int VideoGetHueConfig(int *minvalue, int *defvalue, int *maxvalue)
 	return CuvidConfigHue.active;
     }
 #endif
+#ifdef USE_GLX
+    if (VideoUsedModule == &CpuGlxModule
+#endif
+#ifdef USE_EGL
+    || VideoUsedModule == &CpuEglModule
+#endif
+#if defined USE_GLX || defined USE_EGL
+    ) {
+	*minvalue = CpuConfigHue.min_value;
+	*defvalue = CpuConfigHue.def_value;
+	*maxvalue = CpuConfigHue.max_value;
+	return CpuConfigHue.active;
+    }
+#endif
     return 0;
 }
 
@@ -16890,6 +19210,17 @@ void VideoSetSkinToneEnhancement(int stde)
 #endif
     ) {
 	VideoSkinToneEnhancement = VideoConfigClamp(&CuvidConfigStde, stde);
+    }
+#endif
+#ifdef USE_GLX
+    if (VideoUsedModule == &CpuGlxModule
+#endif
+#ifdef USE_EGL
+    || VideoUsedModule == &CpuEglModule
+#endif
+#if defined USE_GLX || defined USE_EGL
+    ) {
+	VideoSkinToneEnhancement = VideoConfigClamp(&CpuConfigStde, stde);
     }
 #endif
     VideoSurfaceModesChanged = 1;
@@ -16933,6 +19264,20 @@ int VideoGetSkinToneEnhancementConfig(int *minvalue, int *defvalue, int *maxvalu
         *defvalue = CuvidConfigStde.def_value;
         *maxvalue = CuvidConfigStde.max_value;
         return CuvidConfigStde.active;
+    }
+#endif
+#ifdef USE_GLX
+    if (VideoUsedModule == &CpuGlxModule
+#endif
+#ifdef USE_EGL
+    || VideoUsedModule == &CpuEglModule
+#endif
+#if defined USE_GLX || defined USE_EGL
+    ) {
+        *minvalue = CpuConfigStde.min_value;
+        *defvalue = CpuConfigStde.def_value;
+        *maxvalue = CpuConfigStde.max_value;
+        return CpuConfigStde.active;
     }
 #endif
     return 0;
@@ -17046,6 +19391,35 @@ void VideoSetOutputPosition(VideoHwDecoder * hw_decoder, int x, int y,
 
 	CuvidSetOutputPosition(&hw_decoder->Cuvid, x, y, width, height);
 	CuvidUpdateOutput(&hw_decoder->Cuvid);
+	VideoThreadUnlock();
+    }
+#endif
+#ifdef USE_GLX
+    if (VideoUsedModule == &CpuGlxModule
+#endif
+#ifdef USE_EGL
+    || VideoUsedModule == &CpuEglModule
+#endif
+#if defined USE_GLX || defined USE_EGL
+    ) {
+	// check values to be able to avoid
+	// interfering with the video thread if possible
+
+	if (x == hw_decoder->Cpu.VideoX && y == hw_decoder->Cpu.VideoY
+	    && width == hw_decoder->Cpu.VideoWidth
+	    && height == hw_decoder->Cpu.VideoHeight) {
+	    // not necessary...
+	    return;
+	}
+	VideoThreadLock();
+	//store scale for window mode
+	hw_decoder->Cpu.ScaleX = sx;
+	hw_decoder->Cpu.ScaleY = sy;
+	hw_decoder->Cpu.ScaleWidth = swidth;
+	hw_decoder->Cpu.ScaleHeight = sheight;
+
+	CpuSetOutputPosition(&hw_decoder->Cpu, x, y, width, height);
+	CpuUpdateOutput(&hw_decoder->Cpu);
 	VideoThreadUnlock();
     }
 #endif
@@ -17243,6 +19617,21 @@ static const char *cuvid_scaling_short[] = {
 };
 #endif
 
+static const char *cpu_scaling[] = {
+    "Normal",      ///< VideoScalingNormal
+//    "Fast",        ///< VideoScalingFast
+//    "HighQuality", ///< VideoScalingHQ
+//    "Anamorphic"   ///< VideoScalingAnamorphic
+};
+
+static const char *cpu_scaling_short[] = {
+    "N",           ///< VideoScalingNormal
+//    "F",           ///< VideoScalingFast
+//    "HQ",          ///< VideoScalingHQ
+//    "A"            ///< VideoScalingAnamorphic
+};
+
+
 int VideoGetScalingModes(const char* **long_table, const char* **short_table)
 {
 #ifdef USE_VDPAU
@@ -17275,6 +19664,19 @@ int VideoGetScalingModes(const char* **long_table, const char* **short_table)
 	*long_table = cuvid_scaling;
 	*short_table = cuvid_scaling_short;
 	return ARRAY_ELEMS(cuvid_scaling);
+    }
+#endif
+#ifdef USE_GLX
+    if (VideoUsedModule == &CpuGlxModule
+#endif
+#ifdef USE_EGL
+    || VideoUsedModule == &CpuEglModule
+#endif
+#if defined USE_GLX || defined USE_EGL
+    ) {
+	*long_table = cpu_scaling;
+	*short_table = cpu_scaling_short;
+	return ARRAY_ELEMS(cpu_scaling);
     }
 #endif
     return 0;
@@ -17339,6 +19741,18 @@ static const char *cuvid_deinterlace_short[] = {
 };
 #endif
 
+static const char *cpu_deinterlace[] = {
+    "Bob",                ///< VideoDeinterlaceBob
+    "Weave/None",         ///< VideoDeinterlaceWeave
+//    "Adaptive",           ///< VideoDeinterlaceTemporal
+};
+
+static const char *cpu_deinterlace_short[] = {
+    "B",                  ///< VideoDeinterlaceBob
+    "W",                  ///< VideoDeinterlaceWeave
+//    "A",                  ///< VideoDeinterlaceTemporal
+};
+
 int VideoGetDeinterlaceModes(const char* **long_table, const char* **short_table)
 {
 #ifdef USE_VDPAU
@@ -17374,6 +19788,19 @@ int VideoGetDeinterlaceModes(const char* **long_table, const char* **short_table
 	*long_table = cuvid_deinterlace;
 	*short_table = cuvid_deinterlace_short;
 	return ARRAY_ELEMS(cuvid_deinterlace);
+    }
+#endif
+#ifdef USE_GLX
+    if (VideoUsedModule == &CpuGlxModule
+#endif
+#ifdef USE_EGL
+    || VideoUsedModule == &CpuEglModule
+#endif
+#if defined USE_GLX || defined USE_EGL
+    ) {
+	*long_table = cpu_deinterlace;
+	*short_table = cpu_deinterlace_short;
+	return ARRAY_ELEMS(cpu_deinterlace);
     }
 #endif
     return 0;
@@ -17474,6 +19901,20 @@ void VideoSetDenoise(int level[VideoResolutionMax])
 	}
     }
 #endif
+#ifdef USE_GLX
+    if (VideoUsedModule == &CpuGlxModule
+#endif
+#ifdef USE_EGL
+    || VideoUsedModule == &CpuEglModule
+#endif
+#if defined USE_GLX || defined USE_EGL
+    ) {
+	int i;
+	for (i = 0; i < VideoResolutionMax; ++i) {
+	    level[i] = VideoConfigClamp(&CpuConfigDenoise, level[i]);
+	}
+    }
+#endif
     VideoDenoise[0] = level[0];
     VideoDenoise[1] = level[1];
     VideoDenoise[2] = level[2];
@@ -17522,6 +19963,20 @@ int VideoGetDenoiseConfig(int *minvalue, int *defvalue, int *maxvalue)
         return CuvidConfigDenoise.active;
     }
 #endif
+#ifdef USE_GLX
+    if (VideoUsedModule == &CpuGlxModule
+#endif
+#ifdef USE_EGL
+    || VideoUsedModule == &CpuEglModule
+#endif
+#if defined USE_GLX || defined USE_EGL
+    ) {
+        *minvalue = CpuConfigDenoise.min_value;
+        *defvalue = CpuConfigDenoise.def_value;
+        *maxvalue = CpuConfigDenoise.max_value;
+        return CpuConfigDenoise.active;
+    }
+#endif
     return 0;
 }
 
@@ -17562,6 +20017,20 @@ void VideoSetSharpen(int level[VideoResolutionMax])
 	int i;
 	for (i = 0; i < VideoResolutionMax; ++i) {
 	    level[i] = VideoConfigClamp(&CuvidConfigSharpen, level[i]);
+	}
+    }
+#endif
+#ifdef USE_GLX
+    if (VideoUsedModule == &CpuGlxModule
+#endif
+#ifdef USE_EGL
+    || VideoUsedModule == &CpuEglModule
+#endif
+#if defined USE_GLX || defined USE_EGL
+    ) {
+	int i;
+	for (i = 0; i < VideoResolutionMax; ++i) {
+	    level[i] = VideoConfigClamp(&CpuConfigSharpen, level[i]);
 	}
     }
 #endif
@@ -17611,6 +20080,20 @@ int VideoGetSharpenConfig(int *minvalue, int *defvalue, int *maxvalue)
         *defvalue = CuvidConfigSharpen.def_value;
         *maxvalue = CuvidConfigSharpen.max_value;
         return CuvidConfigSharpen.active;
+    }
+#endif
+#ifdef USE_GLX
+    if (VideoUsedModule == &CpuGlxModule
+#endif
+#ifdef USE_EGL
+    || VideoUsedModule == &CpuEglModule
+#endif
+#if defined USE_GLX || defined USE_EGL
+    ) {
+        *minvalue = CpuConfigSharpen.min_value;
+        *defvalue = CpuConfigSharpen.def_value;
+        *maxvalue = CpuConfigSharpen.max_value;
+        return CpuConfigSharpen.active;
     }
 #endif
     return 0;
