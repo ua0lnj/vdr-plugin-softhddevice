@@ -140,7 +140,6 @@ typedef enum
 #ifdef USE_EGL
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
-#include <va/va_drmcommon.h>
 //#include <EGL/eglplatform.h>
 //#include <GLES2/gl2.h>
 //#include <GLES2/gl2ext.h>
@@ -158,6 +157,9 @@ typedef enum
 /// make source compatible with stable libva
 #define vaCreateSurfaces(d, f, w, h, s, ns, a, na) \
     vaCreateSurfaces(d, w, h, f, ns, s)
+#endif
+#ifdef USE_EGL
+#include <va/va_drmcommon.h>
 #endif
 #endif
 
