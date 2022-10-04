@@ -1244,7 +1244,8 @@ static void GlxSetupWindow(xcb_window_t window, int width, int height,
 	glXSwapBuffers(XlibDisplay, window);
 	end = GetMsTicks();
 
-	GlxGetVideoSyncSGI(&count);
+	if (GlxGetVideoSyncSGI)
+	    GlxGetVideoSyncSGI(&count);
 	Debug(3, "video/glx: %5d frame rate %dms\n", count, end - start);
 	// nvidia can queue 5 swaps
 	if (i > 5 && (end - start) < 15) {
