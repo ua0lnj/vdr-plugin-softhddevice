@@ -624,9 +624,14 @@ static void VideoSetPts(int64_t * pts_p, int interlaced,
 	duration = interlaced ? 40 : 20;	// 50Hz -> 20ms default
     }
     Debug(4, "video: %d/%d %" PRIx64 " -> %d\n", video_ctx->framerate.den,
-	video_ctx->framerate.num, frame->pkt_duration, duration);
+	video_ctx->framerate.num,
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(57,30,100)
+	frame->pkt_duration,
+#else
+	frame->duration,
 #endif
-
+	duration);
+#endif
     // update video clock
     if (*pts_p != (int64_t) AV_NOPTS_VALUE) {
 	*pts_p += duration * 90;
