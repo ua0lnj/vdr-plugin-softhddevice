@@ -4478,6 +4478,7 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
 #endif
     decoder->SurfacesNeeded = VIDEO_SURFACES_MAX + 2;
     decoder->PixFmt = AV_PIX_FMT_NONE;
+    video_ctx->draw_horiz_band = NULL;
 
     decoder->InputWidth = 0;
     decoder->InputHeight = 0;
