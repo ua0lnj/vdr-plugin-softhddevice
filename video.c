@@ -9445,6 +9445,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
     decoder->Profile = VDP_INVALID_HANDLE;
     decoder->SurfacesNeeded = VIDEO_SURFACES_MAX + 2;
     decoder->PixFmt = AV_PIX_FMT_NONE;
+    video_ctx->draw_horiz_band = NULL;
 
     decoder->InputWidth = 0;
     decoder->InputHeight = 0;
@@ -10110,8 +10111,8 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 	    case AV_PIX_FMT_YUV420P:
 	    case AV_PIX_FMT_YUVJ420P:	// some streams produce this
 	    case AV_PIX_FMT_YUV420P10LE:  // for softdecode of HEVC 10 Bit
-		break;
 	    case AV_PIX_FMT_YUV422P:
+		break;
 	    case AV_PIX_FMT_YUV444P:
 	    default:
 		Fatal(_("video/vdpau: pixel format %d not supported\n"),
