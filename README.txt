@@ -22,8 +22,8 @@ A software and GPU emulated UHD output device plugin for VDR.
 Only 8-bit output now.
 
     o Video decoder CPU / VA-API / VDPAU / CUVID
-    o Video output VA-API / VDPAU / GLX (VA-API / CUVID) / EGL (VA-API / CUVID)
-    o OSD accelerated by GPU VDPAU / CUVID / VA-API-GLX/EGL
+    o Video output VA-API / VDPAU / GLX (VA-API / CUVID / CPU) / EGL (VA-API / CUVID / CPU)
+    o OSD accelerated by GPU VDPAU / CUVID / VA-API-GLX/EGL / CPU-GLX/EGL
     o Audio FFMpeg / Alsa / Analog
     o Audio FFMpeg / Alsa / Digital
     o Audio FFMpeg / OSS / Analog
@@ -32,13 +32,13 @@ Only 8-bit output now.
     o VDR ScaleVideo API
     o Software deinterlacer Bob (VA-API only)
     o Autocrop
-    o Grab image (VA-API / VDPAU / CUVID)
+    o Grab image (VA-API / VDPAU / CUVID / CPU)
     o Suspend / Dettach
     o Letterbox, Stretch and Center cut-out video display modes
     o atmo light support with plugin http://github.com/durchflieger/DFAtmo
-    o PIP (Picture-in-Picture) (VDPAU / CUVID / VA-API-GLX/EGL)
+    o PIP (Picture-in-Picture) (VDPAU / CUVID / VA-API-GLX/EGL / CPU-GLX/EGL)
 
-    o planned: Video output Opengl / Xv
+    o planned: Xv
     o planned: Improved software deinterlacer (yadif or/and ffmpeg filters)
     o XvBa support is no longer planned (use future Radeon UVD VDPAU)
 
@@ -55,7 +55,7 @@ Install:
 --------
 	1a) git
 	original git
-	git clone git://projects.vdr-developer.org/vdr-plugin-softhddevice.git
+	git clone https://github.com/vdr-projects/vdr-plugin-softhddevice.git
 	latest git
 	git clone https://github.com/ua0lnj/vdr-plugin-softhddevice.git
 	cd vdr-plugin-softhddevice
@@ -65,7 +65,7 @@ Install:
 	2a) tarball
 
 	Download original version from:
-	    http://projects.vdr-developer.org/projects/plg-softhddevice/files
+	    https://github.com/vdr-projects/vdr-plugin-softhddevice
 	Download latest version from:
 	    https://github.com/ua0lnj/vdr-plugin-softhddevice/releases
 
@@ -314,7 +314,7 @@ Commandline:
     -f 			start with fullscreen window (only with window manager)
     -g geometry		x11 window geometry wxh+x+y
     -l loglevel		set the log level (0=none, 1=errors, 2=info, 3=debug)
-    -v device		video driver device (va-api, va-api-glx, va-api-egl, vdpau, cuvid, cuvid-egl, noop)
+    -v device		video driver device (va-api, va-api-glx, va-api-egl, vdpau, cuvid, cuvid-egl, cpu-glx, cpu-egl, noop)
     -s 			start in suspended mode
     -x 			start x11 server, with -xx try to connect, if this fails
     -X args		X11 server arguments (f.e. -nocursor)
@@ -380,6 +380,7 @@ Known Bugs:
 	VA-API doesn't v-sync h264 interlaced streams
 	VDPAU crash with hevc half resolution (720x288, 1920x540)
 	VDPAU crash with hevc 10 bit
+	4:2:2 video works with sotfware decoding
 
 Requires:
 ---------
@@ -445,3 +446,4 @@ Optional:
 Note:
 	For old Intel video use va-api and va-api-glx. For newest Intel video use va-api-egl.
 	For old Nvidia video use vdpau. For newest Nvidia video use cuvid and cuvid-egl.
+	For all system with openGL you can use cpu-glx or cpu-egl.

@@ -2,7 +2,7 @@
 
 Copyright (c) 2011 - 2013 by Johns.  All Rights Reserved.
 
-Contributor(s):
+Contributor(s): 2019 - 2022 ua0lnj
 
 License: AGPLv3
 
@@ -36,12 +36,10 @@ video:
     grab image with hardware and better scaling support
     yaepghd changed position is lost on channel switch
     pause (live tv) has sometime problems with SAT1 HD Pro7 HD
-    radio show black background
     radio no need to wait on video buffers
     starting with radio and own X11 server, shows no video
     some low-bandwidth tv channels have hiccups.
     check start with 24Hz display rate
-    crash with ffmpeg without vaapi and vdpau.
     still-picture of PES recordings should use VideoMpegEnqueue.
     atmo service support 3D grab
     no warnings during still picture
@@ -62,24 +60,6 @@ libva:
     missing OSD support for 3d SBS / Top-Bottom streams, like VPDAU.
     PIP support / multistream handling
     VA-AP VaapiCleanup crash after channel without video.
-
-libva: branch vaapi-ext / staging
-    add support for vaapi-ext / staging
-
-libva-intel-driver:
-    deinterlace only supported with vaapi-ext
-    1080i does no v-sync (sometimes correct working with vaapi-ext)
-    OSD has sometimes wrong size (workaround written)
-    sometimes software decoder deinterlace isn't working and 1080i channels
-    show artefacts
-
-libva-vdpau-driver:
-    G210/GT520 OSD update too slow (needs hardware problem workaround)
-    hangup on exit (VaapiDelDecoder -> VaapiCleanup
-	-> vaDestroyContext -> pthread_rwlock_wrlock)
-    OSD still has some problems with auto-crop and 4:3 zoom.
-
-libva-xvba-driver:
 
 x11:
     skip multiple configure-notify, handle only the last one.
@@ -105,12 +85,6 @@ audio/oss:
     oss4 mixer channel not working
     ring buffer overflow with alsa oss emulation
 
-playback of recording
-    pause is not reset, when replay exit (fixed?)
-    replay/pause need 100% cpu (fixed?)
-
-plugins:
-
 setup:
     Setup of decoder type.
     Setup of output type.
@@ -124,11 +98,12 @@ unsorted:
 	+ lock DecoderLockMutex
     check compiletime and runtime ffmpeg/libav version during init.
 
-future features (not planed for 1.0 - 1.5)
+future features
 
     video out with xv
-    video out with opengl
-    software decoder for xv / opengl
+    openGL video output for VDPAU
+    deinterlacer with software decoder (software/openGL ?)
+    correct display P-frame video
     save and use auto-crop with channel zapping
 
     upmix stereo to AC-3 (supported by alsa plugin)
