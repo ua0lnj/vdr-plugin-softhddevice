@@ -566,6 +566,7 @@ static int64_t VideoDeltaPTS;		///< FIXME: fix pts
 #ifdef USE_SCREENSAVER
 static char DPMSDisabled;		///< flag we have disabled dpms
 static char EnableDPMSatBlackScreen;	///< flag we should enable dpms at black screen
+static char DisableScreensaver;		///< flag we disable screensaver
 #endif
 
 uint32_t mutex_start_time;
@@ -6452,6 +6453,10 @@ static void VaapiDisplayFrame(void)
 	}
 #endif
 
+    //get up screensaver
+    if (DisableScreensaver)
+	xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
+
     // look if any stream have a new surface available
     for (i = 0; i < VaapiDecoderN; ++i) {
 	VASurfaceID surface;
@@ -6590,10 +6595,9 @@ static void VaapiDisplayFrame(void)
 	glXSwapBuffers(XlibDisplay, VideoWindow);
 	glXMakeCurrent(XlibDisplay, None, NULL);
 	GlxCheck();
-
-	xcb_flush(Connection);
     }
 #endif
+	xcb_flush(Connection);
 }
 
 ///
@@ -10629,7 +10633,12 @@ static void VdpauDisplayFrame(void)
 		VdpauDecoders[i]->FrameCounter);
 	}
     }
+
     last_time = first_time;
+
+    //get up screensaver
+    if (DisableScreensaver)
+	xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
 
     //
     //	Render videos into output
@@ -13099,6 +13108,7 @@ static void CuvidDisplayFrame(void)
     glClear(GL_COLOR_BUFFER_BIT);
 
     // check if surface was displayed for more than 1 frame
+	first_time = GetUsTicks();
     // FIXME: 21 only correct for 50Hz
     if (last_time && first_time > last_time + 21 * 1000 * 1000) {
 	// FIXME: ignore still-frame, trick-speed
@@ -13112,7 +13122,12 @@ static void CuvidDisplayFrame(void)
 		CuvidDecoders[i]->FrameCounter);
 	}
     }
+
     last_time = first_time;
+
+    //get up screensaver
+    if (DisableScreensaver)
+	xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
 
     //
     //	Render videos into output
@@ -16577,6 +16592,18 @@ void SetDPMSatBlackScreen(int enable)
 {
 #ifdef USE_SCREENSAVER
     EnableDPMSatBlackScreen = enable;
+#endif
+}
+
+///
+///	Set Disable ScreenSaver
+///
+///	Currently this only choose the driver.
+///
+void SetDisableScreenSaver(int disable)
+{
+#ifdef USE_SCREENSAVER
+    DisableScreensaver = disable;
 #endif
 }
 

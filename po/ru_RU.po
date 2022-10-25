@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: VDR \n"
 "Report-Msgid-Bugs-To: <see README>\n"
-"POT-Creation-Date: 2022-03-03 14:31+1000\n"
+"POT-Creation-Date: 2022-10-25 23:34+1000\n"
 "PO-Revision-Date: 2020-07-04 00:33+1000\n"
 "Last-Translator: ua0lnj\n"
 "Language-Team: ua0lnj\n"
@@ -520,6 +520,9 @@ msgstr "Приостановка остановит X11"
 
 msgid "Video"
 msgstr "Видео"
+
+msgid "Disable Screensaver"
+msgstr "Выкл. хранитель экрана"
 
 msgid "Enable Screensaver(DPMS) at black screen"
 msgstr "Вкл. хранитель экрана (DPMS) при тёмном экране"

@@ -64,7 +64,7 @@ extern "C"
     /// vdr-plugin version number.
     /// Makefile extracts the version number for generating the file name
     /// for the distribution archive.
-static const char *const VERSION = "1.9.3"
+static const char *const VERSION = "1.9.4"
 #ifdef GIT_REV
     "-GIT" GIT_REV
 #endif
@@ -187,6 +187,7 @@ static int ConfigPipAltVideoHeight = 50;	///< config pip alt. video height in %
 
 #ifdef USE_SCREENSAVER
 static char ConfigEnableDPMSatBlackScreen;	///< Enable DPMS(Screensaver) while displaying black screen(radio)
+static char ConfigDisableScreensaver;		///< Disable Screensaver
 #endif
 
 #ifdef USE_OPENGLOSD
@@ -1050,6 +1051,7 @@ class cMenuSetupSoft:public cMenuSetupPage
 
 #ifdef USE_SCREENSAVER
     int EnableDPMSatBlackScreen;
+    int DisableScreensaver;
 #endif
 
 #ifdef USE_OPENGLOSD
@@ -1198,8 +1200,12 @@ void cMenuSetupSoft::Create(void)
     if (Video) {
 #ifdef USE_SCREENSAVER
 	Add(new
-	    cMenuEditBoolItem(tr("Enable Screensaver(DPMS) at black screen"),
-		&EnableDPMSatBlackScreen, trVDR("no"), trVDR("yes")));
+	    cMenuEditBoolItem(tr("Disable Screensaver"),
+		&DisableScreensaver, trVDR("no"), trVDR("yes")));
+	if (!DisableScreensaver)
+	    Add(new
+		cMenuEditBoolItem(tr("Enable Screensaver(DPMS) at black screen"),
+		    &EnableDPMSatBlackScreen, trVDR("no"), trVDR("yes")));
 #endif
 	Add(new cMenuEditStraItem(trVDR("4:3 video display format"),
 		&Video4to3DisplayFormat, 3, video_display_formats_4_3));
@@ -1403,7 +1409,9 @@ eOSState cMenuSetupSoft::ProcessKey(eKeys key)
     int old_stde;
     int i;
     int old_pass;
-
+#ifdef USE_SCREENSAVER
+    int old_ssaver;
+#endif
     old_general = General;
     old_video = Video;
     old_audio = Audio;
@@ -1420,6 +1428,7 @@ eOSState cMenuSetupSoft::ProcessKey(eKeys key)
     old_hue = Hue;
     old_stde = Stde;
     old_pass = AudioPassthroughDefault;
+    old_ssaver = DisableScreensaver;
     state = cMenuSetupPage::ProcessKey(key);
 
     if (key != kNone) {
@@ -1428,6 +1437,9 @@ eOSState cMenuSetupSoft::ProcessKey(eKeys key)
 	if (old_general != General || old_video != Video || old_audio != Audio
 #ifdef USE_PIP
 	    || old_pip != Pip
+#endif
+#ifdef USE_SCREENSAVER
+	    || old_ssaver != DisableScreensaver
 #endif
 	    || old_pass != AudioPassthroughDefault
 	    || old_osd_size != OsdSize) {
@@ -1597,6 +1609,7 @@ cMenuSetupSoft::cMenuSetupSoft(void)
 
 #ifdef USE_SCREENSAVER
     EnableDPMSatBlackScreen = ConfigEnableDPMSatBlackScreen;
+    DisableScreensaver = ConfigDisableScreensaver;
 #endif
 #ifdef USE_OPENGLOSD
     MaxSizeGPUImageCache = ConfigMaxSizeGPUImageCache;
@@ -1820,6 +1833,9 @@ void cMenuSetupSoft::Store(void)
 #endif
 
 #ifdef USE_SCREENSAVER
+    SetupStore("DisableScreensaver", ConfigDisableScreensaver =
+	DisableScreensaver);
+    SetDisableScreenSaver(ConfigDisableScreensaver);
     SetupStore("EnableDPMSatBlackScreen", ConfigEnableDPMSatBlackScreen =
 	EnableDPMSatBlackScreen);
     SetDPMSatBlackScreen(ConfigEnableDPMSatBlackScreen);
@@ -3831,6 +3847,11 @@ bool cPluginSoftHdDevice::SetupParse(const char *name, const char *value)
 #endif
 
 #ifdef USE_SCREENSAVER
+    if (!strcasecmp(name, "DisableScreensaver")) {
+	ConfigDisableScreensaver = atoi(value);
+	SetDisableScreenSaver(ConfigDisableScreensaver);
+	return true;
+    }
     if (!strcasecmp(name, "EnableDPMSatBlackScreen")) {
 	ConfigEnableDPMSatBlackScreen = atoi(value);
 	SetDPMSatBlackScreen(ConfigEnableDPMSatBlackScreen);
