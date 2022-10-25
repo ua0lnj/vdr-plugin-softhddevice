@@ -340,6 +340,9 @@ extern int VideoGetBuffers(const VideoStream *);
     /// Set DPMS at Blackscreen switch
 extern void SetDPMSatBlackScreen(int);
 
+    /// Set Disable ScreenSaver
+extern void SetDisableScreenSaver(int);
+
     /// Raise the frontend window
 extern int VideoRaiseWindow(void);
 
