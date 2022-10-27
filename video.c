@@ -7149,11 +7149,11 @@ static void VaapiDisplayFrame(void)
 	    glClear(GL_COLOR_BUFFER_BIT);
 	}
 #endif
-
+#ifdef USE_SCREENSAVER
     //get up screensaver
     if (DisableScreensaver)
 	xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
-
+#endif
     // look if any stream have a new surface available
     for (i = 0; i < VaapiDecoderN; ++i) {
 	VASurfaceID surface;
@@ -11489,11 +11489,11 @@ static void VdpauDisplayFrame(void)
     }
 
     last_time = first_time;
-
+#ifdef USE_SCREENSAVER
     //get up screensaver
     if (DisableScreensaver)
 	xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
-
+#endif
     //
     //	Render videos into output
     //
@@ -14072,11 +14072,11 @@ static void CuvidDisplayFrame(void)
     }
 
     last_time = first_time;
-
+#ifdef USE_SCREENSAVER
     //get up screensaver
     if (DisableScreensaver)
 	xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
-
+#endif
     //
     //	Render videos into output
     //
@@ -16266,11 +16266,11 @@ static void CpuDisplayFrame(void)
     }
 
     last_time = first_time;
-
+#ifdef USE_SCREENSAVER
     //get up screensaver
     if (DisableScreensaver)
 	xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
-
+#endif
     //
     //	Render videos into output
     //
