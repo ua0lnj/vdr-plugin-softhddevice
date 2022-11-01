@@ -6161,22 +6161,26 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
 
 #if 0
 	// field_order only in git
-	Debug(3, "video/vaapi: interlaced %d top-field-first %d - %d\n",
+	Debug(4, "video/vaapi: interlaced %d top-field-first %d - %d\n",
 	    interlaced, frame->top_field_first, video_ctx->field_order);
 #else
-	Debug(3, "video/vaapi: interlaced %d top-field-first %d\n", interlaced,
+	Debug(4, "video/vaapi: interlaced %d top-field-first %d\n", interlaced,
 	    frame->top_field_first);
 #endif
 
-	if (decoder->Interlaced < interlaced) decoder->Interlaced = 1; //for wrong interlace detecting
+	decoder->Interlaced = interlaced;
 	decoder->TopFieldFirst = frame->top_field_first;
-	decoder->SurfaceField = 0;
+	if (frame->top_field_first) decoder->Interlaced = 1;
+	decoder->SurfaceField = !decoder->Interlaced;
     }
     //aspect correction
     aspect_ratio = frame->sample_aspect_ratio;
     if ((video_ctx->width == 720 && video_ctx->height == 288) ||
 	(video_ctx->width == 1920 && video_ctx->height == 540)) {
 	aspect_ratio.den *= 2;
+	decoder->Interlaced = 0;
+	decoder->TopFieldFirst = 0;
+	decoder->SurfaceField = 1;
     }
     // update aspect ratio changes
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(53,60,100)
@@ -10021,18 +10025,22 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
     if (decoder->Interlaced < interlaced
 	|| decoder->TopFieldFirst != frame->top_field_first) {
 
-	Debug(3, "video/vdpau: interlaced %d top-field-first %d\n", interlaced,
+	Debug(4, "video/vdpau: interlaced %d top-field-first %d\n", interlaced,
 	    frame->top_field_first);
 
-	if (decoder->Interlaced < interlaced) decoder->Interlaced = 1; //for wrong interlace detecting
+	decoder->Interlaced = interlaced;
 	decoder->TopFieldFirst = frame->top_field_first;
-	decoder->SurfaceField = 0;
+	if (frame->top_field_first) decoder->Interlaced = 1;
+	decoder->SurfaceField = !decoder->Interlaced;
     }
     //aspect correction
     aspect_ratio = frame->sample_aspect_ratio;
     if ((video_ctx->width == 720 && video_ctx->height == 288) ||
 	(video_ctx->width == 1920 && video_ctx->height == 540)) {
 	aspect_ratio.den *= 2;
+	decoder->Interlaced = 0;
+	decoder->TopFieldFirst = 0;
+	decoder->SurfaceField = 1;
     }
     // update aspect ratio changes
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(53,60,100)
@@ -12842,12 +12850,13 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
     if (decoder->Interlaced != interlaced
 	|| decoder->TopFieldFirst != frame->top_field_first) {
 
-	Debug(3, "video/cuvid: interlaced %d top-field-first %d\n", interlaced,
+	Debug(4, "video/cuvid: interlaced %d top-field-first %d\n", interlaced,
 	    frame->top_field_first);
 
-	if (decoder->Interlaced < interlaced) decoder->Interlaced = 1; //for wrong interlace detecting
+	decoder->Interlaced = interlaced;
 	decoder->TopFieldFirst = frame->top_field_first;
-	decoder->SurfaceField = 0;
+	if (frame->top_field_first) decoder->Interlaced = 1;
+	decoder->SurfaceField = !decoder->Interlaced;
     }
 
     //aspect correction
@@ -12855,6 +12864,9 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
     if ((video_ctx->width == 720 && video_ctx->height == 288) ||
 	(video_ctx->width == 1920 && video_ctx->height == 540)) {
 	aspect_ratio.den *= 2;
+	decoder->Interlaced = 0;
+	decoder->TopFieldFirst = 0;
+	decoder->SurfaceField = 1;
     }
     // update aspect ratio changes
     if (decoder->InputWidth && decoder->InputHeight
