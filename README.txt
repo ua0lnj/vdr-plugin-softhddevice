@@ -378,7 +378,6 @@ Warning:
 Known Bugs:
 -----------
 	VA-API doesn't v-sync h264 interlaced streams
-	VDPAU crash with hevc half resolution (720x288, 1920x540)
 	VDPAU crash with hevc 10 bit
 	4:2:2 video works with sotfware decoding
 
