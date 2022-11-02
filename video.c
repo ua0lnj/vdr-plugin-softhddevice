@@ -7120,6 +7120,7 @@ static void VaapiAdvanceDecoderFrame(VaapiDecoder * decoder)
 static void VaapiDisplayFrame(void)
 {
     struct timespec nowtime;
+    static int timeSS;
 
 #ifdef DEBUG
     uint32_t start;
@@ -7154,9 +7155,14 @@ static void VaapiDisplayFrame(void)
 	}
 #endif
 #ifdef USE_SCREENSAVER
-    //get up screensaver
-    if (DisableScreensaver)
-	xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
+    //get up screensaver every 20 sec
+    if (DisableScreensaver) {
+	clock_gettime(CLOCK_MONOTONIC, &nowtime);
+	if (nowtime.tv_sec - timeSS > 20) {
+	    xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
+	    timeSS = nowtime.tv_sec;
+	}
+    }
 #endif
     // look if any stream have a new surface available
     for (i = 0; i < VaapiDecoderN; ++i) {
@@ -11439,6 +11445,7 @@ static void VdpauDisplayFrame(void)
     VdpStatus status;
     VdpTime first_time;
     static VdpTime last_time;
+    static int timeSS;
     int i;
 
     if (VideoSurfaceModesChanged) {	// handle changed modes
@@ -11498,9 +11505,13 @@ static void VdpauDisplayFrame(void)
 
     last_time = first_time;
 #ifdef USE_SCREENSAVER
-    //get up screensaver
-    if (DisableScreensaver)
-	xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
+    //get up screensaver every 20 sec
+    if (DisableScreensaver) {
+	if (first_time / 1000000000  - timeSS > 20) {
+	    xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
+	    timeSS = first_time / 1000000000;
+	}
+    }
 #endif
     //
     //	Render videos into output
@@ -14048,6 +14059,7 @@ static void CuvidDisplayFrame(void)
 {
     uint64_t first_time = 0;
     static uint64_t last_time;
+    static int timeSS;
     int i;
 
     if (VideoSurfaceModesChanged) {	// handle changed modes
@@ -14085,9 +14097,13 @@ static void CuvidDisplayFrame(void)
 
     last_time = first_time;
 #ifdef USE_SCREENSAVER
-    //get up screensaver
-    if (DisableScreensaver)
-	xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
+    //get up screensaver every 20 sec
+    if (DisableScreensaver) {
+	if (first_time / 1000000 - timeSS > 20) {
+	    xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
+	    timeSS = first_time / 1000000;
+	}
+    }
 #endif
     //
     //	Render videos into output
@@ -16246,6 +16262,7 @@ static void CpuDisplayFrame(void)
 {
     uint64_t first_time = 0;
     static uint64_t last_time;
+    static int timeSS;
     int i;
 
     if (VideoSurfaceModesChanged) {	// handle changed modes
@@ -16266,7 +16283,7 @@ static void CpuDisplayFrame(void)
     }
 #endif
     // check if surface was displayed for more than 1 frame
-	first_time = GetMsTicks();
+	first_time = GetUsTicks();
     // FIXME: 21 only correct for 50Hz
     if (last_time && first_time > last_time + 21 * 1000 * 1000) {
 	// FIXME: ignore still-frame, trick-speed
@@ -16283,9 +16300,13 @@ static void CpuDisplayFrame(void)
 
     last_time = first_time;
 #ifdef USE_SCREENSAVER
-    //get up screensaver
-    if (DisableScreensaver)
-	xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
+    //get up screensaver every 20 sec
+    if (DisableScreensaver) {
+	if (first_time / 1000000 - timeSS > 20) {
+	    xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
+	    timeSS = first_time / 1000000;
+	}
+    }
 #endif
     //
     //	Render videos into output
