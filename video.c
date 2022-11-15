@@ -2580,6 +2580,12 @@ static void VaapiDestroySurfaces(VaapiDecoder * decoder)
     //
     VaapiDeassociate(decoder);
 
+#ifdef USE_EGL
+    if (gl_prog)
+        glDeleteProgram(gl_prog);
+    gl_prog = 0;
+#endif
+
     if (vaDestroySurfaces(decoder->VaDisplay, decoder->SurfacesFree,
 	    decoder->SurfaceFreeN)
 	!= VA_STATUS_SUCCESS) {
@@ -3164,11 +3170,6 @@ static void VaapiDelHwDecoder(VaapiDecoder * decoder)
 	}
 	decoder->GlxSurfaces[1] = NULL;
     }
-#endif
-#ifdef USE_EGL
-    if (gl_prog)
-        glDeleteProgram(gl_prog);
-    gl_prog = 0;
 #endif
 #if defined USE_GLX || defined USE_EGL
     if (decoder->GlTextures[0]) {
