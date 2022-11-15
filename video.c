@@ -1854,6 +1854,8 @@ static void EglSetupWindow(xcb_window_t window, int width, int height, EGLContex
 
     eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
     EglCheck();
+
+    (void)window;
 }
 
 
