@@ -2213,7 +2213,8 @@ static void AutoCropDetect(AutoCropCtx * autocrop, int width, int height,
 
 static char VaapiBuggyXvBA;		///< fix xvba-video bugs
 static char VaapiBuggyVdpau;		///< fix libva-driver-vdpau bugs
-static char VaapiBuggyIntel;		///< fix libva-driver-intel bugs
+static char VaapiBuggyIntel;		///< fix libva-driver-intel i965 bugs
+static char VaapiBuggyIntelHD;		///< fix libva-driver-intel iHD bugs
 
 static VADisplay *VaDisplay;		///< VA-API display
 
@@ -3391,6 +3392,10 @@ static int VaapiInit(const char *display_name)
     if (strstr(s, "Intel i965")) {
 	VaapiBuggyIntel = 1;
     }
+    if (strstr(s, "Intel iHD")) {
+	VaapiBuggyIntelHD = 1;
+	VaapiBuggyIntel = 1;
+    }
     //
     //	check which attributes are supported
     //
@@ -3902,7 +3907,8 @@ static VASurfaceID* VaapiApplyFilters(VaapiDecoder * decoder, int top_field)
     filter_count = decoder->filter_n;
 
     /* Map deinterlace buffer and handle field ordering */
-    if (decoder->vpp_deinterlace_buf) {
+    if (!(VaapiBuggyIntelHD && !decoder->Interlaced) && decoder->vpp_deinterlace_buf) {
+
         va_status = vaMapBuffer(VaDisplay, *decoder->vpp_deinterlace_buf, (void**)&deinterlace);
         if (va_status != VA_STATUS_SUCCESS) {
             Error("deint map buffer va_status = 0x%X\n", va_status);
