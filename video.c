@@ -1747,7 +1747,6 @@ struct _vaapi_decoder_
     unsigned SurfaceDeintTable[VideoResolutionMax];
 
     enum AVPixelFormat PixFmt;		///< ffmpeg frame pixfmt
-    int WrongInterlacedWarned;		///< warning about interlace flag issued
     int Interlaced;			///< ffmpeg interlaced flag
     int Deinterlaced;			///< vpp deinterlace was run / not run
     int TopFieldFirst;			///< ffmpeg top field displayed first
@@ -2528,8 +2527,6 @@ static void VaapiCleanup(VaapiDecoder * decoder)
 #ifdef VA_EXP
     decoder->LastSurface = VA_INVALID_ID;
 #endif
-
-    decoder->WrongInterlacedWarned = 0;
 
     //	cleanup image
     if (decoder->Image->image_id != VA_INVALID_ID) {
@@ -6139,38 +6136,23 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
     // frame->interlaced_frame isn't always correct set
     interlaced = frame->interlaced_frame;
 
-#if 0
-    if (video_ctx->height == 720) {
-	if (interlaced && !decoder->WrongInterlacedWarned) {
-	    Debug(3, "video/vaapi: wrong interlace flag fixed\n");
-	    decoder->WrongInterlacedWarned = 1;
-	}
-	interlaced = 0;
-    } else {
-	if (!interlaced && !decoder->WrongInterlacedWarned) {
-	    Debug(3, "video/vaapi: wrong interlace flag fixed\n");
-	    decoder->WrongInterlacedWarned = 1;
-	}
-	interlaced = 1;
+    //25, 30 - interlaced; 50, 60 - progressive; hevc - progressive allways
+    if (video_ctx->framerate.num > 0) {
+	if (video_ctx->framerate.num / video_ctx->framerate.den > 30) interlaced = 0;
+	else interlaced = 1;
     }
-#endif
+
+    if (video_ctx->codec_id == AV_CODEC_ID_HEVC) interlaced = 0;
 
     // FIXME: should be done by init video_ctx->field_order
-    if (decoder->Interlaced < interlaced
+    if (decoder->Interlaced != interlaced
 	|| decoder->TopFieldFirst != frame->top_field_first) {
 
-#if 0
-	// field_order only in git
-	Debug(4, "video/vaapi: interlaced %d top-field-first %d - %d\n",
-	    interlaced, frame->top_field_first, video_ctx->field_order);
-#else
-	Debug(4, "video/vaapi: interlaced %d top-field-first %d\n", interlaced,
-	    frame->top_field_first);
-#endif
+	Debug(4, "video/vaapi: interlaced %d top-field-first %d num %d den %d\n", frame->interlaced_frame,
+	    frame->top_field_first, video_ctx->framerate.num, video_ctx->framerate.den);
 
 	decoder->Interlaced = interlaced;
 	decoder->TopFieldFirst = frame->top_field_first;
-	if (frame->top_field_first) decoder->Interlaced = 1;
 	decoder->SurfaceField = !decoder->Interlaced;
     }
     //aspect correction
@@ -6178,9 +6160,6 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
     if ((video_ctx->width == 720 && video_ctx->height == 288) ||
 	(video_ctx->width == 1920 && video_ctx->height == 540)) {
 	aspect_ratio.den *= 2;
-	decoder->Interlaced = 0;
-	decoder->TopFieldFirst = 0;
-	decoder->SurfaceField = 1;
     }
     // update aspect ratio changes
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(53,60,100)
@@ -7475,7 +7454,6 @@ typedef struct _vdpau_decoder_
     int OutputHeight;			///< real video output height
 
     enum AVPixelFormat PixFmt;		///< ffmpeg frame pixfmt
-    int WrongInterlacedWarned;		///< warning about interlace flag issued
     int Interlaced;			///< ffmpeg interlaced flag
     int TopFieldFirst;			///< ffmpeg top field displayed first
 
@@ -10011,32 +9989,23 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
     // frame->interlaced_frame isn't always correct set
     interlaced = frame->interlaced_frame;
 
-#if 0
-    if (video_ctx->height == 720) {
-	if (interlaced && !decoder->WrongInterlacedWarned) {
-	    Debug(3, "video/vdpau: wrong interlace flag fixed\n");
-	    decoder->WrongInterlacedWarned = 1;
-	}
-	interlaced = 0;
-    } else {
-	if (!interlaced && !decoder->WrongInterlacedWarned) {
-	    Debug(3, "video/vdpau: wrong interlace flag fixed\n");
-	    decoder->WrongInterlacedWarned = 1;
-	}
-	interlaced = 1;
+    //25, 30 - interlaced; 50, 60 - progressive; hevc - progressive allways
+    if (video_ctx->framerate.num > 0) {
+	if (video_ctx->framerate.num / video_ctx->framerate.den > 30) interlaced = 0;
+	else interlaced = 1;
     }
-#endif
+
+    if (video_ctx->codec_id == AV_CODEC_ID_HEVC) interlaced = 0;
 
     // FIXME: should be done by init video_ctx->field_order
-    if (decoder->Interlaced < interlaced
+    if (decoder->Interlaced != interlaced
 	|| decoder->TopFieldFirst != frame->top_field_first) {
 
-	Debug(4, "video/vdpau: interlaced %d top-field-first %d\n", interlaced,
-	    frame->top_field_first);
+	Debug(4, "video/vdpau: interlaced %d top-field-first %d num %d den %d\n", frame->interlaced_frame,
+	    frame->top_field_first, video_ctx->framerate.num, video_ctx->framerate.den);
 
 	decoder->Interlaced = interlaced;
 	decoder->TopFieldFirst = frame->top_field_first;
-	if (frame->top_field_first) decoder->Interlaced = 1;
 	decoder->SurfaceField = !decoder->Interlaced;
     }
     //aspect correction
@@ -10044,9 +10013,6 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
     if ((video_ctx->width == 720 && video_ctx->height == 288) ||
 	(video_ctx->width == 1920 && video_ctx->height == 540)) {
 	aspect_ratio.den *= 2;
-	decoder->Interlaced = 0;
-	decoder->TopFieldFirst = 0;
-	decoder->SurfaceField = 1;
     }
     // update aspect ratio changes
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(53,60,100)
@@ -11657,7 +11623,6 @@ typedef struct _cuvid_decoder_
     enum AVColorTransferCharacteristic  trc;  // 
     enum AVColorPrimaries color_primaries;
 
-    int WrongInterlacedWarned;		///< warning about interlace flag issued
     int Interlaced;			///< ffmpeg interlaced flag
     int TopFieldFirst;			///< ffmpeg top field displayed first
 
@@ -12857,27 +12822,30 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
     // frame->interlaced_frame isn't always correct set
     interlaced = frame->interlaced_frame;
 
+    //25, 30 - interlaced; 50, 60 - progressive; hevc - progressive allways
+    if (video_ctx->framerate.num > 0) {
+	if (video_ctx->framerate.num / video_ctx->framerate.den > 30) interlaced = 0;
+	else interlaced = 1;
+    }
+
+    if (video_ctx->codec_id == AV_CODEC_ID_HEVC) interlaced = 0;
+
     // FIXME: should be done by init video_ctx->field_order
     if (decoder->Interlaced != interlaced
 	|| decoder->TopFieldFirst != frame->top_field_first) {
 
-	Debug(4, "video/cuvid: interlaced %d top-field-first %d\n", interlaced,
-	    frame->top_field_first);
+	Debug(4, "video/cuvid: interlaced %d top-field-first %d num %d den %d\n", frame->interlaced_frame,
+	    frame->top_field_first, video_ctx->framerate.num, video_ctx->framerate.den);
 
 	decoder->Interlaced = interlaced;
 	decoder->TopFieldFirst = frame->top_field_first;
-	if (frame->top_field_first) decoder->Interlaced = 1;
 	decoder->SurfaceField = !decoder->Interlaced;
     }
-
     //aspect correction
     aspect_ratio = frame->sample_aspect_ratio;
     if ((video_ctx->width == 720 && video_ctx->height == 288) ||
 	(video_ctx->width == 1920 && video_ctx->height == 540)) {
 	aspect_ratio.den *= 2;
-	decoder->Interlaced = 0;
-	decoder->TopFieldFirst = 0;
-	decoder->SurfaceField = 1;
     }
     // update aspect ratio changes
     if (decoder->InputWidth && decoder->InputHeight
