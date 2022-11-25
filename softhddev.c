@@ -1439,6 +1439,7 @@ enum
     PES_DSM_CC_STREAM = 0xF2,
     PES_ISO13522_STREAM = 0xF3,
     PES_TYPE_E_STREAM = 0xF8,		///< ITU-T rec. h.222.1 type E stream
+    PES_EXTENDED_STREAM = 0xFD,
     PES_PROG_STREAM_DIR = 0xFF,
 };
 
@@ -1898,14 +1899,15 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 			// don't switch to codec 'none'
 		    }
 		    if (av == TS_PES_VIDEO) {
-			if (!((code >= PES_VIDEO_STREAM_S && code <= PES_VIDEO_STREAM_E)||(code == 0xfd))) {
+			if (!((code >= PES_VIDEO_STREAM_S && code <= PES_VIDEO_STREAM_E)||(code == PES_EXTENDED_STREAM))) {
 			    Debug(3, "pesdemux: bad video pes packet\n");
 			    pesdx->State = PES_SKIP;
 			    return;
 			}
 		    }
 		    if (av == TS_PES_AUDIO) {
-			if (!((code >= PES_AUDIO_STREAM_S && code <= PES_AUDIO_STREAM_E)||(code == PES_PRIVATE_STREAM1))) {
+			if (!((code >= PES_AUDIO_STREAM_S && code <= PES_AUDIO_STREAM_E)||(code == PES_PRIVATE_STREAM1)||
+			    (code == PES_EXTENDED_STREAM))) {
 			    Debug(3, "pesdemux: bad audio pes packet\n");
 			    pesdx->State = PES_SKIP;
 			    return;
@@ -2341,7 +2343,7 @@ int PlayAudio(const uint8_t * data, int size, uint8_t id)
 	    r = LatmCheck(p, n);
 	    codec_id = AV_CODEC_ID_AAC_LATM;
 	}
-	if ((id == 0xbd || (id & 0xF0) == 0x80) && !r && FastAc3Check(p)) {
+	if ((id == 0xbd || id == 0xfd || (id & 0xF0) == 0x80) && !r && FastAc3Check(p)) {
 	    r = Ac3Check(p, n);
 	    codec_id = AV_CODEC_ID_AC3;
 	    if (r > 0 && p[5] > (10 << 3)) {
