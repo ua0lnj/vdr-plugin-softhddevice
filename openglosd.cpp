@@ -2019,7 +2019,7 @@ cOglOsd::cOglOsd(int Left, int Top, uint Level, std::shared_ptr<cOglThread> oglT
 }
 
 cOglOsd::~cOglOsd() {
-    if (!bFb) return;
+    if (!bFb || !Active()) return;
     oglThread->DoCmd(new cOglCmdFill(bFb, clrTransparent));
     oglThread->DoCmd(new cOglCmdCopyBufferToOutputFb(bFb, oFb, Left() + (isSubtitleOsd ? oglPixmaps[0]->ViewPort().X() : 0),
         Top() + (isSubtitleOsd ? oglPixmaps[0]->ViewPort().Y() : 0)));
@@ -2103,7 +2103,7 @@ void cOglOsd::DestroyPixmap(cPixmap *Pixmap) {
 }
 
 void cOglOsd::Flush(void) {
-    if (!oglThread->Active())
+    if (!oglThread->Active() || !Active())
         return;
     LOCK_PIXMAPS;
     //check if any pixmap is dirty
