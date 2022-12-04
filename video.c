@@ -2550,7 +2550,7 @@ static void VaapiCreateSurfaces(VaapiDecoder * decoder, int width, int height)
     Debug(3, "video/vaapi: %s: %dx%d * %d\n", __FUNCTION__, width, height,
 	decoder->SurfacesNeeded);
 
-    if (decoder->Profile == VAProfileHEVCMain10) format = VA_RT_FORMAT_YUV420_10BPP;
+    if (VaapiBuggyIntelHD && decoder->Profile == VAProfileHEVCMain10) format = VA_RT_FORMAT_YUV420_10BPP;
 
     decoder->SurfaceFreeN = decoder->SurfacesNeeded;
     // VA_RT_FORMAT_YUV420 VA_RT_FORMAT_YUV422 VA_RT_FORMAT_YUV444
