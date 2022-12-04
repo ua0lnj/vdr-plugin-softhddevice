@@ -2540,6 +2540,7 @@ static void VaapiDeassociate(VaapiDecoder * decoder)
 ///
 static void VaapiCreateSurfaces(VaapiDecoder * decoder, int width, int height)
 {
+    unsigned int format = VA_RT_FORMAT_YUV420;
 #ifdef DEBUG
     if (!decoder->SurfacesNeeded) {
 	Error(_("video/vaapi: surface needed not set\n"));
@@ -2549,9 +2550,11 @@ static void VaapiCreateSurfaces(VaapiDecoder * decoder, int width, int height)
     Debug(3, "video/vaapi: %s: %dx%d * %d\n", __FUNCTION__, width, height,
 	decoder->SurfacesNeeded);
 
+    if (decoder->Profile == VAProfileHEVCMain10) format = VA_RT_FORMAT_YUV420_10BPP;
+
     decoder->SurfaceFreeN = decoder->SurfacesNeeded;
     // VA_RT_FORMAT_YUV420 VA_RT_FORMAT_YUV422 VA_RT_FORMAT_YUV444
-    if (vaCreateSurfaces(decoder->VaDisplay, VA_RT_FORMAT_YUV420, width,
+    if (vaCreateSurfaces(decoder->VaDisplay, format, width,
 	    height, decoder->SurfacesFree, decoder->SurfaceFreeN, NULL,
 	    0) != VA_STATUS_SUCCESS) {
 	Fatal(_("video/vaapi: can't create %d surfaces\n"),
@@ -2559,7 +2562,7 @@ static void VaapiCreateSurfaces(VaapiDecoder * decoder, int width, int height)
 	// FIXME: write error handler / fallback
     }
 
-    if (vaCreateSurfaces(decoder->VaDisplay, VA_RT_FORMAT_YUV420, width,
+    if (vaCreateSurfaces(decoder->VaDisplay, format, width,
 	    height, decoder->PostProcSurfacesRb, POSTPROC_SURFACES_MAX, NULL,
 	    0) != VA_STATUS_SUCCESS) {
 	Fatal(_("video/vaapi: can't create %d posproc surfaces\n"),
@@ -3575,7 +3578,7 @@ static int vaapi_alloc(AVCodecContext *s)
 
     frames_ctx = (AVHWFramesContext*)s->hw_frames_ctx->data;
     frames_ctx->format = AV_PIX_FMT_VAAPI;
-    frames_ctx->sw_format = AV_PIX_FMT_NV12;
+    frames_ctx->sw_format = AV_PIX_FMT_YUV420P;
     frames_ctx->width = s->width;
     frames_ctx->height = s->height;
 
@@ -4957,6 +4960,9 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
     if (attrib.value & VA_RT_FORMAT_YUV420) {
 	Info(_("codec: YUV 420 supported\n"));
     }
+    if (attrib.value & VA_RT_FORMAT_YUV420_10BPP) {
+	Info(_("codec: YUV 420 10 bit supported\n"));
+    }
     if (attrib.value & VA_RT_FORMAT_YUV422) {
 	Info(_("codec: YUV 422 supported\n"));
     }
@@ -4966,6 +4972,11 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
 
     if (!(attrib.value & VA_RT_FORMAT_YUV420)) {
 	Warning(_("codec: YUV 420 not supported\n"));
+	goto slow_path;
+    }
+    if (!(attrib.value & VA_RT_FORMAT_YUV420_10BPP)
+        && video_ctx->profile == FF_PROFILE_HEVC_MAIN_10) {
+	Warning(_("codec: YUV 420 10 bit not supported\n"));
 	goto slow_path;
     }
 
@@ -4986,7 +4997,7 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
 
     decoder->Profile = p;
     decoder->Entrypoint = e;
-    decoder->PixFmt = *fmt_idx;
+    decoder->PixFmt = AV_PIX_FMT_NV12;
     decoder->InputWidth = 0;
     decoder->InputHeight = 0;
 
@@ -7256,7 +7267,7 @@ static void VaapiDisplayFrame(void)
 	    * 1000 * 1000 * 1000 + (nowtime.tv_nsec -
 		decoder->FrameTime.tv_nsec) > 31 * 1000 * 1000)) {
 	    // FIXME: ignore still-frame, trick-speed
-	    Debug(3, "video/vaapi: time/frame too long %ldms\n",
+	    Debug(4, "video/vaapi: time/frame too long %ldms\n",
 		((nowtime.tv_sec - decoder->FrameTime.tv_sec)
 		    * 1000 * 1000 * 1000 + (nowtime.tv_nsec -
 			decoder->FrameTime.tv_nsec)) / (1000 * 1000));
