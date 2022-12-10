@@ -528,6 +528,9 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 	decoder->VideoCtx->flags |= AV_CODEC_FLAG_TRUNCATED;
 #endif
     }
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59,55,100)
+    decoder->VideoCtx->hwaccel_flags |= AV_HWACCEL_FLAG_UNSAFE_OUTPUT;
+#endif
     // FIXME: own memory management for video frames.
     if (video_codec->capabilities & AV_CODEC_CAP_DR1) {
 	Debug(3, "codec: can use own buffer management\n");
