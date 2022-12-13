@@ -6886,9 +6886,9 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
     color = frame->colorspace;
     if (color == AVCOL_SPC_UNSPECIFIED)   // if unknown
         color = AVCOL_SPC_BT709;
-
+#ifdef USE_EGL
     decoder->ColorSpace = color;     // save colorspace
-
+#endif
     //
     // Hardware render
     //
@@ -17880,7 +17880,9 @@ struct _video_hw_decoder_
 #ifdef USE_CUVID
 	CuvidDecoder Cuvid;		///< cuvid decoder structure
 #endif
+#if defined USE_GLX || defined USE_EGL
 	CpuDecoder Cpu;			///< cpu software decoder structure
+#endif
     };
 };
 
