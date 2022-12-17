@@ -2186,8 +2186,15 @@ void cOglOsd::DestroyPixmap(cPixmap *Pixmap) {
         start = 0;
     for (int i = start; i < oglPixmaps.Size(); i++) {
         if (oglPixmaps[i] == Pixmap) {
-            if (Pixmap->Layer() >= 0)
+            if (Pixmap->Layer() >= 0){
+                //clear subtitle area
+                if (isSubtitleOsd && !oglPixmaps[i]->IsDirty() && Active()) {
+                    oglThread->DoCmd(new cOglCmdFill(oglPixmaps[i]->Fb(), clrTransparent));
+                    oglThread->DoCmd(new cOglCmdCopyBufferToOutputFb(oglPixmaps[i]->Fb(), oFb, Left()
+                        + Pixmap->ViewPort().X(), Top() + Pixmap->ViewPort().Y()));
+                }
                 oglPixmaps[0]->SetDirty();
+            }
             oglPixmaps[i] = NULL;
             if (i)
                 cOsd::DestroyPixmap(Pixmap);
