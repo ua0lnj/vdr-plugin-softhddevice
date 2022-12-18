@@ -638,6 +638,7 @@ static void VideoSetPts(int64_t * pts_p, int interlaced,
 {
     int64_t pts;
     int duration;
+    static int64_t lastpts;
 
     //
     //	Get duration for this frame.
@@ -705,13 +706,14 @@ static void VideoSetPts(int64_t * pts_p, int interlaced,
 	} else {			// first new clock value
 	    AudioVideoReady(pts);
 	}
-	if (*pts_p != pts) {
+	if (*pts_p != pts && lastpts != pts) {
 	    Debug(4,
 		"video: %#012" PRIx64 "->%#012" PRIx64 " delta=%4" PRId64
 		" pts\n", *pts_p, pts, pts - *pts_p);
 	    *pts_p = pts;
 	}
     }
+    lastpts = pts;
 }
 
 ///
