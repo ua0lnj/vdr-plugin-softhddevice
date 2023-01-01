@@ -6498,12 +6498,12 @@ static void VaapiDisplayFrame(void)
 #ifdef VA_EXP
 	decoder->LastSurface = surface;
 #endif
-#ifdef DEBUG
 	if (surface == VA_INVALID_ID) {
-	    printf(_("video/vaapi: invalid surface in ringbuffer\n"));
+	    Debug(3,"video/vaapi: invalid surface in ringbuffer\n");
+	    continue;
 	}
 	Debug(4, "video/vaapi: yy video surface %#010x displayed\n", surface);
-
+#ifdef DEBUG
 	start = GetMsTicks();
 #endif
 
