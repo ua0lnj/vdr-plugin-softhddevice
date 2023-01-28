@@ -10238,6 +10238,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 
 	VdpauChromaType = VDP_CHROMA_TYPE_420;
 
+	video_ctx->flags |= AV_CODEC_FLAG_TRUNCATED; //need for VDPAU even with USE_MPEG_COMPLETE
 	video_ctx->draw_horiz_band = NULL;
 	video_ctx->slice_flags = 0;
 	if (video_ctx->width && video_ctx->height) {
