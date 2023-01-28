@@ -524,6 +524,7 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 #ifndef USE_MPEG_COMPLETE
 	// we send incomplete frames, for old PES recordings
 	// this breaks the decoder for some stations
+	// this flag breaks the yuv422p software decoding
 	decoder->VideoCtx->flags |= AV_CODEC_FLAG_TRUNCATED;
 #endif
     }
