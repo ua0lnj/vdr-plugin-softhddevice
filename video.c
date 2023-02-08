@@ -1904,7 +1904,8 @@ static int VaapiMessage(int level, const char *format, ...)
 	    va_end(ap);
 	    return 1;
 	}
-	vsnprintf(buf, sizeof(buf), format, ap);
+	if (format)
+	    vsnprintf(buf, sizeof(buf), format, ap);
 	va_end(ap);
     }
     return 0;
@@ -7669,7 +7670,8 @@ static int VdpauMessage(int level, const char *format, ...)
 	    va_end(ap);
 	    return 1;
 	}
-	vsnprintf(buf, sizeof(buf), format, ap);
+	if (format)
+	    vsnprintf(buf, sizeof(buf), format, ap);
 	va_end(ap);
     }
     return 0;
@@ -11739,7 +11741,8 @@ int CuvidMessage(int level, const char *format, ...)
 	    va_end(ap);
 	    return 1;
 	}
-	vsnprintf(buf, sizeof(buf), format, ap);
+	if (format)
+	    vsnprintf(buf, sizeof(buf), format, ap);
 	va_end(ap);
     }
     return 0;
