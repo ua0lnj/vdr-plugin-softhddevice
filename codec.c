@@ -519,6 +519,7 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 	//decoder->VideoCtx->skip_loop_filter = AVDISCARD_ALL;
 	//decoder->VideoCtx->skip_loop_filter = AVDISCARD_BIDIR;
 //    }
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59,8,100)
     if (video_codec->capabilities & AV_CODEC_CAP_TRUNCATED) {
 	Debug(3, "codec: video can use truncated packets\n");
 #ifndef USE_MPEG_COMPLETE
@@ -528,6 +529,7 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 	decoder->VideoCtx->flags |= AV_CODEC_FLAG_TRUNCATED;
 #endif
     }
+#endif
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59,55,100)
     decoder->VideoCtx->hwaccel_flags |= AV_HWACCEL_FLAG_UNSAFE_OUTPUT;
 #endif
@@ -977,12 +979,13 @@ void CodecAudioOpen(AudioDecoder * audio_decoder, int codec_id)
 #endif
     pthread_mutex_unlock(&CodecLockMutex);
     Debug(3, "codec: audio '%s'\n", audio_decoder->AudioCodec->long_name);
-
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59,8,100)
     if (audio_codec->capabilities & AV_CODEC_CAP_TRUNCATED) {
 	Debug(3, "codec: audio can use truncated packets\n");
 	// we send only complete frames
 	// audio_decoder->AudioCtx->flags |= CODEC_FLAG_TRUNCATED;
     }
+#endif
     audio_decoder->SampleRate = 0;
     audio_decoder->Channels = 0;
     audio_decoder->HwSampleRate = 0;
