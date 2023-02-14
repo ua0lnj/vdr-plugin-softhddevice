@@ -412,7 +412,9 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
     const AVCodec *video_codec;
 #endif
     const char *name;
-
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59,8,100)
+    AVCodecParserContext *parser = NULL;
+#endif
     Debug(3, "codec: using video codec ID %#06x (%s)\n", codec_id,
 	avcodec_get_name(codec_id));
 
@@ -465,7 +467,14 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 	return 0;
     }
     decoder->VideoCodec = video_codec;
-
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59,8,100)
+    if (codec_id == AV_CODEC_ID_MPEG2VIDEO) {
+        parser = av_parser_init(codec_id);
+        if (!parser)
+	    Error(_("codec: can't init parser\n"));
+    }
+    decoder->parser = parser;
+#endif
     if (!(decoder->VideoCtx = avcodec_alloc_context3(video_codec))) {
 	Error(_("codec: can't allocate video codec context\n"));
 	decoder->VideoCodec = NULL;
@@ -614,6 +623,10 @@ void CodecVideoClose(VideoDecoder * video_decoder)
 #else
     av_freep(&video_decoder->Frame);
 #endif
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59,8,100)
+    if(video_decoder->parser)
+        av_parser_close(video_decoder->parser);
+#endif
     if (video_decoder->VideoCtx) {
         if (VideoIsDriverCuvid())
             VideoUnregisterSurface(video_decoder->HwDecoder);
@@ -681,87 +694,111 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
     int used = 0;
     int got_frame = 0;
     AVPacket pkt[1];
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59,8,100)
+    int parser_ret;
+    uint8_t *data;
+    size_t   data_size;
 
+    data = avpkt->data;
+    data_size = avpkt->size;
+#endif
     video_ctx = decoder->VideoCtx;
 
     if (video_ctx->codec_type == AVMEDIA_TYPE_VIDEO) {
 
-    frame = decoder->Frame;
+        frame = decoder->Frame;
 
-    *pkt = *avpkt;			// use copy
+        *pkt = *avpkt;			// use copy
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59,8,100)
+        while (data_size > 0) {
 
+            if (decoder->parser) {
+                parser_ret = av_parser_parse2(decoder->parser, video_ctx, &pkt->data, &pkt->size,
+                    data, data_size, AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
+            if (parser_ret < 0) {
+                Debug(3,"parser err %d\n",parser_ret);
+                break;
+            }
+
+            data += parser_ret;
+            data_size -= parser_ret;
+            } else {
+                data_size = 0;
+            }
+#endif
+            if (pkt->size) {
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57,37,100)
-    used = avcodec_send_packet(video_ctx, pkt);
-    if (used < 0 && used != AVERROR(EAGAIN) && used != AVERROR_EOF)
-        return;
+                used = avcodec_send_packet(video_ctx, pkt);
+                if (used < 0 && used != AVERROR(EAGAIN) && used != AVERROR_EOF)
+                    return;
 
-    while(!used) { //multiple frames
-        used = avcodec_receive_frame(video_ctx, frame);
-        if (used < 0 && used != AVERROR(EAGAIN) && used != AVERROR_EOF)
-            return;
-        if (used>=0)
-            got_frame = 1;
-        else got_frame = 0;
+                while(!used) { //multiple frames
+                    used = avcodec_receive_frame(video_ctx, frame);
+                    if (used < 0 && used != AVERROR(EAGAIN) && used != AVERROR_EOF)
+                        return;
+                    if (used>=0)
+                        got_frame = 1;
+                    else got_frame = 0;
 #else
   next_part:
-    used = avcodec_decode_video2(video_ctx, frame, &got_frame, pkt);
+                used = avcodec_decode_video2(video_ctx, frame, &got_frame, pkt);
 #endif
-    Debug(4, "%s: %p %d -> %d %d\n", __FUNCTION__, pkt->data, pkt->size, used,
-	got_frame);
+                Debug(4, "%s: %p %d -> %d %d\n", __FUNCTION__, pkt->data, pkt->size, used, got_frame);
 
-    if (got_frame) {			// frame completed
+                if (got_frame) {			// frame completed
 #ifdef FFMPEG_WORKAROUND_ARTIFACTS
-	if (!CodecUsePossibleDefectFrames && decoder->FirstKeyFrame) {
-	    decoder->FirstKeyFrame++;
-	    if (frame->key_frame) {
-		Debug(3, "codec: key frame after %d frames\n",
-		    decoder->FirstKeyFrame);
-		decoder->FirstKeyFrame = 0;
-	    }
-	} else {
-	    //DisplayPts(video_ctx, frame);
-	    VideoRenderFrame(decoder->HwDecoder, video_ctx, frame);
-	}
+	            if (!CodecUsePossibleDefectFrames && decoder->FirstKeyFrame) {
+	                decoder->FirstKeyFrame++;
+	                if (frame->key_frame) {
+		            Debug(3, "codec: key frame after %d frames\n",
+		                decoder->FirstKeyFrame);
+		            decoder->FirstKeyFrame = 0;
+	                }
+	            } else {
+	                //DisplayPts(video_ctx, frame);
+	                VideoRenderFrame(decoder->HwDecoder, video_ctx, frame);
+	            }
 #else
-	//DisplayPts(video_ctx, frame);
-	VideoRenderFrame(decoder->HwDecoder, video_ctx, frame);
+	           //DisplayPts(video_ctx, frame);
+	           VideoRenderFrame(decoder->HwDecoder, video_ctx, frame);
 #endif
-    } else {
-	// some frames are needed for references, interlaced frames ...
-	// could happen with h264 dvb streams, just drop data.
+                } else {
+	        // some frames are needed for references, interlaced frames ...
+	        // could happen with h264 dvb streams, just drop data.
 
-	Debug(4, "codec: %8d incomplete interlaced frame %d bytes used\n",
-	    video_ctx->frame_number, used);
-    }
-
+	            Debug(4, "codec: %8d incomplete interlaced frame %d bytes used\n",
+	            video_ctx->frame_number, used);
+                }
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,37,100)
-    // old code to support truncated or multi frame packets
-    if (used != pkt->size) {
-	// ffmpeg 0.8.7 dislikes our seq_end_h264 and enters endless loop here
-	if (used == 0 && pkt->size == 5 && pkt->data[4] == 0x0A) {
-	    Warning("codec: ffmpeg 0.8.x workaround used\n");
-	    return;
-	}
-	if (used >= 0 && used < pkt->size) {
-	    // some tv channels, produce this
-	    Debug(4,
-		"codec: ooops didn't use complete video packet used %d of %d\n",
-		used, pkt->size);
-	    pkt->size -= used;
-	    pkt->data += used;
-	    // FIXME: align problem?
-	    goto next_part;
-	}
-    }
+                // old code to support truncated or multi frame packets
+                if (used != pkt->size) {
+	        // ffmpeg 0.8.7 dislikes our seq_end_h264 and enters endless loop here
+	            if (used == 0 && pkt->size == 5 && pkt->data[4] == 0x0A) {
+	                Warning("codec: ffmpeg 0.8.x workaround used\n");
+	                return;
+	            }
+	            if (used >= 0 && used < pkt->size) {
+	            // some tv channels, produce this
+	                Debug(4, "codec: ooops didn't use complete video packet used %d of %d\n",
+		            used, pkt->size);
+	                pkt->size -= used;
+	                pkt->data += used;
+	                // FIXME: align problem?
+	                goto next_part;
+	            }
+                }
 #endif
-
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(56,28,1)
-    av_frame_unref(frame);
+                av_frame_unref(frame);
 #endif
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57,37,100)
-    }
+                }//multiple frames
 #endif
-    }
+            }//pkt->size
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59,8,100)
+        }//data_size
+#endif
+    }//codec_type
 }
 
 /**
