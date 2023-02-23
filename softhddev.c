@@ -1714,9 +1714,11 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 #endif
 			// H264 NAL AUD Access Unit Delimiter (0x00) 0x00 0x00 0x01 0x09
 			// and next start code
-			if (((z >= 2 && check[0] == 0x01 && check[1] == 0x09 && !check[3] && !check[4]) ||
+			if (z >= 2 && check[0] == 0x01 && ((check[1] == 0x09 && !check[3] && !check[4] &&
+			//wait I-frame for detect h.264
+			(check[2] == 0x10 || check[2] == 0xf0 || MyVideoStream->CodecID == AV_CODEC_ID_H264)) ||
 			// H264 NAL SEQ PARAMETER SET (0x00) 0x00 0x00 0x01 0x06
-			(z >=2 && check[0] == 0x01 && check[1] == 0x06 && is_start)) && l > 6) {
+			(check[1] == 0x06 && is_start)) && l > 6) {
 			// old PES HDTV recording z == 2 -> stronger check!
 			    if (MyVideoStream->CodecID == AV_CODEC_ID_H264) {
 #ifdef DUMP_TRICKSPEED
@@ -2562,7 +2564,8 @@ int PlayVideo3(VideoStream * stream, const uint8_t * data, int size)
     // H264 NAL AUD Access Unit Delimiter (0x00) 0x00 0x00 0x01 0x09
     // and next start code
     if ((data[6] & 0xC0) == 0x80 && z >= 2 && check[0] == 0x01
-	&& check[1] == 0x09 && !check[3] && !check[4]) {
+	&& check[1] == 0x09 && !check[3] && !check[4] &&
+	(check[2] == 0x10 || check[2] == 0xf0 || MyVideoStream->CodecID == AV_CODEC_ID_H264)) {
 	// old PES HDTV recording z == 2 -> stronger check!
 	if (stream->CodecID == AV_CODEC_ID_H264) {
 #ifdef DUMP_TRICKSPEED
@@ -2624,7 +2627,8 @@ int PlayVideo3(VideoStream * stream, const uint8_t * data, int size)
     }
 
     // PES start code 0x00 0x00 0x01 0x00|0xb3
-    if (z > 1 && check[0] == 0x01 && (!check[1] || (check[1] == 0xb3 && check[2] && check[3]))) {
+    if ((data[6] & 0xC0) == 0x80 && z > 1 && check[0] == 0x01 && ((!check[1] && stream->CodecID == AV_CODEC_ID_MPEG2VIDEO) ||
+    (check[1] == 0xb3 && check[2] && check[3]))) {
 	if (stream->CodecID == AV_CODEC_ID_MPEG2VIDEO) {
 	    VideoNextPacket(stream, AV_CODEC_ID_MPEG2VIDEO);
 	} else {
