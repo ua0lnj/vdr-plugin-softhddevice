@@ -468,7 +468,7 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
     }
     decoder->VideoCodec = video_codec;
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59,8,100)
-    if (codec_id == AV_CODEC_ID_MPEG2VIDEO && VideoIsDriverVdpau()) {
+    if (VideoIsDriverVdpau()) {
         parser = av_parser_init(codec_id);
         if (!parser)
 	    Error(_("codec: can't init parser\n"));
