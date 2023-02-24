@@ -1714,11 +1714,9 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 #endif
 			// H264 NAL AUD Access Unit Delimiter (0x00) 0x00 0x00 0x01 0x09
 			// and next start code
-			if (z >= 2 && check[0] == 0x01 && ((check[1] == 0x09 && !check[3] && !check[4] &&
+			if (z >= 2 && check[0] == 0x01 && check[1] == 0x09 && !check[3] && !check[4] &&
 			//wait I-frame for detect h.264
-			(check[2] == 0x10 || check[2] == 0xf0 || MyVideoStream->CodecID == AV_CODEC_ID_H264)) ||
-			// H264 NAL SEQ PARAMETER SET (0x00) 0x00 0x00 0x01 0x06
-			(check[1] == 0x06 && is_start)) && l > 6) {
+			(check[2] == 0x10 || check[2] == 0xf0 || MyVideoStream->CodecID == AV_CODEC_ID_H264) && is_start && l > 6) {
 			// old PES HDTV recording z == 2 -> stronger check!
 			    if (MyVideoStream->CodecID == AV_CODEC_ID_H264) {
 #ifdef DUMP_TRICKSPEED
