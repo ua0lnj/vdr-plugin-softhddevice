@@ -623,8 +623,10 @@ void CodecVideoClose(VideoDecoder * video_decoder)
     av_freep(&video_decoder->Frame);
 #endif
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59,8,100)
-    if(video_decoder->parser)
+    if(video_decoder->parser) {
         av_parser_close(video_decoder->parser);
+        video_decoder->parser = NULL;
+    }
 #endif
     if (video_decoder->VideoCtx) {
         if (VideoIsDriverCuvid())
@@ -703,7 +705,7 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 #endif
     video_ctx = decoder->VideoCtx;
 
-    if (video_ctx->codec_type == AVMEDIA_TYPE_VIDEO) {
+    if (video_ctx && video_ctx->codec_type == AVMEDIA_TYPE_VIDEO) {
 
         frame = decoder->Frame;
 
