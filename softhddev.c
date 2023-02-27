@@ -1714,9 +1714,9 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 #endif
 			// H264 NAL AUD Access Unit Delimiter (0x00) 0x00 0x00 0x01 0x09
 			// and next start code
-			if (z >= 2 && check[0] == 0x01 && check[1] == 0x09 && !check[3] && !check[4] &&
+			if (is_start && z >= 2 && check[0] == 0x01 && check[1] == 0x09 && !check[3] && !check[4] &&
 			//wait I-frame for detect h.264
-			(check[2] == 0x10 || check[2] == 0xf0 || MyVideoStream->CodecID == AV_CODEC_ID_H264) && is_start && l > 6) {
+			(check[2] == 0x10 || check[2] == 0xf0 || MyVideoStream->CodecID == AV_CODEC_ID_H264) && l > 6) {
 			// old PES HDTV recording z == 2 -> stronger check!
 			    if (MyVideoStream->CodecID == AV_CODEC_ID_H264) {
 #ifdef DUMP_TRICKSPEED
@@ -1765,7 +1765,8 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 			    break;
 			}
 			// HEVC Codec
-			if (z >= 2 && check[0] == 0x01 && check[1] == 0x46 && VideoHardwareDecoder != HWhevcOff) {
+			if (VideoHardwareDecoder != HWhevcOff && is_start && z >= 2 && check[0] == 0x01 && check[1] == 0x46 &&
+			(check[3] == 0x10 || MyVideoStream->CodecID == AV_CODEC_ID_HEVC)) {
 			// old PES HDTV recording z == 2 -> stronger check!
 			    if (MyVideoStream->CodecID == AV_CODEC_ID_HEVC) {
 				VideoNextPacket(MyVideoStream, AV_CODEC_ID_HEVC);
@@ -1780,7 +1781,7 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 			    break;
 			}
 			// PES start code 0x00 0x00 0x01 0x00|(0xb3 0xXX 0xXX)
-			if (z > 1 && check[0] == 0x01 && is_start && ((!check[1] && MyVideoStream->CodecID ==
+			if (is_start && z > 1 && check[0] == 0x01 && ((!check[1] && MyVideoStream->CodecID ==
                         AV_CODEC_ID_MPEG2VIDEO) || (check[1] == 0xb3 && check[2] && check[3]))) {
 			    if (MyVideoStream->CodecID == AV_CODEC_ID_MPEG2VIDEO) {
 				VideoNextPacket(MyVideoStream, AV_CODEC_ID_MPEG2VIDEO);
@@ -1807,8 +1808,8 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 			}
 
 			// CAVS Codec
-			if (z >= 2 && check[0] == 0x01 && ((check[1] == 0xb0 && check[2] == 0x48) ||
-			(check[1] == 0xb6 &&  check[2] && check[3]))) {
+			if (is_start && z >= 2 && check[0] == 0x01 && ((check[1] == 0xb0 && check[2] == 0x48) ||
+			(check[1] == 0xb6 &&  check[2] && check[3] && MyVideoStream->CodecID == AV_CODEC_ID_CAVS))) {
 			    if (MyVideoStream->CodecID == AV_CODEC_ID_CAVS) {
 				VideoNextPacket(MyVideoStream, AV_CODEC_ID_CAVS);
 			    } else {
@@ -1823,9 +1824,10 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 			}
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58,21,100)
 			// AVS2 Codec
-			if (z >= 2 && check[0] == 0x01 && ((check[1] == 0xb0 &&
+			if (is_start && z >= 2 && check[0] == 0x01 && ((check[1] == 0xb0 &&
 			(check[2] == 0x20 || check[2] == 0x22 || check[2] == 0x30 || check[2] == 0x32)) ||
-			((check[1] == 0xb3 || check[1] == 0xb6) && !check[2] && !check[3]))) {
+			((check[1] == 0xb1 || check[1] == 0xb3 || check[1] == 0xb6 || check[2] == 0xb5 || check[2] == 0xb7) &&
+			MyVideoStream->CodecID == AV_CODEC_ID_AVS2))) {
 			    if (MyVideoStream->CodecID == AV_CODEC_ID_AVS2) {
 				VideoNextPacket(MyVideoStream, AV_CODEC_ID_AVS2);
 			    } else {
@@ -2611,7 +2613,8 @@ int PlayVideo3(VideoStream * stream, const uint8_t * data, int size)
 	return size;
     }
     // HEVC Codec
-    if ((data[6] & 0xC0) == 0x80 && z >= 2 && check[0] == 0x01 && check[1] == 0x46 && VideoHardwareDecoder != HWhevcOff) {
+    if (VideoHardwareDecoder != HWhevcOff && (data[6] & 0xC0) == 0x80 && z >= 2 && check[0] == 0x01 && check[1] == 0x46 &&
+    (check[3] == 0x10 || stream->CodecID == AV_CODEC_ID_HEVC)) {
 	// old PES HDTV recording z == 2 -> stronger check!
 	if (stream->CodecID == AV_CODEC_ID_HEVC) {
             VideoNextPacket(stream, AV_CODEC_ID_HEVC);
@@ -2650,7 +2653,8 @@ int PlayVideo3(VideoStream * stream, const uint8_t * data, int size)
     // AVS2 Codec
     if ((data[6] & 0xC0) == 0x80 && z >= 2 && check[0] == 0x01 && ((check[1] == 0xb0 &&
 	(check[2] == 0x20 || check[2] == 0x22 || check[2] == 0x30 || check[2] == 0x32)) ||
-	((check[1] == 0xb3 || check[1] == 0xb6) &&  !check[2] && !check[3]))) {
+	((check[1] == 0xb1 || check[1] == 0xb3 || check[1] == 0xb6 || check[1] == 0xb5 || check[1] == 0xb7) &&
+	stream->CodecID == AV_CODEC_ID_AVS2))) {
 	if (stream->CodecID == AV_CODEC_ID_AVS2) {
 	    VideoNextPacket(stream, AV_CODEC_ID_AVS2);
 	} else {
