@@ -1225,6 +1225,15 @@ int VideoDecodeInput(VideoStream * stream)
             }
             break;
 #endif
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58,109,100)
+        case AV_CODEC_ID_AVS3:
+            if (stream->LastCodecID != AV_CODEC_ID_AVS3) {
+                stream->LastCodecID = AV_CODEC_ID_AVS3;
+                if (!CodecVideoOpen(stream->Decoder, AV_CODEC_ID_AVS3))
+		    goto skip;
+            }
+            break;
+#endif
 	default:
 	    break;
     }
@@ -1544,6 +1553,7 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 {
     const uint8_t *p;
     const uint8_t *q;
+#define IS_AVS3(x) (((x[4]>>3)&1) && !((x[4]>>2)&1) && ((x[6]>>4)&1) && !((x[6]>>3)&1))
 
     if (is_start) {			// start of pes packet
 	if (pesdx->Index && pesdx->Skip) {
@@ -1809,7 +1819,7 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 
 			// CAVS Codec
 			if (is_start && z >= 2 && check[0] == 0x01 && ((check[1] == 0xb0 && check[2] == 0x48) ||
-			(check[1] == 0xb6 &&  check[2] && check[3] && MyVideoStream->CodecID == AV_CODEC_ID_CAVS))) {
+			(MyVideoStream->CodecID == AV_CODEC_ID_CAVS && check[1] == 0xb6 &&  check[2] && check[3]))) {
 			    if (MyVideoStream->CodecID == AV_CODEC_ID_CAVS) {
 				VideoNextPacket(MyVideoStream, AV_CODEC_ID_CAVS);
 			    } else {
@@ -1824,15 +1834,34 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 			}
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58,21,100)
 			// AVS2 Codec
-			if (is_start && z >= 2 && check[0] == 0x01 && ((check[1] == 0xb0 &&
+			if (is_start && z >= 2 && check[0] == 0x01 && ((check[1] == 0xb0 && !IS_AVS3(check) &&
 			(check[2] == 0x20 || check[2] == 0x22 || check[2] == 0x30 || check[2] == 0x32)) ||
-			((check[1] == 0xb1 || check[1] == 0xb3 || check[1] == 0xb6 || check[2] == 0xb5 || check[2] == 0xb7) &&
-			MyVideoStream->CodecID == AV_CODEC_ID_AVS2))) {
+			(MyVideoStream->CodecID == AV_CODEC_ID_AVS2 &&
+			(check[1] == 0xb1 || check[1] == 0xb3 || check[1] == 0xb6 || check[2] == 0xb5 || check[2] == 0xb7)))) {
 			    if (MyVideoStream->CodecID == AV_CODEC_ID_AVS2) {
 				VideoNextPacket(MyVideoStream, AV_CODEC_ID_AVS2);
 			    } else {
 				Debug(3, "video: avs2 detected\n");
 				MyVideoStream->CodecID = AV_CODEC_ID_AVS2;
+			    }
+			    // (ffmpeg supports short start code)
+			    VideoEnqueue(MyVideoStream, pesdx->PTS, check - 2, l + 2);
+			    pesdx->Skip += n;
+			    pesdx->PTS = AV_NOPTS_VALUE;
+			    break;
+			}
+#endif
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58,109,100)
+			// AVS3 Codec
+			if (is_start && z >= 2 && check[0] == 0x01 && ((check[1] == 0xb0 && IS_AVS3(check) &&
+			(check[2] == 0x20 || check[2] == 0x22)) ||
+			(MyVideoStream->CodecID == AV_CODEC_ID_AVS3 &&
+			(check[1] == 0xb1 || check[1] == 0xb3 || check[1] == 0xb6 || check[2] == 0xb5 || check[2] == 0xb7)))) {
+			    if (MyVideoStream->CodecID == AV_CODEC_ID_AVS3) {
+				VideoNextPacket(MyVideoStream, AV_CODEC_ID_AVS3);
+			    } else {
+				Debug(3, "video: avs3 detected\n");
+				MyVideoStream->CodecID = AV_CODEC_ID_AVS3;
 			    }
 			    // (ffmpeg supports short start code)
 			    VideoEnqueue(MyVideoStream, pesdx->PTS, check - 2, l + 2);
@@ -2477,6 +2506,7 @@ int PlayVideo3(VideoStream * stream, const uint8_t * data, int size)
     int n;
     int z;
     int l;
+#define IS_AVS3(x) (((x[4]>>3)&1) && !((x[4]>>2)&1) && ((x[6]>>4)&1) && !((x[6]>>3)&1))
 
     if (!stream->Decoder) {		// no x11 video started
 	return size;
@@ -2651,15 +2681,32 @@ int PlayVideo3(VideoStream * stream, const uint8_t * data, int size)
     }
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58,21,100)
     // AVS2 Codec
-    if ((data[6] & 0xC0) == 0x80 && z >= 2 && check[0] == 0x01 && ((check[1] == 0xb0 &&
-	(check[2] == 0x20 || check[2] == 0x22 || check[2] == 0x30 || check[2] == 0x32)) ||
-	((check[1] == 0xb1 || check[1] == 0xb3 || check[1] == 0xb6 || check[1] == 0xb5 || check[1] == 0xb7) &&
-	stream->CodecID == AV_CODEC_ID_AVS2))) {
+    if ((data[6] & 0xC0) == 0x80 && z >= 2 && check[0] == 0x01 && ((check[1] == 0xb0 && !IS_AVS3(check) &&
+    (check[2] == 0x20 || check[2] == 0x22 || check[2] == 0x30 || check[2] == 0x32)) ||
+    (stream->CodecID == AV_CODEC_ID_AVS2 &&
+    (check[1] == 0xb1 || check[1] == 0xb3 || check[1] == 0xb6 || check[1] == 0xb5 || check[1] == 0xb7)))) {
 	if (stream->CodecID == AV_CODEC_ID_AVS2) {
 	    VideoNextPacket(stream, AV_CODEC_ID_AVS2);
 	} else {
 	    Debug(3, "video: avs2 detected\n");
 	    stream->CodecID = AV_CODEC_ID_AVS2;
+	}
+	// SKIP PES header (ffmpeg supports short start code)
+	VideoEnqueue(stream, pts, check - 2, l + 2);
+	return size;
+    }
+#endif
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58,109,100)
+    // AVS3 Codec
+    if ((data[6] & 0xC0) == 0x80 && z >= 2 && check[0] == 0x01 && ((check[1] == 0xb0 && IS_AVS3(check) &&
+    (check[2] == 0x20 || check[2] == 0x22)) ||
+    (stream->CodecID == AV_CODEC_ID_AVS3 &&
+    (check[1] == 0xb1 || check[1] == 0xb3 || check[1] == 0xb6 || check[1] == 0xb5 || check[1] == 0xb7)))) {
+	if (stream->CodecID == AV_CODEC_ID_AVS3) {
+	    VideoNextPacket(stream, AV_CODEC_ID_AVS3);
+	} else {
+	    Debug(3, "video: avs3 detected\n");
+	    stream->CodecID = AV_CODEC_ID_AVS3;
 	}
 	// SKIP PES header (ffmpeg supports short start code)
 	VideoEnqueue(stream, pts, check - 2, l + 2);
