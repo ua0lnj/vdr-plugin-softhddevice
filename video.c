@@ -11365,11 +11365,17 @@ static void VdpauBlackSurface(VdpauDecoder * decoder)
     source_rect.x1 = 0;
     source_rect.y1 = 0;
 
-    output_rect.x0 = decoder->VideoX;
-    output_rect.y0 = decoder->VideoY;
-    output_rect.x1 = decoder->VideoWidth + decoder->VideoX;
-    output_rect.y1 = decoder->VideoHeight + decoder->VideoY;
-
+    if(decoder->OutputWidth == decoder->OutputHeight) {      //PIP video
+	output_rect.x0 = decoder->VideoX;
+	output_rect.y0 = decoder->VideoY;
+	output_rect.x1 = decoder->VideoWidth + decoder->VideoX;
+	output_rect.y1 = decoder->VideoHeight + decoder->VideoY;
+    } else {                                                 //Main video
+	output_rect.x0 = 0;
+	output_rect.y0 = 0;
+	output_rect.x1 = VideoWindowWidth;
+	output_rect.y1 = VideoWindowHeight;
+    }
     // FIXME: double buffered osd disabled
     // VdpauOsdSurfaceIndex always 0 and only 0 valid
 #ifdef USE_BITMAP
