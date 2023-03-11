@@ -575,6 +575,7 @@ void ResetChannelId(void)
 */
 struct __video_stream__
 {
+    char isPipStream;
     VideoHwDecoder *HwDecoder;		///< video hardware decoder
     VideoDecoder *Decoder;		///< video decoder
     pthread_mutex_t DecoderLockMutex;	///< video decoder lock mutex
@@ -1302,6 +1303,8 @@ static void StartVideo(void)
 	VideoStreamOpen(MyVideoStream);
 	AudioSyncStream = MyVideoStream;
     }
+    MyVideoStream->isPipStream = 0;
+
     VideoOsdInit();
 }
 
@@ -3955,6 +3958,8 @@ void PipStart(int x, int y, int width, int height, int pip_x, int pip_y,
     if (!PipVideoStream->Decoder) {
 	VideoStreamOpen(PipVideoStream);
     }
+    PipVideoStream->isPipStream = 1;
+
     PipSetPosition(x, y, width, height, pip_x, pip_y, pip_width, pip_height);
 }
 

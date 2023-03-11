@@ -11351,9 +11351,6 @@ static void VdpauMixVideo(VdpauDecoder * decoder, int level)
 ///
 ///	@param decoder	VDPAU hw decoder
 ///
-///	@FIXME: render only video area, not fullscreen!
-///	decoder->Output.. isn't correct setup for radio stations
-///
 static void VdpauBlackSurface(VdpauDecoder * decoder)
 {
     VdpStatus status;
@@ -11365,7 +11362,7 @@ static void VdpauBlackSurface(VdpauDecoder * decoder)
     source_rect.x1 = 0;
     source_rect.y1 = 0;
 
-    if(decoder->OutputWidth == decoder->OutputHeight) {      //PIP video
+    if(((char*)decoder->Stream)[0]) {      //isPipStream == 0 PIP video
 	output_rect.x0 = decoder->VideoX;
 	output_rect.y0 = decoder->VideoY;
 	output_rect.x1 = decoder->VideoWidth + decoder->VideoX;
