@@ -2984,7 +2984,7 @@ int64_t GetSTC(void)
 	return VideoGetClock(MyVideoStream->HwDecoder);
     }
     // could happen during dettached
-    Warning(_("softhddev: %s called without hw decoder\n"), __FUNCTION__);
+    Debug(3,"softhddev: %s called without hw decoder\n", __FUNCTION__);
     return AV_NOPTS_VALUE;
 }
 
