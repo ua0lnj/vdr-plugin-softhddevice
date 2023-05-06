@@ -9365,9 +9365,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	ist->hwaccel_output_format = AV_PIX_FMT_VDPAU;
 
 	VdpauChromaType = VDP_CHROMA_TYPE_420;
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59,8,100)
-	video_ctx->flags |= AV_CODEC_FLAG_TRUNCATED; //need for VDPAU even with USE_MPEG_COMPLETE
-#endif
+
 	video_ctx->draw_horiz_band = NULL;
 	video_ctx->slice_flags = 0;
 	if (video_ctx->width && video_ctx->height) {
