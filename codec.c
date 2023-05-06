@@ -468,7 +468,7 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
     }
     decoder->VideoCodec = video_codec;
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59,8,100)
-    if (VideoIsDriverVdpau()) {
+    if (!VideoIsDriverCuvid()) {
         parser = av_parser_init(codec_id);
         if (!parser)
 	    Error(_("codec: can't init parser\n"));
@@ -532,12 +532,11 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59,8,100)
     if (video_codec->capabilities & AV_CODEC_CAP_TRUNCATED) {
 	Debug(3, "codec: video can use truncated packets\n");
-#ifndef USE_MPEG_COMPLETE
+//#ifndef USE_MPEG_COMPLETE
 	// we send incomplete frames, for old PES recordings
 	// this breaks the decoder for some stations
-	// this flag breaks the yuv422p software decoding
 	decoder->VideoCtx->flags |= AV_CODEC_FLAG_TRUNCATED;
-#endif
+//#endif
     }
 #endif
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59,55,100)
