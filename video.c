@@ -6137,8 +6137,11 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
 
     // FIXME: some tv-stations toggle interlace on/off
     // frame->interlaced_frame isn't always correct set
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
     interlaced = frame->interlaced_frame;
-
+#else
+    interlaced = frame->flags & AV_FRAME_FLAG_INTERLACED;
+#endif
     //25, 30 - interlaced; 50, 60 - progressive; hevc - progressive allways
     if (video_ctx->framerate.num > 0) {
 	if (video_ctx->framerate.num / video_ctx->framerate.den > 30) interlaced = 0;
@@ -6148,15 +6151,25 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
     if (video_ctx->codec_id == AV_CODEC_ID_HEVC) interlaced = 0;
 
     // FIXME: should be done by init video_ctx->field_order
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
     if (decoder->Interlaced != interlaced
 	|| decoder->TopFieldFirst != frame->top_field_first) {
 
 	Debug(4, "video/vaapi: interlaced %d top-field-first %d num %d den %d\n", frame->interlaced_frame,
 	    frame->top_field_first, video_ctx->framerate.num, video_ctx->framerate.den);
 
-	decoder->Interlaced = interlaced;
 	decoder->TopFieldFirst = frame->top_field_first;
+#else
+    if (decoder->Interlaced != interlaced
+	|| decoder->TopFieldFirst != (frame->flags & AV_FRAME_FLAG_TOP_FIELD_FIRST)) {
+
+	Debug(4, "video/vaapi: interlaced %d top-field-first %d num %d den %d\n", frame->flags & AV_FRAME_FLAG_INTERLACED,
+	    frame->flags & AV_FRAME_FLAG_TOP_FIELD_FIRST, video_ctx->framerate.num, video_ctx->framerate.den);
+
+	decoder->TopFieldFirst = frame->flags & AV_FRAME_FLAG_TOP_FIELD_FIRST;
+#endif
 	decoder->SurfaceField = !decoder->Interlaced;
+	decoder->Interlaced = interlaced;
     }
     //aspect correction
     aspect_ratio = frame->sample_aspect_ratio;
@@ -9991,8 +10004,11 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 
     // FIXME: some tv-stations toggle interlace on/off
     // frame->interlaced_frame isn't always correct set
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
     interlaced = frame->interlaced_frame;
-
+#else
+    interlaced = frame->flags & AV_FRAME_FLAG_INTERLACED;
+#endif
     //25, 30 - interlaced; 50, 60 - progressive; hevc - progressive allways
     if (video_ctx->framerate.num > 0) {
 	if (video_ctx->framerate.num / video_ctx->framerate.den > 30) interlaced = 0;
@@ -10002,15 +10018,25 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
     if (video_ctx->codec_id == AV_CODEC_ID_HEVC) interlaced = 0;
 
     // FIXME: should be done by init video_ctx->field_order
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
     if (decoder->Interlaced != interlaced
 	|| decoder->TopFieldFirst != frame->top_field_first) {
 
 	Debug(4, "video/vdpau: interlaced %d top-field-first %d num %d den %d\n", frame->interlaced_frame,
 	    frame->top_field_first, video_ctx->framerate.num, video_ctx->framerate.den);
 
-	decoder->Interlaced = interlaced;
 	decoder->TopFieldFirst = frame->top_field_first;
+#else
+    if (decoder->Interlaced != interlaced
+	|| decoder->TopFieldFirst != (frame->flags & AV_FRAME_FLAG_TOP_FIELD_FIRST)) {
+
+	Debug(4, "video/vdpau: interlaced %d top-field-first %d num %d den %d\n", frame->flags & AV_FRAME_FLAG_INTERLACED,
+	    frame->flags & AV_FRAME_FLAG_TOP_FIELD_FIRST, video_ctx->framerate.num, video_ctx->framerate.den);
+
+	decoder->TopFieldFirst = frame->flags & AV_FRAME_FLAG_TOP_FIELD_FIRST;
+#endif
 	decoder->SurfaceField = !decoder->Interlaced;
+	decoder->Interlaced = interlaced;
     }
     //aspect correction
     aspect_ratio = frame->sample_aspect_ratio;
@@ -12828,8 +12854,11 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
 
     // FIXME: some tv-stations toggle interlace on/off
     // frame->interlaced_frame isn't always correct set
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
     interlaced = frame->interlaced_frame;
-
+#else
+    interlaced = frame->flags & AV_FRAME_FLAG_INTERLACED;
+#endif
     //25, 30 - interlaced; 50, 60 - progressive; hevc - progressive allways
     if (video_ctx->framerate.num > 0) {
 	if (video_ctx->framerate.num / video_ctx->framerate.den > 30) interlaced = 0;
@@ -12839,15 +12868,25 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
     if (video_ctx->codec_id == AV_CODEC_ID_HEVC) interlaced = 0;
 
     // FIXME: should be done by init video_ctx->field_order
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
     if (decoder->Interlaced != interlaced
 	|| decoder->TopFieldFirst != frame->top_field_first) {
 
 	Debug(4, "video/cuvid: interlaced %d top-field-first %d num %d den %d\n", frame->interlaced_frame,
 	    frame->top_field_first, video_ctx->framerate.num, video_ctx->framerate.den);
 
-	decoder->Interlaced = interlaced;
 	decoder->TopFieldFirst = frame->top_field_first;
+#else
+    if (decoder->Interlaced != interlaced
+	|| decoder->TopFieldFirst != (frame->flags & AV_FRAME_FLAG_TOP_FIELD_FIRST)) {
+
+	Debug(4, "video/cuvid: interlaced %d top-field-first %d num %d den %d\n", frame->flags & AV_FRAME_FLAG_INTERLACED,
+	    frame->flags & AV_FRAME_FLAG_TOP_FIELD_FIRST, video_ctx->framerate.num, video_ctx->framerate.den);
+
+	decoder->TopFieldFirst = frame->flags & AV_FRAME_FLAG_TOP_FIELD_FIRST;
+#endif
 	decoder->SurfaceField = !decoder->Interlaced;
+	decoder->Interlaced = interlaced;
     }
     //aspect correction
     aspect_ratio = frame->sample_aspect_ratio;
