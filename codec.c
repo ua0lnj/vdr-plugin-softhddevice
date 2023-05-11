@@ -766,9 +766,13 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
                 } else {
 	        // some frames are needed for references, interlaced frames ...
 	        // could happen with h264 dvb streams, just drop data.
-
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(60,2,100)
 	            Debug(4, "codec: %8d incomplete interlaced frame %d bytes used\n",
 	            video_ctx->frame_number, used);
+#else
+	            Debug(4, "codec: %8ld incomplete interlaced frame %d bytes used\n",
+	            video_ctx->frame_num, used);
+#endif
                 }
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,37,100)
                 // old code to support truncated or multi frame packets
