@@ -150,8 +150,10 @@ typedef enum
 #if VA_CHECK_VERSION(0,33,99)
 #include <va/va_vpp.h>
 #endif
+#ifndef VAAPI_NO_GLX
 #ifdef USE_GLX
 #include <va/va_glx.h>
+#endif
 #endif
 #ifndef VA_SURFACE_ATTRIB_SETTABLE
 /// make source compatible with stable libva
@@ -3161,7 +3163,7 @@ static void VaapiDelHwDecoder(VaapiDecoder * decoder)
 	}
     }
     if (!VaapiDecoders[0]) {
-#ifdef USE_GLX
+#if defined USE_GLX && !defined VAAPI_NO_GLX
     if (decoder->GlxSurfaces[0]) {
 	if (vaDestroySurfaceGLX(VaDisplay, decoder->GlxSurfaces[0])
 	    != VA_STATUS_SUCCESS) {
@@ -3343,7 +3345,7 @@ static int VaapiInit(const char *display_name)
     VaOsdImage.image_id = VA_INVALID_ID;
     VaOsdSubpicture = VA_INVALID_ID;
 
-#ifdef USE_GLX
+#if defined USE_GLX && !defined VAAPI_NO_GLX
     if (GlxEnabled) {			// support glx
 	VaDisplay = vaGetDisplayGLX(XlibDisplay);
     } else
@@ -4324,7 +4326,7 @@ static void VaapiSetup(VaapiDecoder * decoder,
 	VideoResolutionGroup(width, height, decoder->Interlaced);
     VaapiCreateSurfaces(decoder, width, height);
 
-#ifdef USE_GLX
+#if defined USE_GLX && !defined VAAPI_NO_GLX
     if (GlxEnabled) {
         if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext)) {
 	    Error(_("video/glx: can't make glx context current\n"));
@@ -5251,7 +5253,7 @@ static void VaapiPutSurfaceGLX(VaapiDecoder * decoder, VASurfaceID surface,
     } else {
 	type = VA_FRAME_PICTURE;
     }
-
+#ifndef VAAPI_NO_GLX
     //start = GetMsTicks();
     if (vaCopySurfaceGLX(decoder->VaDisplay, decoder->GlxSurfaces[0], surface,
 	    type | decoder->SurfaceFlagsTable[decoder->Resolution]) !=
@@ -5260,7 +5262,7 @@ static void VaapiPutSurfaceGLX(VaapiDecoder * decoder, VASurfaceID surface,
 	return;
     }
     //copy = GetMsTicks();
-
+#endif
     glViewport(0, 0, VideoWindowWidth, VideoWindowHeight);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
@@ -17903,7 +17905,7 @@ static const VideoModule *VideoModules[] = {
 #endif
 #ifdef USE_VAAPI
     &VaapiModule,
-#ifdef USE_GLX
+#if defined USE_GLX && !defined VAAPI_NO_GLX
     &VaapiGlxModule,
 #endif
 #ifdef USE_EGL

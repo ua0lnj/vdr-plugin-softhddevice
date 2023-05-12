@@ -19,6 +19,8 @@ OSS ?= 1
 VDPAU ?= $(shell pkg-config --exists vdpau && echo 1)
     # support VA-API video output module (deprecated)
 VAAPI ?= $(shell pkg-config --exists libva && echo 1)
+    # disable glx suppotr for VA-API
+VAAPI_NO_GLX = 0
     # support glx output
 OPENGL ?= $(shell pkg-config --exists gl glu && echo 1)
     # support egl output
@@ -125,9 +127,13 @@ ifeq ($(VAAPI),1)
 CONFIG += -DUSE_VAAPI
 _CFLAGS += $(shell pkg-config --cflags libva-x11 libva)
 LIBS += $(shell pkg-config --libs libva-x11 libva)
+ifeq ($(VAAPI_NO_GLX),1)
+CONFIG += -DVAAPI_NO_GLX
+else
 ifeq ($(OPENGL),1)
 _CFLAGS += $(shell pkg-config --cflags libva-glx)
 LIBS += $(shell pkg-config --libs libva-glx)
+endif
 endif
 endif
 ifeq ($(OPENGL),1)
