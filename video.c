@@ -14705,9 +14705,13 @@ enum AVPixelFormat Video_get_format(VideoHwDecoder * hw_decoder,
     int ms_delay;
 
     // FIXME: use frame time
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(56,13,100)
     ms_delay = (1000 * video_ctx->time_base.num * video_ctx->ticks_per_frame)
 	/ video_ctx->time_base.den;
-
+#else
+    ms_delay = (1000 * video_ctx->framerate.den)
+	/ video_ctx->framerate.num;
+#endif
     Debug(3, "video: ready %s %2dms/frame %dms\n",
 	Timestamp2String(VideoGetClock(hw_decoder)), ms_delay,
 	GetMsTicks() - VideoSwitch);
