@@ -1091,7 +1091,9 @@ int VideoPollInput(VideoStream * stream)
 	stream->PacketRead = stream->PacketWrite;
 	// FIXME: ->Decoder already checked
 	if (stream->Decoder) {
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,80,100)
 	    CodecVideoFlushBuffers(stream->Decoder);
+#endif
 	    VideoResetStart(stream->HwDecoder);
 	}
 	stream->ClearBuffers = 0;
@@ -1135,7 +1137,9 @@ int VideoDecodeInput(VideoStream * stream)
 	stream->PacketRead = stream->PacketWrite;
 	// FIXME: ->Decoder already checked
 	if (stream->Decoder) {
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,10,100)
 	    CodecVideoFlushBuffers(stream->Decoder);
+#endif
 	    VideoResetStart(stream->HwDecoder);
 	}
 	stream->ClearBuffers = 0;

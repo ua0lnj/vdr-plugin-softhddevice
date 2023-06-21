@@ -64,7 +64,7 @@ struct _video_decoder_
 #else
      const AVCodec *VideoCodec;          ///< video codec
 #endif
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59,8,100)
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58,10,100)
      AVCodecParserContext *parser;
 #endif
      AVCodecContext *VideoCtx;           ///< video codec context

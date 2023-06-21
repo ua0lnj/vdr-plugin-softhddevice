@@ -200,10 +200,6 @@ static int Codec_get_buffer2(AVCodecContext * video_ctx, AVFrame * frame, int fl
 	fmts[1] = AV_PIX_FMT_NONE;
 	Codec_get_format(video_ctx, fmts);
     }
-    if (decoder->hwaccel_get_buffer && AV_PIX_FMT_VDPAU == decoder->hwaccel_pix_fmt) {
-           //Debug(3,"hwaccel get_buffer\n");
-           return decoder->hwaccel_get_buffer(video_ctx, frame, flags);
-    }
 #ifdef USE_VDPAU
 #if LIBAVUTIL_VERSION_MAJOR < 56
     // VDPAU: AV_PIX_FMT_VDPAU_H264 .. AV_PIX_FMT_VDPAU_VC1 AV_PIX_FMT_VDPAU_MPEG4
@@ -230,7 +226,7 @@ static int Codec_get_buffer2(AVCodecContext * video_ctx, AVFrame * frame, int fl
     }
 #endif
 #endif
-    // VA-API:
+    // VA-API and new VDPAU:
     if (video_ctx->hw_frames_ctx || video_ctx->hwaccel_context) {
 
 	unsigned surface;
@@ -412,7 +408,7 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
     const AVCodec *video_codec;
 #endif
     const char *name;
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59,8,100)
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58,10,100)
     AVCodecParserContext *parser = NULL;
 #endif
     Debug(3, "codec: using video codec ID %#06x (%s)\n", codec_id,
@@ -467,7 +463,7 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 	return 0;
     }
     decoder->VideoCodec = video_codec;
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59,8,100)
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58,10,100)
     if (!VideoIsDriverCuvid()) {
         parser = av_parser_init(codec_id);
         if (!parser)
@@ -621,7 +617,7 @@ void CodecVideoClose(VideoDecoder * video_decoder)
 #else
     av_freep(&video_decoder->Frame);
 #endif
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59,8,100)
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58,10,100)
     if(video_decoder->parser) {
         av_parser_close(video_decoder->parser);
         video_decoder->parser = NULL;
@@ -694,7 +690,7 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
     int used = 0;
     int got_frame = 0;
     AVPacket pkt[1];
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59,8,100)
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58,10,100)
     int parser_ret;
     uint8_t *data;
     size_t   data_size;
@@ -709,7 +705,7 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
         frame = decoder->Frame;
 
         *pkt = *avpkt;			// use copy
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59,8,100)
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58,10,100)
         while (data_size > 0) {
 
             if (decoder->parser) {
@@ -729,7 +725,7 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
             if (pkt->size) {
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57,37,100)
                 used = avcodec_send_packet(video_ctx, pkt);
-                if (used < 0 && used != AVERROR(EAGAIN) && used != AVERROR_EOF)
+                if (used < 0 && used != AVERROR(EAGAIN)&& used != AVERROR_EOF)
                     return;
 
                 while(!used) { //multiple frames
@@ -799,7 +795,7 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
                 }//multiple frames
 #endif
             }//pkt->size
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59,8,100)
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58,10,100)
         }//data_size
 #endif
     }//codec_type
