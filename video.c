@@ -7410,6 +7410,7 @@ static void VaapiSetClosing(VaapiDecoder * decoder)
 static void VaapiResetStart(VaapiDecoder * decoder)
 {
     decoder->StartCounter = 0;
+    decoder->SyncOnAudio = 0;
 }
 
 ///
@@ -9924,7 +9925,9 @@ static VdpDecoderProfile VdpauCheckProfile(VdpauDecoder * decoder,
 }
 
 typedef struct VDPAUContext {
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,80,100)
     AVBufferRef *hw_frames_ctx;
+#endif
     AVFrame *tmp_frame;
 } VDPAUContext;
 
@@ -9937,7 +9940,9 @@ void vdpau_uninit(AVCodecContext *s)
     ist->hwaccel_get_buffer = NULL;
     ist->hwaccel_retrieve_data = NULL;
 
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,80,100)
     av_buffer_unref(&ctx->hw_frames_ctx);
+#endif
     av_frame_free(&ctx->tmp_frame);
 
     av_freep(&ist->hwaccel_ctx);
@@ -9990,9 +9995,9 @@ static int vdpau_alloc(AVCodecContext *s)
     AVHWDeviceContext *device_ctx;
     AVVDPAUDeviceContext *device_hwctx;
     AVHWFramesContext *frames_ctx;
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,80,100)
+    AVBufferRef *hw_frames_ctx;
     AVBufferRef *hw_device_ctx;
-#endif
+
     Debug(3, "vdpau_alloc\n");
 
     ctx = av_mallocz(sizeof(*ctx));
@@ -10011,58 +10016,46 @@ static int vdpau_alloc(AVCodecContext *s)
 	Debug(3, "VDPAU init failed for av_frame_alloc\n");
 	goto fail;
     }
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,80,100)
+
     hw_device_ctx = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_VDPAU);
     if (!hw_device_ctx) {
-#else
-    s->hw_device_ctx = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_VDPAU);
-    if (!s->hw_device_ctx) {
-#endif
 	Debug(3, "VDPAU init failed for av_hwdevice_ctx_alloc\n");
 	goto fail;
     }
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,80,100)
+
     device_ctx = (AVHWDeviceContext*)hw_device_ctx->data;
-#else
-    device_ctx = (AVHWDeviceContext*)s->hw_device_ctx->data;
-#endif
     device_hwctx = device_ctx->hwctx;
     device_hwctx->device  = VdpauDevice;
     device_hwctx->get_proc_address = VdpauGetProcAddress;
 
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,80,100)
     ret = av_hwdevice_ctx_init(hw_device_ctx);
-#else
-    ret = av_hwdevice_ctx_init(s->hw_device_ctx);
-#endif
     if (ret < 0) {
 	Debug(3, "VDPAU init failed for av_hwdevice_ctx_init\n");
 	goto fail;
     }
 
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,80,100)
-    ctx->hw_frames_ctx = av_hwframe_ctx_alloc(hw_device_ctx);
-#else
-    ctx->hw_frames_ctx = av_hwframe_ctx_alloc(s->hw_device_ctx);
-#endif
-    if (!ctx->hw_frames_ctx) {
+    hw_frames_ctx = av_hwframe_ctx_alloc(hw_device_ctx);
+    if (!hw_frames_ctx) {
 	Debug(3, "VDPAU init failed for av_hwframe_ctx_alloc\n");
 	goto fail;
     }
 
-    frames_ctx = (AVHWFramesContext*)ctx->hw_frames_ctx->data;
+    frames_ctx = (AVHWFramesContext*)hw_frames_ctx->data;
     frames_ctx->format = AV_PIX_FMT_VDPAU;
     frames_ctx->sw_format = s->sw_pix_fmt;
     frames_ctx->width = s->width;
     frames_ctx->height = s->height;
     frames_ctx->initial_pool_size = 16;
 
-    ret = av_hwframe_ctx_init(ctx->hw_frames_ctx);
-    if (ret < 0) {
-	Debug(3, "VDPAU init failed for av_hwframe_ctx_init\n");
-	goto fail;
-    }
+    ret = av_hwframe_ctx_init(hw_frames_ctx);
 
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,85,101)
+    ctx->hw_device_ctx = hw_device_ctx;
+    ctx->hw_frames_ctx = hw_frames_ctx;
+#else
+    s->hw_device_ctx = hw_device_ctx;
+    s->hw_frames_ctx = hw_frames_ctx;
+#endif
     if (av_vdpau_bind_context(s, VdpauDevice, VdpauGetProcAddress, AV_HWACCEL_FLAG_ALLOW_HIGH_DEPTH | AV_HWACCEL_FLAG_IGNORE_LEVEL)) {
 	Debug(3, "VDPAU init failed for av_bind_context\n");
 	goto fail;
@@ -11661,6 +11654,7 @@ static void VdpauSetClosing(VdpauDecoder * decoder)
 static void VdpauResetStart(VdpauDecoder * decoder)
 {
     decoder->StartCounter = 0;
+    decoder->SyncOnAudio = 0;
 }
 
 ///
@@ -14294,6 +14288,7 @@ static void CuvidSetClosing(CuvidDecoder * decoder)
 static void CuvidResetStart(CuvidDecoder * decoder)
 {
     decoder->StartCounter = 0;
+    decoder->SyncOnAudio = 0;
 }
 
 ///
@@ -16513,6 +16508,7 @@ static void CpuSetClosing(CpuDecoder * decoder)
 static void CpuResetStart(CpuDecoder * decoder)
 {
     decoder->StartCounter = 0;
+    decoder->SyncOnAudio = 0;
 }
 
 ///
