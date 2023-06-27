@@ -7410,7 +7410,6 @@ static void VaapiSetClosing(VaapiDecoder * decoder)
 static void VaapiResetStart(VaapiDecoder * decoder)
 {
     decoder->StartCounter = 0;
-    decoder->SyncOnAudio = 0;
 }
 
 ///
@@ -7510,7 +7509,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
     }
     // at start of new video stream, soft or hard sync video to audio
     // FIXME: video waits for audio, audio for video
-    if (!VideoSoftStartSync && decoder->StartCounter < VideoSoftStartFrames
+/*    if (!VideoSoftStartSync && decoder->StartCounter < VideoSoftStartFrames
 	&& video_clock != (int64_t) AV_NOPTS_VALUE
 	&& (audio_clock == (int64_t) AV_NOPTS_VALUE
 	    || video_clock > audio_clock + VideoAudioDelay + 120 * 90)) {
@@ -7519,7 +7518,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    decoder->StartCounter);
 	goto out;
     }
-
+*/
     if (decoder->SyncCounter && decoder->SyncCounter--) {
 	goto skip_sync;
     }
@@ -7529,6 +7528,18 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	// both clocks are known
 	int diff;
 	int lower_limit;
+
+	if((video_clock > audio_clock + VideoAudioDelay + 1200 * 90)) {
+	    Debug(3,"flush audio\n");
+	    AudioFlushBuffers();
+	    AudioSetClock(video_clock);
+	    goto out;
+	}
+	if((video_clock < audio_clock - VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
+	    Debug(3,"drop video\n");
+	    VaapiAdvanceDecoderFrame(decoder);
+	    goto skip_sync;
+	}
 
 	diff = video_clock - audio_clock - VideoAudioDelay;
 	lower_limit = !IsReplay() ? -25 : 32;
@@ -11654,7 +11665,7 @@ static void VdpauSetClosing(VdpauDecoder * decoder)
 static void VdpauResetStart(VdpauDecoder * decoder)
 {
     decoder->StartCounter = 0;
-    decoder->SyncOnAudio = 0;
+//    decoder->SyncOnAudio = 0;
 }
 
 ///
@@ -11753,7 +11764,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	goto skip_sync;
     }
     // at start of new video stream, soft or hard sync video to audio
-    if (!VideoSoftStartSync && decoder->StartCounter < VideoSoftStartFrames
+/*    if (!VideoSoftStartSync && decoder->StartCounter < VideoSoftStartFrames
 	&& video_clock != (int64_t) AV_NOPTS_VALUE
 	&& (audio_clock == (int64_t) AV_NOPTS_VALUE
 	    || video_clock > audio_clock + VideoAudioDelay + 120 * 90)) {
@@ -11762,7 +11773,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    decoder->StartCounter);
 	goto out;
     }
-
+*/
     if (decoder->SyncCounter && decoder->SyncCounter--) {
 	goto skip_sync;
     }
@@ -11772,6 +11783,18 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	// both clocks are known
 	int diff;
 	int lower_limit;
+
+	if((video_clock > audio_clock + VideoAudioDelay + 1200 * 90)) {
+	    Debug(3,"flush audio\n");
+	    AudioFlushBuffers();
+	    AudioSetClock(video_clock);
+	    goto out;
+	}
+	if((video_clock < audio_clock - VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
+	    Debug(3,"drop video\n");
+	    VdpauAdvanceDecoderFrame(decoder);
+	    goto skip_sync;
+	}
 
 	diff = video_clock - audio_clock - VideoAudioDelay;
 	lower_limit = !IsReplay() ? -25 : 32;
@@ -14288,7 +14311,6 @@ static void CuvidSetClosing(CuvidDecoder * decoder)
 static void CuvidResetStart(CuvidDecoder * decoder)
 {
     decoder->StartCounter = 0;
-    decoder->SyncOnAudio = 0;
 }
 
 ///
@@ -14387,7 +14409,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	goto skip_sync;
     }
     // at start of new video stream, soft or hard sync video to audio
-    if (!VideoSoftStartSync && decoder->StartCounter < VideoSoftStartFrames
+/*    if (!VideoSoftStartSync && decoder->StartCounter < VideoSoftStartFrames
 	&& video_clock != (int64_t) AV_NOPTS_VALUE
 	&& (audio_clock == (int64_t) AV_NOPTS_VALUE
 	    || video_clock > audio_clock + VideoAudioDelay + 120 * 90)) {
@@ -14396,7 +14418,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    decoder->StartCounter);
 	goto out;
     }
-
+*/
     if (decoder->SyncCounter && decoder->SyncCounter--) {
 	goto skip_sync;
     }
@@ -14406,6 +14428,18 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	// both clocks are known
 	int diff;
 	int lower_limit;
+
+	if((video_clock > audio_clock + VideoAudioDelay + 1200 * 90)) {
+	    Debug(3,"flush audio\n");
+	    AudioFlushBuffers();
+	    AudioSetClock(video_clock);
+	    goto out;
+	}
+	if((video_clock < audio_clock - VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
+	    Debug(3,"drop video\n");
+	    CuvidAdvanceDecoderFrame(decoder);
+	    goto skip_sync;
+	}
 
 	diff = video_clock - audio_clock - VideoAudioDelay;
 	lower_limit = !IsReplay() ? -25 : 32;
@@ -16508,7 +16542,6 @@ static void CpuSetClosing(CpuDecoder * decoder)
 static void CpuResetStart(CpuDecoder * decoder)
 {
     decoder->StartCounter = 0;
-    decoder->SyncOnAudio = 0;
 }
 
 ///
@@ -16607,7 +16640,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	goto skip_sync;
     }
     // at start of new video stream, soft or hard sync video to audio
-    if (!VideoSoftStartSync && decoder->StartCounter < VideoSoftStartFrames
+/*    if (!VideoSoftStartSync && decoder->StartCounter < VideoSoftStartFrames
 	&& video_clock != (int64_t) AV_NOPTS_VALUE
 	&& (audio_clock == (int64_t) AV_NOPTS_VALUE
 	    || video_clock > audio_clock + VideoAudioDelay + 120 * 90)) {
@@ -16616,7 +16649,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	    decoder->StartCounter);
 	goto out;
     }
-
+*/
     if (decoder->SyncCounter && decoder->SyncCounter--) {
 	goto skip_sync;
     }
@@ -16626,6 +16659,18 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	// both clocks are known
 	int diff;
 	int lower_limit;
+
+	if((video_clock > audio_clock + VideoAudioDelay + 1200 * 90)) {
+	    Debug(3,"flush audio\n");
+	    AudioFlushBuffers();
+	    AudioSetClock(video_clock);
+	    goto out;
+	}
+	if((video_clock < audio_clock - VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
+	    Debug(3,"drop video\n");
+	    CpuAdvanceDecoderFrame(decoder);
+	    goto skip_sync;
+	}
 
 	diff = video_clock - audio_clock - VideoAudioDelay;
 	lower_limit = !IsReplay() ? -25 : 32;
