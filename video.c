@@ -7528,7 +7528,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	// both clocks are known
 	int diff;
 	int lower_limit;
-
+    if (IsReplay()) {
 	if((video_clock > audio_clock + VideoAudioDelay + 1200 * 90)) {
 	    Debug(3,"flush audio\n");
 	    AudioFlushBuffers();
@@ -7540,7 +7540,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    VaapiAdvanceDecoderFrame(decoder);
 	    goto skip_sync;
 	}
-
+    }
 	diff = video_clock - audio_clock - VideoAudioDelay;
 	lower_limit = !IsReplay() ? -25 : 32;
 	diff = (decoder->LastAVDiff + diff) / 2;
@@ -11665,7 +11665,6 @@ static void VdpauSetClosing(VdpauDecoder * decoder)
 static void VdpauResetStart(VdpauDecoder * decoder)
 {
     decoder->StartCounter = 0;
-//    decoder->SyncOnAudio = 0;
 }
 
 ///
@@ -11783,8 +11782,8 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	// both clocks are known
 	int diff;
 	int lower_limit;
-
-	if((video_clock > audio_clock + VideoAudioDelay + 1200 * 90)) {
+    if (IsReplay()) {
+	if(video_clock > audio_clock + VideoAudioDelay + 1200 * 90) {
 	    Debug(3,"flush audio\n");
 	    AudioFlushBuffers();
 	    AudioSetClock(video_clock);
@@ -11795,7 +11794,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    VdpauAdvanceDecoderFrame(decoder);
 	    goto skip_sync;
 	}
-
+    }
 	diff = video_clock - audio_clock - VideoAudioDelay;
 	lower_limit = !IsReplay() ? -25 : 32;
 	diff = (decoder->LastAVDiff + diff) / 2;
@@ -11809,7 +11808,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    err = VdpauMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
 	    if (VideoSoftStartSync) {
-		decoder->SyncCounter = diff > 100 * 90 ? diff % 2 : 1; //softsync :)
+		decoder->SyncCounter += diff > 100 * 90 ? diff % 2 : 1; //softsync :)
 	    }
 		goto out;
 	} else if (diff > 55 * 90) {
@@ -14428,7 +14427,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	// both clocks are known
 	int diff;
 	int lower_limit;
-
+    if (IsReplay()) {
 	if((video_clock > audio_clock + VideoAudioDelay + 1200 * 90)) {
 	    Debug(3,"flush audio\n");
 	    AudioFlushBuffers();
@@ -14440,7 +14439,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    CuvidAdvanceDecoderFrame(decoder);
 	    goto skip_sync;
 	}
-
+    }
 	diff = video_clock - audio_clock - VideoAudioDelay;
 	lower_limit = !IsReplay() ? -25 : 32;
 	diff = (decoder->LastAVDiff + diff) / 2;
@@ -16659,7 +16658,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	// both clocks are known
 	int diff;
 	int lower_limit;
-
+    if (IsReplay()) {
 	if((video_clock > audio_clock + VideoAudioDelay + 1200 * 90)) {
 	    Debug(3,"flush audio\n");
 	    AudioFlushBuffers();
@@ -16671,7 +16670,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	    CpuAdvanceDecoderFrame(decoder);
 	    goto skip_sync;
 	}
-
+    }
 	diff = video_clock - audio_clock - VideoAudioDelay;
 	lower_limit = !IsReplay() ? -25 : 32;
 	diff = (decoder->LastAVDiff + diff) / 2;
