@@ -113,6 +113,12 @@
 #define FFMPEG_WORKAROUND_ARTIFACTS	1
 #endif
 
+    /// artifacts with VDPAU when codec flushed
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58,10,100)
+#define FFMPEG_4_WORKAROUND_ARTIFACTS	1
+#endif
+
+
 //----------------------------------------------------------------------------
 //	Global
 //----------------------------------------------------------------------------
@@ -598,7 +604,7 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 #endif
     // reset buggy ffmpeg/libav flag
     decoder->GetFormatDone = 0;
-#ifdef FFMPEG_WORKAROUND_ARTIFACTS
+#if defined FFMPEG_WORKAROUND_ARTIFACTS || defined FFMPEG_4_WORKAROUND_ARTIFACTS
     decoder->FirstKeyFrame = 1;
 #endif
     return 1;
@@ -736,12 +742,23 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
                     if (used>=0)
                         got_frame = 1;
                     else got_frame = 0;
+                    if (VideoIsDriverVdpau() && decoder->VideoCtx->hw_frames_ctx) {
+#ifdef FFMPEG_4_WORKAROUND_ARTIFACTS
+                        //VDPAU interlaced frames not clean after the codec flush, drop it before 2 key frames
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
+                        if (got_frame && frame->key_frame && frame->interlaced_frame) decoder->FirstKeyFrame++;
+                        if (got_frame && frame->interlaced_frame && decoder->FirstKeyFrame < 3) got_frame = 0;
+#else
+                        if (got_frame && frame->flags & AV_FRAME_FLAG_KEY && frame->flags & AV_FRAME_FLAG_INTERLACED) decoder->FirstKeyFrame++;
+                        if (got_frame && frame->flags & AV_FRAME_FLAG_INTERLACED && decoder->FirstKeyFrame < 3) got_frame = 0;
+#endif
+#endif
+                    }
 #else
   next_part:
                 used = avcodec_decode_video2(video_ctx, frame, &got_frame, pkt);
 #endif
                 Debug(4, "%s: %p %d -> %d %d\n", __FUNCTION__, pkt->data, pkt->size, used, got_frame);
-
                 if (got_frame) {			// frame completed
 #ifdef FFMPEG_WORKAROUND_ARTIFACTS
 	            if (!CodecUsePossibleDefectFrames && decoder->FirstKeyFrame) {
@@ -810,6 +827,9 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 void CodecVideoFlushBuffers(VideoDecoder * decoder)
 {
     if (decoder->VideoCtx && decoder->VideoCodec) {
+#ifdef FFMPEG_4_WORKAROUND_ARTIFACTS
+	decoder->FirstKeyFrame = 1;
+#endif
 	avcodec_flush_buffers(decoder->VideoCtx);
     }
 }
