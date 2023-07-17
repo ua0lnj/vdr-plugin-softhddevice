@@ -1779,7 +1779,7 @@ static void PesParse(PesDemux * pesdx, const uint8_t * data, int size,
 			}
 			// HEVC Codec
 			if (VideoHardwareDecoder != HWhevcOff && is_start && z >= 2 && check[0] == 0x01 && check[1] == 0x46 &&
-			(check[3] == 0x10 || MyVideoStream->CodecID == AV_CODEC_ID_HEVC)) {
+			(check[3] == 0x10 || check[3] == 0x50 || MyVideoStream->CodecID == AV_CODEC_ID_HEVC)) {
 			// old PES HDTV recording z == 2 -> stronger check!
 			    if (MyVideoStream->CodecID == AV_CODEC_ID_HEVC) {
 				VideoNextPacket(MyVideoStream, AV_CODEC_ID_HEVC);
@@ -2647,7 +2647,7 @@ int PlayVideo3(VideoStream * stream, const uint8_t * data, int size)
     }
     // HEVC Codec
     if (VideoHardwareDecoder != HWhevcOff && (data[6] & 0xC0) == 0x80 && z >= 2 && check[0] == 0x01 && check[1] == 0x46 &&
-    (check[3] == 0x10 || stream->CodecID == AV_CODEC_ID_HEVC)) {
+    (check[3] == 0x10 || check[3] == 0x50 || stream->CodecID == AV_CODEC_ID_HEVC)) {
 	// old PES HDTV recording z == 2 -> stronger check!
 	if (stream->CodecID == AV_CODEC_ID_HEVC) {
             VideoNextPacket(stream, AV_CODEC_ID_HEVC);
