@@ -934,6 +934,7 @@ static char CodecPassthrough;
 #else
 static const int CodecPassthrough = 0;
 #endif
+static char CodecPassthroughHBR;
 static char CodecDownmix;		///< enable AC-3 decoder downmix
 
 /**
@@ -1129,6 +1130,15 @@ void CodecSetAudioPassthrough(int mask)
     (void)mask;
 }
 
+void CodecSetAudioPassthroughHBR(int onoff)
+{
+    if (onoff == -1) {
+	CodecPassthroughHBR ^= 1;
+	return;
+    }
+    CodecPassthroughHBR = onoff;
+}
+
 /**
 **	Set audio downmix.
 **
@@ -1246,7 +1256,7 @@ static int CodecAudioUpdateHelper(AudioDecoder * audio_decoder,
 	|| (CodecPassthrough & CodecDTS && audio_ctx->codec_id == AV_CODEC_ID_DTS)
 	|| (CodecPassthrough & CodecEAC3
 	    && audio_ctx->codec_id == AV_CODEC_ID_EAC3)) {
-	if (audio_ctx->codec_id == AV_CODEC_ID_EAC3) {
+	if (audio_ctx->codec_id == AV_CODEC_ID_EAC3 && CodecPassthroughHBR) {
 	    // E-AC-3 over HDMI some receivers need HBR
 	    audio_decoder->HwSampleRate *= 4;
 	}
@@ -1261,7 +1271,7 @@ static int CodecAudioUpdateHelper(AudioDecoder * audio_decoder,
 		&audio_decoder->HwChannels, *passthrough))) {
 
 	// try E-AC-3 none HBR
-	audio_decoder->HwSampleRate /= 4;
+	audio_decoder->HwSampleRate /= CodecPassthroughHBR ? 4 : 1;
 	if (audio_ctx->codec_id != AV_CODEC_ID_EAC3
 	    || (err =
 		AudioSetup(&audio_decoder->HwSampleRate,
