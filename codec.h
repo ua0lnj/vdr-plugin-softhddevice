@@ -149,6 +149,7 @@ extern void CodecSetAudioDrift(int);
 
     /// Set audio pass-through.
 extern void CodecSetAudioPassthrough(int);
+extern void CodecSetAudioPassthroughHBR(int);
 
     /// Set audio downmix.
 extern void CodecSetAudioDownmix(int);

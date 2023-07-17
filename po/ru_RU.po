@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: VDR \n"
 "Report-Msgid-Bugs-To: <see README>\n"
-"POT-Creation-Date: 2022-10-25 23:34+1000\n"
+"POT-Creation-Date: 2023-07-17 14:58+1000\n"
 "PO-Revision-Date: 2020-07-04 00:33+1000\n"
 "Last-Translator: ua0lnj\n"
 "Language-Team: ua0lnj\n"
@@ -266,6 +266,9 @@ msgstr ""
 msgid "codec: codec ID %#06x not found\n"
 msgstr ""
 
+msgid "codec: can't init parser\n"
+msgstr ""
+
 msgid "codec: can't allocate video codec context\n"
 msgstr ""
 
@@ -389,10 +392,6 @@ msgstr ""
 
 #, c-format
 msgid "[softhddev] invalid video packet %d/%d bytes\n"
-msgstr ""
-
-#, c-format
-msgid "softhddev: %s called without hw decoder\n"
 msgstr ""
 
 #, c-format
@@ -636,6 +635,9 @@ msgstr "  передать AC-3"
 msgid "  E-AC-3 pass-through"
 msgstr "  передать E-AC-3"
 
+msgid "   Enable HBR"
+msgstr "  вкл. HBR"
+
 msgid "  DTS pass-through"
 msgstr " передать DTS"
 
@@ -874,7 +876,6 @@ msgstr ""
 msgid "video/vaapi: out of memory\n"
 msgstr ""
 
-#, c-format
 msgid "video/vaapi: invalid surface in ringbuffer\n"
 msgstr ""
 

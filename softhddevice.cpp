@@ -64,7 +64,7 @@ extern "C"
     /// vdr-plugin version number.
     /// Makefile extracts the version number for generating the file name
     /// for the distribution archive.
-static const char *const VERSION = "1.10.3"
+static const char *const VERSION = "1.11.0"
 #ifdef GIT_REV
     "-GIT" GIT_REV
 #endif
@@ -149,6 +149,7 @@ static int ConfigAutoCropTolerance;	///< auto crop detection tolerance
 static int ConfigVideoAudioDelay;	///< config audio delay
 static char ConfigAudioDrift;		///< config audio drift
 static char ConfigAudioPassthrough;	///< config audio pass-through mask
+static char ConfigAudioPassthroughHBR;	///< flag audio pass-through with HBR
 static char AudioPassthroughState;	///< flag audio pass-through on/off
 static char ConfigAudioDownmix;		///< config ffmpeg audio downmix
 static char ConfigAudioSoftvol;		///< config use software volume
@@ -1019,6 +1020,7 @@ class cMenuSetupSoft:public cMenuSetupPage
     int AudioPassthroughAC3;
     int AudioPassthroughEAC3;
     int AudioPassthroughDTS;
+    int AudioPassthroughHBR;
     int AudioDownmix;
     int AudioSoftvol;
     int AudioNormalize;
@@ -1322,6 +1324,10 @@ void cMenuSetupSoft::Create(void)
 		&AudioPassthroughAC3, trVDR("no"), trVDR("yes")));
 	    Add(new cMenuEditBoolItem(tr("\040\040E-AC-3 pass-through"),
 		&AudioPassthroughEAC3, trVDR("no"), trVDR("yes")));
+	    if (AudioPassthroughEAC3) {
+		Add(new cMenuEditBoolItem(tr("\040\040\040Enable HBR"),
+		    &AudioPassthroughHBR, trVDR("no"), trVDR("yes")));
+	    }
 	    Add(new cMenuEditBoolItem(tr("\040\040DTS pass-through"),
 		&AudioPassthroughDTS, trVDR("no"), trVDR("yes")));
 	} else {
@@ -1574,6 +1580,7 @@ cMenuSetupSoft::cMenuSetupSoft(void)
     AudioPassthroughAC3 = ConfigAudioPassthrough & CodecAC3;
     AudioPassthroughEAC3 = ConfigAudioPassthrough & CodecEAC3;
     AudioPassthroughDTS = ConfigAudioPassthrough & CodecDTS;
+    AudioPassthroughHBR = ConfigAudioPassthroughHBR;
     AudioDownmix = ConfigAudioDownmix;
     AudioSoftvol = ConfigAudioSoftvol;
     AudioNormalize = ConfigAudioNormalize;
@@ -1784,13 +1791,18 @@ void cMenuSetupSoft::Store(void)
 	| (AudioPassthroughAC3 ? CodecAC3 : 0)
 	| (AudioPassthroughDTS ? CodecDTS : 0)
 	| (AudioPassthroughEAC3 ? CodecEAC3 : 0);
+    ConfigAudioPassthroughHBR = AudioPassthroughHBR;
     AudioPassthroughState = AudioPassthroughDefault;
     if (AudioPassthroughState) {
 	SetupStore("AudioPassthrough", ConfigAudioPassthrough);
 	CodecSetAudioPassthrough(ConfigAudioPassthrough);
+	SetupStore("AudioPassthroughHBR", ConfigAudioPassthroughHBR);
+	CodecSetAudioPassthroughHBR(ConfigAudioPassthroughHBR);
     } else {
 	SetupStore("AudioPassthrough", -ConfigAudioPassthrough);
 	CodecSetAudioPassthrough(0);
+	SetupStore("AudioPassthroughHBR", -ConfigAudioPassthroughHBR);
+	CodecSetAudioPassthroughHBR(0);
     }
     SetupStore("AudioDownmix", ConfigAudioDownmix = AudioDownmix);
     CodecSetAudioDownmix(ConfigAudioDownmix);
@@ -3734,6 +3746,10 @@ bool cPluginSoftHdDevice::SetupParse(const char *name, const char *value)
 	} else {
 	    CodecSetAudioPassthrough(0);
 	}
+	return true;
+    }
+    if (!strcasecmp(name, "AudioPassthroughHBR")) {
+	CodecSetAudioPassthroughHBR(ConfigAudioPassthroughHBR = atoi(value));
 	return true;
     }
     if (!strcasecmp(name, "AudioDownmix")) {
