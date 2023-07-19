@@ -1420,6 +1420,7 @@ eOSState cMenuSetupSoft::ProcessKey(eKeys key)
     int old_pass;
 #ifdef USE_SCREENSAVER
     int old_ssaver;
+    old_ssaver = DisableScreensaver;
 #endif
     old_general = General;
     old_video = Video;
@@ -1437,7 +1438,6 @@ eOSState cMenuSetupSoft::ProcessKey(eKeys key)
     old_hue = Hue;
     old_stde = Stde;
     old_pass = AudioPassthroughDefault;
-    old_ssaver = DisableScreensaver;
     state = cMenuSetupPage::ProcessKey(key);
 
     if (key != kNone) {
