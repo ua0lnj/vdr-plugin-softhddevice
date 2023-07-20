@@ -11812,7 +11812,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    err = VdpauMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
 	    if (VideoSoftStartSync) {
-		decoder->SyncCounter += diff > 100 * 90 ? diff % 2 : 1; //softsync :)
+		decoder->SyncCounter = diff > 100 * 90 ? diff % 2 : 1; //softsync :)
 	    }
 		goto out;
 	} else if (diff > 55 * 90) {
