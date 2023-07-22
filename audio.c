@@ -171,6 +171,7 @@ static int AudioVolume;			///< current volume (0 .. 1000)
 
 extern int VideoAudioDelay;		///< import audio/video delay
 extern volatile char SoftIsPlayingVideo;	///< stream contains video data
+extern int IsReplay(void);
 
     /// default ring buffer size ~2s 8ch 16bit (3 * 5 * 7 * 8)
 static const unsigned AudioRingBufferSize = 3 * 5 * 7 * 8 * 2 * 1000;
@@ -2406,14 +2407,15 @@ void AudioVideoReady(int64_t pts)
 	Timestamp2String(pts), Timestamp2String(audio_pts),
 	(int)(pts - audio_pts) / 90, AudioRunning ? "running" : "ready");
 
-    if (!AudioRunning) {
+    if (!AudioRunning || IsReplay()) {
 	int skip;
 
 	// buffer ~15 video frames
 	// FIXME: HDTV can use smaller video buffer
 	skip =
-	    pts - 15 * 20 * 90 - AudioBufferTime * 90 - audio_pts -
-	    VideoAudioDelay;
+	    pts - audio_pts - (IsReplay() ? 0 : 1) * (15 * 20 * 90 + AudioBufferTime * 90  +
+	    VideoAudioDelay);
+
 #ifdef DEBUG
 	fprintf(stderr, "%dms %dms %dms\n", (int)(pts - audio_pts) / 90,
 	    VideoAudioDelay / 90, skip / 90);
