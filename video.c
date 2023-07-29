@@ -6173,8 +6173,8 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
     }
     //aspect correction
     aspect_ratio = frame->sample_aspect_ratio;
-    if ((video_ctx->width > 400  && video_ctx->width <= 720 && video_ctx->height == 288) ||
-	(video_ctx->width > 800 && video_ctx->width <= 1920 && video_ctx->height == 540)) {
+    if ((video_ctx->width >= 352  && video_ctx->width <= 720 && video_ctx->height == 288) ||
+	(video_ctx->width > 1300 && video_ctx->width <= 1920 && video_ctx->height == 540)) {
 	aspect_ratio.den *= 2;
     }
     // update aspect ratio changes
@@ -10050,8 +10050,8 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
     }
     //aspect correction
     aspect_ratio = frame->sample_aspect_ratio;
-    if ((video_ctx->width > 400  && video_ctx->width <= 720 && video_ctx->height == 288) ||
-	(video_ctx->width > 800 && video_ctx->width <= 1920 && video_ctx->height == 540)) {
+    if ((video_ctx->width >= 352  && video_ctx->width <= 720 && video_ctx->height == 288) ||
+	(video_ctx->width > 1300 && video_ctx->width <= 1920 && video_ctx->height == 540)) {
 	aspect_ratio.den *= 2;
     }
     // update aspect ratio changes
@@ -12910,8 +12910,8 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
     }
     //aspect correction
     aspect_ratio = frame->sample_aspect_ratio;
-    if ((video_ctx->width > 400  && video_ctx->width <= 720 && video_ctx->height == 288) ||
-	(video_ctx->width > 800 && video_ctx->width <= 1920 && video_ctx->height == 540)) {
+    if ((video_ctx->width >= 352  && video_ctx->width <= 720 && video_ctx->height == 288) ||
+	(video_ctx->width > 1300 && video_ctx->width <= 1920 && video_ctx->height == 540)) {
 	aspect_ratio.den *= 2;
     }
     // update aspect ratio changes
