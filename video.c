@@ -12940,7 +12940,7 @@ static void CuvidMixerSetup(CuvidDecoder * decoder)
             } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceBob) {
                 Debug(3, "video/cuvid: set bob");
                 mode = 1;
-                drop = 1;
+                drop = 0;
             } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceTemporal) {
                 Debug(3, "video/cuvid: set adap");
                 mode = 2;
@@ -12949,7 +12949,7 @@ static void CuvidMixerSetup(CuvidDecoder * decoder)
             if (av_opt_set_int(decoder->video_ctx->priv_data, "deint", mode, 0) < 0)
                 Error(_("Can't set deinterlace mode\n"));
             if (av_opt_set(decoder->video_ctx->priv_data, "drop_second_field", drop ? "true" : "false", 0) < 0)
-                Error(_("Can't set drop second field to false\n"));
+                Error(_("Can't set drop second field\n"));
         }//else soft deinterlace
     }
 }
