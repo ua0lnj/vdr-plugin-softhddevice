@@ -3358,7 +3358,7 @@ const char *CommandLineHelp(void)
 	"  -f\t\tstart with fullscreen window (only with window manager)\n"
 	"  -g geometry\tx11 window geometry wxh+x+y\n"
 	"  -l loglevel\tset the log level (0=none, 1=errors, 2=info, 3=debug)\n"
-	"  -v device\tvideo driver device (va-api, va-api-glx, va-api-egl, vdpau, cuvid, cuvid-egl, cpu-glx, cpu-egl, noop)\n"
+	"  -v device\tvideo driver device (va-api, va-api-glx, va-api-egl, vdpau, cuvid, cuvid-egl, nvdec, nvdec-egl, cpu-glx, cpu-egl, noop)\n"
 	"  -s\t\tstart in suspended mode\n"
 	"  -x\t\tstart x11 server, with -xx try to connect, if this fails\n"
 	"  -X args\tX11 server arguments (f.e. -nocursor)\n"

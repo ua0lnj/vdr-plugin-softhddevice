@@ -21,9 +21,9 @@ $Id$
 A software and GPU emulated UHD output device plugin for VDR.
 Only 8-bit output now.
 
-    o Video decoder CPU / VA-API / VDPAU / CUVID
-    o Video output VA-API / VDPAU / GLX (VA-API / CUVID / CPU) / EGL (VA-API / CUVID / CPU)
-    o OSD accelerated by GPU VDPAU / CUVID / VA-API-GLX/EGL / CPU-GLX/EGL
+    o Video decoder CPU / VA-API / VDPAU / CUVID / NVDEC
+    o Video output VA-API / VDPAU / GLX (VA-API / CUVID / NVDEC / CPU) / EGL (VA-API / CUVID / NVDEC / CPU)
+    o OSD accelerated by GPU VDPAU / CUVID / NVDEC / VA-API-GLX/EGL / CPU-GLX/EGL
     o Audio FFMpeg / Alsa / Analog
     o Audio FFMpeg / Alsa / Digital
     o Audio FFMpeg / OSS / Analog
@@ -32,15 +32,13 @@ Only 8-bit output now.
     o VDR ScaleVideo API
     o Software deinterlacer Bob (VA-API only)
     o Autocrop
-    o Grab image (VA-API / VDPAU / CUVID / CPU)
+    o Grab image (VA-API / VDPAU / CUVID / NVDEC / CPU)
     o Suspend / Dettach
     o Letterbox, Stretch and Center cut-out video display modes
     o atmo light support with plugin http://github.com/durchflieger/DFAtmo
-    o PIP (Picture-in-Picture) (VDPAU / CUVID / VA-API-GLX/EGL / CPU-GLX/EGL)
+    o PIP (Picture-in-Picture) (VDPAU / CUVID / NVDEC / VA-API-GLX/EGL / CPU-GLX/EGL)
 
-    o planned: Xv
     o planned: Improved software deinterlacer (yadif or/and ffmpeg filters)
-    o XvBa support is no longer planned (use future Radeon UVD VDPAU)
 
 To compile you must have the 'requires' installed.
 
@@ -314,7 +312,8 @@ Commandline:
     -f 			start with fullscreen window (only with window manager)
     -g geometry		x11 window geometry wxh+x+y
     -l loglevel		set the log level (0=none, 1=errors, 2=info, 3=debug)
-    -v device		video driver device (va-api, va-api-glx, va-api-egl, vdpau, cuvid, cuvid-egl, cpu-glx, cpu-egl, noop)
+    -v device		video driver device (va-api, va-api-glx, va-api-egl, vdpau,
+			     cuvid, cuvid-egl, nvdec, nvdec-egl, cpu-glx, cpu-egl, noop)
     -s 			start in suspended mode
     -x 			start x11 server, with -xx try to connect, if this fails
     -X args		X11 server arguments (f.e. -nocursor)
@@ -443,6 +442,8 @@ Optional:
 	    libs gl glu glew freetype2
 
 Note:
-	For old Intel video use va-api and va-api-glx. For newest Intel video use va-api-egl.
-	For old Nvidia video use vdpau. For newest Nvidia video use cuvid and cuvid-egl.
+	For old Intel video use va-api and va-api-glx.
+	For newest Intel video use va-api-egl.
+	For old Nvidia video use vdpau.
+	For newest Nvidia video use cuvid and cuvid-egl or nvdec and nvdec-egl.
 	For all system with openGL you can use cpu-glx or cpu-egl.

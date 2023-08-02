@@ -567,6 +567,14 @@ bool cOglOutputFb::Init(void) {
 #endif
 #ifdef USE_CUVID
 #ifdef USE_EGL
+    if (!strcasecmp(VideoGetDriverName(), "nvdec-egl")) {
+        GetNVdecEglOsdOutputTexture(texture);
+    } else
+#endif
+    if (VideoIsDriverNVdec()) {
+        GetNVdecOsdOutputTexture(texture);
+    }
+#ifdef USE_EGL
     if (!strcasecmp(VideoGetDriverName(), "cuvid-egl")) {
         GetCuvidEglOsdOutputTexture(texture);
     } else
@@ -1708,6 +1716,15 @@ bool cOglThread::InitOpenGL(void) {
 #endif
     if (VideoIsDriverCuvid()) {
         if (!CuvidInitGlx()) return false;
+    }
+#ifdef USE_EGL
+    if (!strcasecmp(VideoGetDriverName(), "nvdec-egl")) {
+        if (!NVdecInitEgl()) return false;
+        egl = 1;
+    } else
+#endif
+    if (VideoIsDriverNVdec()) {
+        if (!NVdecInitGlx()) return false;
     }
 #endif
 #ifdef USE_EGL

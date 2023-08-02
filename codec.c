@@ -565,7 +565,8 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
 	Debug(3, "codec: can export data for HW decoding\n");
 	// FIXME: get_format never called.
 	decoder->VideoCtx->get_format = Codec_get_format;
-	decoder->VideoCtx->get_buffer2 = Codec_get_buffer2;
+	if (!VideoIsDriverNVdec())
+	    decoder->VideoCtx->get_buffer2 = Codec_get_buffer2;
 	decoder->VideoCtx->draw_horiz_band = Codec_draw_horiz_band;
 	decoder->VideoCtx->thread_count = 1;
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58,114,100)
@@ -631,7 +632,7 @@ void CodecVideoClose(VideoDecoder * video_decoder)
     }
 #endif
     if (video_decoder->VideoCtx) {
-        if (VideoIsDriverCuvid())
+        if (VideoIsDriverCuvid() || VideoIsDriverNVdec())
             VideoUnregisterSurface(video_decoder->HwDecoder);
 	pthread_mutex_lock(&CodecLockMutex);
 #if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(55,63,100)

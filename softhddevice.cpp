@@ -852,7 +852,7 @@ cOsd *cSoftOsdProvider::CreateOsd(int left, int top, uint level)
 #endif
 
 #ifdef USE_OPENGLOSD
- if (((!VideoIsDriverVdpau() && !VideoIsDriverCuvid() && strcasecmp(VideoGetDriverName(), "va-api-glx")
+ if (((!VideoIsDriverVdpau() && !VideoIsDriverCuvid() && !VideoIsDriverNVdec() && strcasecmp(VideoGetDriverName(), "va-api-glx")
         && strcasecmp(VideoGetDriverName(), "va-api-egl") && !VideoIsDriverCpu())
     || DisableOglOsd) && SuspendMode == NOT_SUSPENDED) {
         dsyslog("[softhddev]OpenGL Osd disabled - use soft OSD");
@@ -892,7 +892,7 @@ void cSoftOsdProvider::OsdSizeChanged(void) {
 }
 
 bool cSoftOsdProvider::StartOpenGlThread(void) {
-    if ((!VideoIsDriverVdpau() && !VideoIsDriverCuvid() && strcasecmp(VideoGetDriverName(), "va-api-glx")
+    if ((!VideoIsDriverVdpau() && !VideoIsDriverCuvid() && !VideoIsDriverNVdec() && strcasecmp(VideoGetDriverName(), "va-api-glx")
         && strcasecmp(VideoGetDriverName(), "va-api-egl") && !VideoIsDriverCpu()) || DisableOglOsd)
         return false;
     //only try to start worker thread if shd is attached
@@ -1222,7 +1222,7 @@ void cMenuSetupSoft::Create(void)
 		(int *)&Background, 0, 0x00FFFFFF));
 	Add(new cMenuEditIntItem(tr("Video background color (Alpha)"),
 		(int *)&BackgroundAlpha, 0, 0xFF));
-	if (VideoIsDriverVdpau() || VideoIsDriverCuvid())
+	if (VideoIsDriverVdpau() || VideoIsDriverCuvid() || VideoIsDriverNVdec())
 		Add(new cMenuEditBoolItem(tr("Use studio levels"),
 			&StudioLevels, trVDR("no"), trVDR("yes")));
 	Add(new cMenuEditBoolItem(tr("60hz display mode"), &_60HzMode,
@@ -2236,7 +2236,7 @@ static void NewPip(int channel_nr)
 */
 static void TogglePip(void)
 {
-    if(!VideoIsDriverVdpau() && !VideoIsDriverCuvid() && strcasecmp(VideoGetDriverName(), "va-api-glx")
+    if(!VideoIsDriverVdpau() && !VideoIsDriverCuvid() && !VideoIsDriverNVdec() && strcasecmp(VideoGetDriverName(), "va-api-glx")
         && strcasecmp(VideoGetDriverName(), "va-api-egl") && !VideoIsDriverCpu()) return;
     if (PipReceiver) {
 	int attached;
