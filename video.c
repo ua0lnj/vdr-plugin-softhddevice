@@ -6290,25 +6290,46 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
 	    int x;
 
 	    // intel NV12 convert YV12 to NV12
-
-	    // copy Y
-	    for (i = 0; i < height; ++i) {
-		memcpy(va_image_data + decoder->Image->offsets[0] +
-		    decoder->Image->pitches[0] * i,
-		    frame->data[0] + frame->linesize[0] * i,
-		    frame->linesize[0]);
-	    }
-	    // copy UV
-	    for (i = 0; i < height / 2; ++i) {
-		for (x = 0; x < width / 2; ++x) {
-		    ((uint8_t *) va_image_data)[decoder->Image->offsets[1]
-			+ decoder->Image->pitches[1] * i + x * 2 + 0]
-			= frame->data[1][i * frame->linesize[1] + x];
-		    ((uint8_t *) va_image_data)[decoder->Image->offsets[1]
-			+ decoder->Image->pitches[1] * i + x * 2 + 1]
-			= frame->data[2][i * frame->linesize[2] + x];
-		}
-	    }
+            if (decoder->PixFmt != AV_PIX_FMT_YUV420P10LE) { //8bit
+	        // copy Y
+	        for (i = 0; i < height; ++i) {
+		    memcpy(va_image_data + decoder->Image->offsets[0] +
+		        decoder->Image->pitches[0] * i,
+		        frame->data[0] + frame->linesize[0] * i,
+		        frame->linesize[0]);
+	        }
+	        // copy UV
+	        for (i = 0; i < height / 2; ++i) {
+		    for (x = 0; x < width / 2; ++x) {
+		        ((uint8_t *) va_image_data)[decoder->Image->offsets[1]
+			    + decoder->Image->pitches[1] * i + x * 2 + 0]
+			    = frame->data[1][i * frame->linesize[1] + x];
+		        ((uint8_t *) va_image_data)[decoder->Image->offsets[1]
+			    + decoder->Image->pitches[1] * i + x * 2 + 1]
+			    = frame->data[2][i * frame->linesize[2] + x];
+		    }
+	        }
+            } else { //10bit
+	        // copy Y
+	        for (i = 0; i < height; ++i) {
+		    for (x = 0; x < width; ++x) {
+		        ((uint8_t *) va_image_data)[decoder->Image->offsets[0]
+			    + decoder->Image->pitches[0] * i + x]
+			    = (*((uint16_t*)frame->data[0] + i * frame->linesize[0]/2 + x) + 2) >> 2;
+		    }
+	        }
+	        // copy UV
+	        for (i = 0; i < height / 2; ++i) {
+		    for (x = 0; x < width / 2; ++x) {
+		        ((uint8_t *) va_image_data)[decoder->Image->offsets[1]
+			    + decoder->Image->pitches[1] * i + x * 2 + 0]
+			    = (*((uint16_t*)frame->data[1] + i * frame->linesize[1]/2 + x) + 2) >> 2;
+		        ((uint8_t *) va_image_data)[decoder->Image->offsets[1]
+			    + decoder->Image->pitches[1] * i + x * 2 + 1]
+			    = (*((uint16_t*)frame->data[2] + i * frame->linesize[2]/2 + x) + 2) >> 2;
+		    }
+	        }
+            }
 	    // vdpau uses this
 	} else if (decoder->Image->format.fourcc == VA_FOURCC('I', '4', '2',
 		'0')) {
@@ -11824,7 +11845,7 @@ void CuvidCreateGlTexture(CuvidDecoder * decoder, unsigned int size_x, unsigned 
         GlxCheck();
     }
     Debug(3,"video/cuvid: create %d Textures Format %s w %d h %d \n",
-        decoder->SurfacesNeeded, decoder->PixFmt != AV_PIX_FMT_P010LE ? "NV12/YV12" : "P010", size_x, size_y);
+        decoder->SurfacesNeeded, decoder->PixFmt != AV_PIX_FMT_P010LE && decoder->PixFmt != AV_PIX_FMT_YUV420P10LE ? "NV12/YV12" : "P010", size_x, size_y);
 
     for (i = 0; i < decoder->SurfacesNeeded; i++) {
         for (n = 0; n < 2; n++) {   // number of planes
@@ -11836,7 +11857,7 @@ void CuvidCreateGlTexture(CuvidDecoder * decoder, unsigned int size_x, unsigned 
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            if (decoder->PixFmt != AV_PIX_FMT_P010LE)
+            if (decoder->PixFmt != AV_PIX_FMT_P010LE && decoder->PixFmt != AV_PIX_FMT_YUV420P10LE)
                 glTexImage2D(GL_TEXTURE_2D, 0, n == 0 ? GL_R8 : GL_RG8, n == 0 ? size_x : size_x/2, n == 0 ? size_y : size_y/2, 0,
                      n == 0 ? GL_RED : GL_RG, GL_UNSIGNED_BYTE, NULL);
             else
@@ -12956,7 +12977,7 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
 //        case AV_PIX_FMT_NV12:
         case AV_PIX_FMT_YUV420P:      // for softdecode
 //        case AV_PIX_FMT_YUVJ420P:     // some streams produce this
-//        case AV_PIX_FMT_YUV420P10LE:  // for softdecode of HEVC 10 Bit
+        case AV_PIX_FMT_YUV420P10LE:  // for softdecode of 10 Bit
         break;
 //        case AV_PIX_FMT_YUV422P:
 //        case AV_PIX_FMT_YUV444P:
@@ -12994,42 +13015,91 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
 
     } else {       //software
 
-        //YV12 -> NV12
-        uint8_t *outUV;
+        uint8_t *outY = NULL;
+        uint8_t *outUV = NULL;
 
-        int size = frame->linesize[0] * decoder->InputHeight;
-        int quarter = size / 4;
-
-        outUV = (uint8_t*) malloc(size / 2 * sizeof(uint8_t));
-
-        if (!outUV) {
-            Error(_("video/cuvid: out of memory\n"));
-            return;
-        }
-        //TODO use shader or direct yuv render?
-        for (int i = 0; i < quarter; i++) {
-            memcpy(outUV + i * 2, frame->data[1] + i, 1); // For NV12, U first
-            memcpy(outUV + i * 2 + 1, frame->data[2] + i, 1); // For NV12, V second
-        }
         glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
         GlxCheck();
 
-        //Y
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[0]);
-        glTextureSubImage2D(decoder->gl_textures[surface][0], 0, 0, 0, decoder->InputWidth,
-            decoder->InputHeight, GL_RED, GL_UNSIGNED_BYTE, frame->data[0]);
-        GlxCheck();
-        //UV
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[1]);
-        glTextureSubImage2D(decoder->gl_textures[surface][1], 0, 0, 0, decoder->InputWidth/2,
-            decoder->InputHeight/2, GL_RG, GL_UNSIGNED_BYTE, outUV);
-        GlxCheck();
+        if (decoder->PixFmt != AV_PIX_FMT_YUV420P10LE) { //8bit
+            //YV12 -> NV12
+            int size = frame->linesize[0] * decoder->InputHeight;
+            int quarter = size / 4;
 
+            outUV = (uint8_t*) malloc(size / 2 * sizeof(uint8_t));
+
+            if (!outUV) {
+                Error(_("video/cuvid: out of memory\n"));
+                return;
+            }
+
+            if (!outUV) {
+                Error(_("video/cuvid: out of memory\n"));
+                return;
+            }
+            //TODO use shader or direct yuv render?
+            for (int i = 0; i < quarter; i++) {
+                memcpy(outUV + i * 2, frame->data[1] + i, 1); // For NV12, U first
+                memcpy(outUV + i * 2 + 1, frame->data[2] + i, 1); // For NV12, V second
+            }
+
+            //Y
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[0]);
+            glTextureSubImage2D(decoder->gl_textures[surface][0], 0, 0, 0, decoder->InputWidth,
+                decoder->InputHeight, GL_RED, GL_UNSIGNED_BYTE, frame->data[0]);
+            GlxCheck();
+            //UV
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[1]);
+            glTextureSubImage2D(decoder->gl_textures[surface][1], 0, 0, 0, decoder->InputWidth/2,
+                decoder->InputHeight/2, GL_RG, GL_UNSIGNED_BYTE, outUV);
+            GlxCheck();
+
+        } else { //10bit
+            //yuv420ple -> p010le + 10bit -> 8bit
+            int size = frame->linesize[0] / 2 * decoder->InputHeight;
+            int quarter = size / 4;
+
+            outY = (uint8_t*) malloc(size * sizeof(uint8_t));
+
+            if (!outY) {
+                Error(_("video/cuvid: out of memory\n"));
+                return;
+            }
+
+            outUV = (uint8_t*) malloc(size / 2 * sizeof(uint8_t));
+
+            if (!outUV) {
+                Error(_("video/cuvid: out of memory\n"));
+                return;
+            }
+
+            //TODO use shader or direct yuv render?
+            for (int i = 0; i < size; i++) {
+                outY[i] = (*((uint16_t*)frame->data[0] + i) + 2) >> 2; // Y
+            }
+
+            for (int i = 0; i < quarter; i++) {
+                outUV[i * 2] = (*((uint16_t*)frame->data[1] + i) + 2) >> 2; // For p010le, U first
+                outUV[i * 2 + 1] = (*((uint16_t*)frame->data[2] + i) + 2) >> 2; // For p010le, V second
+            }
+
+            //Y
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[0]/2);
+            glTextureSubImage2D(decoder->gl_textures[surface][0], 0, 0, 0, decoder->InputWidth,
+                decoder->InputHeight,  GL_RED, GL_UNSIGNED_BYTE, outY);
+            GlxCheck();
+            //UV
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[1]/2);
+            glTextureSubImage2D(decoder->gl_textures[surface][1], 0, 0, 0, decoder->InputWidth/2,
+                decoder->InputHeight/2, GL_RG, GL_UNSIGNED_BYTE, outUV);
+            GlxCheck();
+        }
         Debug(4, "video/cuvid: sw render hw surface %#08x\n", surface);
 
         CuvidQueueSurface(decoder, surface, 1);
-        free(outUV);
-    }
+        if (outY) free(outY);
+        if (outUV) free(outUV);
+     }
     if (decoder->Interlaced) {
 	++decoder->FrameCounter;
     }
