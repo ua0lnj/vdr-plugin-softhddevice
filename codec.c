@@ -768,12 +768,11 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 		            decoder->FirstKeyFrame = 0;
 	                }
 	            } else {
-	                //DisplayPts(video_ctx, frame);
-	                VideoRenderFrame(decoder->HwDecoder, video_ctx, frame);
+#endif
+	            //DisplayPts(video_ctx, frame);
+	            VideoRenderFrame(decoder->HwDecoder, video_ctx, frame);
+#ifdef FFMPEG_WORKAROUND_ARTIFACTS
 	            }
-#else
-	           //DisplayPts(video_ctx, frame);
-	           VideoRenderFrame(decoder->HwDecoder, video_ctx, frame);
 #endif
                 } else {
 	        // some frames are needed for references, interlaced frames ...
