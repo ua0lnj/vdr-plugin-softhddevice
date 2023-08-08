@@ -905,10 +905,10 @@ static int AlsaPlayRingbuffer(void)
 		Warning(_("audio/alsa: not all frames written\n"));
 		avail = snd_pcm_frames_to_bytes(AlsaPCMHandle, err);
 	    }
+	    RingBufferReadAdvance(AudioRing[AudioRingRead].RingBuffer, avail);
+	    pthread_mutex_unlock(&ReadAdvance_mutex);
 	    break;
 	}
-	RingBufferReadAdvance(AudioRing[AudioRingRead].RingBuffer, avail);
-	pthread_mutex_unlock(&ReadAdvance_mutex);
 	first = 0;
     }
 
@@ -2339,7 +2339,6 @@ void AudioEnqueue(const void *samples, int count)
 	}
     }
 
-    pthread_mutex_lock(&PTS_mutex);
     //write RingBuffer some times for delay audio
     times_delay = count ? Dupped / count : 0;
     times_count = 0;
@@ -2348,18 +2347,25 @@ void AudioEnqueue(const void *samples, int count)
         Debug(3, "audio: dupped frame %d times\n", times_delay);
     }
     while(times_count <= times_delay){
-        n = RingBufferWrite(AudioRing[AudioRingWrite].RingBuffer, buffer, count);
+	pthread_mutex_lock(&PTS_mutex);
+	n = RingBufferWrite(AudioRing[AudioRingWrite].RingBuffer, buffer, count);
+	if (n != (size_t) count) {
+	    Error(_("audio: can't place %d samples in ring buffer\n"), count);
+	    // too many bytes are lost
+	    // FIXME: caller checks buffer full.
+	    // FIXME: should skip more, longer skip, but less often?
+	    // FIXME: round to channel + sample border
+	}
+	// Update audio clock (stupid gcc developers thinks INT64_C is unsigned)
+	if (AudioRing[AudioRingWrite].PTS != (int64_t) INT64_C(0x8000000000000000)) {
+	    AudioRing[AudioRingWrite].PTS += ((int64_t) count * 90 * 1000)
+		/ (AudioRing[AudioRingWrite].HwSampleRate *
+		AudioRing[AudioRingWrite].HwChannels * AudioBytesProSample);
+	}
+	pthread_mutex_unlock(&PTS_mutex);
         times_count++;
     }
     Dupped = 0;
-
-    if (n != (size_t) count) {
-	Error(_("audio: can't place %d samples in ring buffer\n"), count);
-	// too many bytes are lost
-	// FIXME: caller checks buffer full.
-	// FIXME: should skip more, longer skip, but less often?
-	// FIXME: round to channel + sample border
-    }
 
     if (!AudioRunning) {		// check, if we can start the thread
 	int skip;
@@ -2398,13 +2404,6 @@ void AudioEnqueue(const void *samples, int count)
 	    pthread_cond_signal(&AudioStartCond);
 	}
     }
-    // Update audio clock (stupid gcc developers thinks INT64_C is unsigned)
-    if (AudioRing[AudioRingWrite].PTS != (int64_t) INT64_C(0x8000000000000000)) {
-	AudioRing[AudioRingWrite].PTS += ((int64_t) count * 90 * 1000)
-	    / (AudioRing[AudioRingWrite].HwSampleRate *
-	    AudioRing[AudioRingWrite].HwChannels * AudioBytesProSample);
-    }
-    pthread_mutex_unlock(&PTS_mutex);
 }
 
 /**
@@ -2661,19 +2660,20 @@ void AudioSetClock(int64_t pts)
 */
 int64_t AudioGetClock(void)
 {
+    int64_t pts = INT64_C(0x8000000000000000);
+    pthread_mutex_lock(&PTS_mutex);
+    pthread_mutex_lock(&ReadAdvance_mutex);
     // (cast) needed for the evil gcc
     if (AudioRing[AudioRingRead].PTS != (int64_t) INT64_C(0x8000000000000000)) {
 	int64_t delay;
-
 	// delay zero, if no valid time stamp
 	if ((delay = AudioGetDelay())) {
-	    if (AudioRing[AudioRingRead].Passthrough) {
-		return AudioRing[AudioRingRead].PTS + 0 * 90 - delay;
-	    }
-	    return AudioRing[AudioRingRead].PTS + 0 * 90 - delay;
+	    pts = AudioRing[AudioRingRead].PTS + 0 * 90 - delay;
 	}
     }
-    return INT64_C(0x8000000000000000);
+    pthread_mutex_unlock(&ReadAdvance_mutex);
+    pthread_mutex_unlock(&PTS_mutex);
+    return pts;
 }
 
 /**
