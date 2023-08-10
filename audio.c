@@ -2457,7 +2457,7 @@ void AudioVideoReady(int64_t pts)
 	    VideoAudioDelay / 90, skip / 90);
 #endif
 	// guard against old PTS
-	if (skip > 0 && skip < 2000 * 90) {
+	if (skip > 0 && skip < 4000 * 90) {
 	    skip = (((int64_t) skip * AudioRing[AudioRingWrite].HwSampleRate)
 		/ (1000 * 90))
 		* AudioRing[AudioRingWrite].HwChannels * AudioBytesProSample;
@@ -2473,6 +2473,8 @@ void AudioVideoReady(int64_t pts)
 	    RingBufferReadAdvance(AudioRing[AudioRingWrite].RingBuffer, skip);
 
 	    used = RingBufferUsedBytes(AudioRing[AudioRingWrite].RingBuffer);
+	} else {
+	    Debug(3, "audio: did not sync advance, please fix guard condition, skip: %d\n", skip);
 	}
 	// FIXME: skip<0 we need bigger audio buffer
 
