@@ -2450,8 +2450,7 @@ void AudioVideoReady(int64_t pts)
 	// buffer ~15 video frames
 	// FIXME: HDTV can use smaller video buffer
 	skip =
-	    pts - audio_pts - (IsReplay() ? 0 : 1) * (15 * 20 * 90 + AudioBufferTime * 90  +
-	    VideoAudioDelay);
+	    pts - audio_pts - VideoAudioDelay - (IsReplay() ? 0 : 1) * (15 * 20 * 90 + AudioBufferTime * 90);
 #ifdef DEBUG
 	fprintf(stderr, "%dms %dms %dms\n", (int)(pts - audio_pts) / 90,
 	    VideoAudioDelay / 90, skip / 90);
