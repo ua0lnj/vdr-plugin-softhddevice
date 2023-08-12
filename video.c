@@ -13985,22 +13985,14 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
 #endif
         if (decoder->PixFmt != AV_PIX_FMT_YUV420P10LE) { //8bit
             //YV12 -> NV12
-            int size = frame->linesize[0] * decoder->InputHeight;
-            int quarter = size / 4;
-
-            outUV = (uint8_t*) malloc(size / 2 * sizeof(uint8_t));
-
-            if (!outUV) {
-                Error(_("video/cuvid: out of memory\n"));
-                return;
-            }
+            outUV = (uint8_t*) malloc(frame->linesize[1] * decoder->InputHeight * sizeof(uint8_t));
 
             if (!outUV) {
                 Error(_("video/cuvid: out of memory\n"));
                 return;
             }
             //TODO use shader or direct yuv render?
-            for (int i = 0; i < quarter; i++) {
+            for (int i = 0; i < (frame->linesize[1] * decoder->InputHeight / 2); i++) {
                 memcpy(outUV + i * 2, frame->data[1] + i, 1); // For NV12, U first
                 memcpy(outUV + i * 2 + 1, frame->data[2] + i, 1); // For NV12, V second
             }
@@ -14018,17 +14010,14 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
 
         } else { //10bit
             //yuv420ple -> p010le + 10bit -> 8bit
-            int size = frame->linesize[0] / 2 * decoder->InputHeight;
-            int quarter = size / 4;
-
-            outY = (uint8_t*) malloc(size * sizeof(uint8_t));
+            outY = (uint8_t*) malloc(frame->linesize[0] * decoder->InputHeight / 2 * sizeof(uint8_t));
 
             if (!outY) {
                 Error(_("video/cuvid: out of memory\n"));
                 return;
             }
 
-            outUV = (uint8_t*) malloc(size / 2 * sizeof(uint8_t));
+            outUV = (uint8_t*) malloc(frame->linesize[1] * decoder->InputHeight / 2 * sizeof(uint8_t));
 
             if (!outUV) {
                 Error(_("video/cuvid: out of memory\n"));
@@ -14036,11 +14025,11 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
             }
 
             //TODO use shader or direct yuv render?
-            for (int i = 0; i < size; i++) {
+            for (int i = 0; i < (frame->linesize[0] / 2 * decoder->InputHeight); i++) {
                 outY[i] = (*((uint16_t*)frame->data[0] + i) + 2) >> 2; // Y
             }
 
-            for (int i = 0; i < quarter; i++) {
+            for (int i = 0; i < (frame->linesize[1] * decoder->InputHeight / 4); i++) {
                 outUV[i * 2] = (*((uint16_t*)frame->data[1] + i) + 2) >> 2; // For p010le, U first
                 outUV[i * 2 + 1] = (*((uint16_t*)frame->data[2] + i) + 2) >> 2; // For p010le, V second
             }
@@ -16527,22 +16516,14 @@ static void NVdecRenderFrame(NVdecDecoder * decoder,
 #endif
         if (decoder->PixFmt != AV_PIX_FMT_YUV420P10LE) { //8bit
             //YV12 -> NV12
-            int size = frame->linesize[0] * decoder->InputHeight;
-            int quarter = size / 4;
-
-            outUV = (uint8_t*) malloc(size / 2 * sizeof(uint8_t));
-
-            if (!outUV) {
-                Error(_("video/ndec: out of memory\n"));
-                return;
-            }
+            outUV = (uint8_t*) malloc(frame->linesize[1] * decoder->InputHeight * sizeof(uint8_t));
 
             if (!outUV) {
                 Error(_("video/ndec: out of memory\n"));
                 return;
             }
             //TODO use shader or direct yuv render?
-            for (int i = 0; i < quarter; i++) {
+            for (int i = 0; i < (frame->linesize[1] * decoder->InputHeight / 2); i++) {
                 memcpy(outUV + i * 2, frame->data[1] + i, 1); // For NV12, U first
                 memcpy(outUV + i * 2 + 1, frame->data[2] + i, 1); // For NV12, V second
             }
@@ -16560,17 +16541,14 @@ static void NVdecRenderFrame(NVdecDecoder * decoder,
 
         } else { //10bit
             //yuv420ple -> p010le + 10bit -> 8bit
-            int size = frame->linesize[0] / 2 * decoder->InputHeight;
-            int quarter = size / 4;
-
-            outY = (uint8_t*) malloc(size * sizeof(uint8_t));
+            outY = (uint8_t*) malloc(frame->linesize[0] * decoder->InputHeight / 2 * sizeof(uint8_t));
 
             if (!outY) {
                 Error(_("video/ndec: out of memory\n"));
                 return;
             }
 
-            outUV = (uint8_t*) malloc(size / 2 * sizeof(uint8_t));
+            outUV = (uint8_t*) malloc(frame->linesize[1] * decoder->InputHeight / 2 * sizeof(uint8_t));
 
             if (!outUV) {
                 Error(_("video/ndec: out of memory\n"));
@@ -16578,11 +16556,11 @@ static void NVdecRenderFrame(NVdecDecoder * decoder,
             }
 
             //TODO use shader or direct yuv render?
-            for (int i = 0; i < size; i++) {
+            for (int i = 0; i < (frame->linesize[0] / 2 * decoder->InputHeight); i++) {
                 outY[i] = (*((uint16_t*)frame->data[0] + i) + 2) >> 2; // Y
             }
 
-            for (int i = 0; i < quarter; i++) {
+            for (int i = 0; i < (frame->linesize[1] * decoder->InputHeight / 4); i++) {
                 outUV[i * 2] = (*((uint16_t*)frame->data[1] + i) + 2) >> 2; // For p010le, U first
                 outUV[i * 2 + 1] = (*((uint16_t*)frame->data[2] + i) + 2) >> 2; // For p010le, V second
             }
@@ -18797,22 +18775,14 @@ static void CpuRenderFrame(CpuDecoder * decoder,
 #endif
         if (decoder->PixFmt != AV_PIX_FMT_YUV420P10LE) { //8bit
             //YV12 -> NV12
-            int size = frame->linesize[0] * decoder->InputHeight;
-            int quarter = size / 4;
-
-            outUV = (uint8_t*) malloc(size / 2 * sizeof(uint8_t));
-
-            if (!outUV) {
-                Error(_("video/cpu: out of memory\n"));
-                return;
-            }
+            outUV = (uint8_t*) malloc(frame->linesize[1] * decoder->InputHeight * sizeof(uint8_t));
 
             if (!outUV) {
                 Error(_("video/cpu: out of memory\n"));
                 return;
             }
             //TODO use shader or direct yuv render?
-            for (int i = 0; i < quarter; i++) {
+            for (int i = 0; i < (frame->linesize[1] * decoder->InputHeight / 2); i++) {
                 memcpy(outUV + i * 2, frame->data[1] + i, 1); // For NV12, U first
                 memcpy(outUV + i * 2 + 1, frame->data[2] + i, 1); // For NV12, V second
             }
@@ -18830,17 +18800,14 @@ static void CpuRenderFrame(CpuDecoder * decoder,
 
         } else { //10bit
             //yuv420ple -> p010le + 10bit -> 8bit
-            int size = frame->linesize[0] / 2 * decoder->InputHeight;
-            int quarter = size / 4;
-
-            outY = (uint8_t*) malloc(size * sizeof(uint8_t));
+            outY = (uint8_t*) malloc(frame->linesize[0] * decoder->InputHeight / 2 * sizeof(uint8_t));
 
             if (!outY) {
                 Error(_("video/cpu: out of memory\n"));
                 return;
             }
 
-            outUV = (uint8_t*) malloc(size / 2 * sizeof(uint8_t));
+            outUV = (uint8_t*) malloc(frame->linesize[1] * decoder->InputHeight / 2 * sizeof(uint8_t));
 
             if (!outUV) {
                 Error(_("video/cpu: out of memory\n"));
@@ -18848,11 +18815,11 @@ static void CpuRenderFrame(CpuDecoder * decoder,
             }
 
             //TODO use shader or direct yuv render?
-            for (int i = 0; i < size; i++) {
+            for (int i = 0; i < (frame->linesize[0] / 2 * decoder->InputHeight); i++) {
                 outY[i] = (*((uint16_t*)frame->data[0] + i) + 2) >> 2; // Y
             }
 
-            for (int i = 0; i < quarter; i++) {
+            for (int i = 0; i < (frame->linesize[1] * decoder->InputHeight / 4); i++) {
                 outUV[i * 2] = (*((uint16_t*)frame->data[1] + i) + 2) >> 2; // For p010le, U first
                 outUV[i * 2 + 1] = (*((uint16_t*)frame->data[2] + i) + 2) >> 2; // For p010le, V second
             }
