@@ -2395,9 +2395,9 @@ void AudioEnqueue(const void *samples, int count)
 	if (remain <= AUDIO_MIN_BUFFER_FREE) {
 	    Debug(3, "audio: force start\n");
 	}
-	if (AudioStartThreshold * 4 < n || remain <= AUDIO_MIN_BUFFER_FREE ||
-	      ((AudioVideoIsReady || !SoftIsPlayingVideo) &&
-		AudioStartThreshold < n)) {
+	if (remain <= AUDIO_MIN_BUFFER_FREE ||
+	    ((AudioVideoIsReady || !SoftIsPlayingVideo) &&
+	    AudioStartThreshold < n && !AudioSkip)) {
 	    // restart play-back
 	    // no lock needed, can wakeup next time
 	    AudioRunning = 1;
@@ -2478,7 +2478,7 @@ void AudioVideoReady(int64_t pts)
 	// FIXME: skip<0 we need bigger audio buffer
 
 	// enough video + audio buffered
-	if (AudioStartThreshold < used) {
+	if (AudioStartThreshold < used && !AudioSkip) {
 	    AudioRunning = 1;
 	    pthread_cond_signal(&AudioStartCond);
 	}
