@@ -12034,11 +12034,13 @@ static void CuvidPrintFrames(const CuvidDecoder * decoder)
 
 static void CuvidMixerSetup(CuvidDecoder * decoder)
 {
-    int mode = 0;
-    int drop = 0;
-
     if (decoder->video_ctx) {
-        if (decoder->PixFmt == AV_PIX_FMT_NV12 || decoder->PixFmt == AV_PIX_FMT_P010LE) {
+        VideoDecoder *ist = decoder->video_ctx->opaque;
+
+        if (ist->hwaccel_pix_fmt == AV_PIX_FMT_CUDA) {
+            int mode = 0;
+            int drop = 0;
+
             if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceWeave) {
                 Debug(3, "video/cuvid: set weave");
                 mode = 0;
@@ -12944,6 +12946,7 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
         }
         decoder->InputWidth = video_ctx->width;
         decoder->InputHeight = video_ctx->height;
+        decoder->video_ctx = (AVCodecContext *)video_ctx;
 
         CuvidCleanup(decoder);
         decoder->SurfacesNeeded = VIDEO_SURFACES_MAX * 2 + 1;
