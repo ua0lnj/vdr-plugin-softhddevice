@@ -12951,11 +12951,13 @@ static void CuvidPrintFrames(const CuvidDecoder * decoder)
 
 static void CuvidMixerSetup(CuvidDecoder * decoder)
 {
-    int mode = 0;
-    int drop = 0;
-
     if (decoder->video_ctx) {
-        if (decoder->PixFmt == AV_PIX_FMT_NV12 || decoder->PixFmt == AV_PIX_FMT_P010LE) {
+        VideoDecoder *ist = decoder->video_ctx->opaque;
+
+        if (ist->hwaccel_pix_fmt == AV_PIX_FMT_CUDA) {
+            int mode = 0;
+            int drop = 0;
+
             if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceWeave) {
                 Debug(3, "video/cuvid: set weave");
                 mode = 0;
@@ -13920,6 +13922,7 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
         }
         decoder->InputWidth = video_ctx->width;
         decoder->InputHeight = video_ctx->height;
+        decoder->video_ctx = (AVCodecContext *)video_ctx;
 
         CuvidCleanup(decoder);
         decoder->SurfacesNeeded = VIDEO_SURFACES_MAX * 2 + 1;
@@ -15392,6 +15395,7 @@ static void NVdecPrintFrames(const NVdecDecoder * decoder)
 
 static void NVdecMixerSetup(NVdecDecoder * decoder)
 {
+    (void) decoder;
 /*
     int mode = 0;
     int drop = 0;
@@ -15905,6 +15909,7 @@ static enum AVPixelFormat NVdec_get_format(NVdecDecoder * decoder,
     ist->hwaccel_get_buffer = NULL;
     video_ctx->draw_horiz_band = NULL;
     video_ctx->slice_flags = 0;
+    video_ctx->pix_fmt = AV_PIX_FMT_CUDA;
     decoder->video_ctx = video_ctx;
 
     if (video_ctx->width && video_ctx->height) {
@@ -16451,6 +16456,7 @@ static void NVdecRenderFrame(NVdecDecoder * decoder,
         }
         decoder->InputWidth = video_ctx->width;
         decoder->InputHeight = video_ctx->height;
+        decoder->video_ctx = (AVCodecContext *)video_ctx;
 
         NVdecCleanup(decoder);
         decoder->SurfacesNeeded = VIDEO_SURFACES_MAX * 2 + 1;
@@ -18729,6 +18735,7 @@ static void CpuRenderFrame(CpuDecoder * decoder,
 
         decoder->InputWidth = video_ctx->width;
         decoder->InputHeight = video_ctx->height;
+        decoder->video_ctx = (AVCodecContext *)video_ctx;
 
         CpuCleanup(decoder);
         decoder->SurfacesNeeded = VIDEO_SURFACES_MAX * 2 + 1;
