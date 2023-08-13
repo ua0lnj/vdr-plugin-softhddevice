@@ -45,7 +45,11 @@ extern "C"
 {
 #include <stdint.h>
 #include <libavcodec/avcodec.h>
-
+#ifdef USE_AVFILTER
+#include <libavfilter/avfilter.h>
+#include <libavfilter/buffersink.h>
+#include <libavfilter/buffersrc.h>
+#endif
 #include "audio.h"
 #include "video.h"
 #include "codec.h"

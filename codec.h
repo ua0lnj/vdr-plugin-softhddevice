@@ -70,7 +70,13 @@ struct _video_decoder_
      AVCodecContext *VideoCtx;           ///< video codec context
      int FirstKeyFrame;                  ///< flag first frame
      AVFrame *Frame;                     ///< decoded video frame
-
+#ifdef USE_AVFILTER
+     /* deinterlace filter */
+     AVFilterContext *buffersink_ctx;
+     AVFilterContext *buffersrc_ctx;
+     AVFilterGraph *filter_graph;
+     AVFrame *Filt_Frame;                ///< filtered video frame
+#endif
      /* hwaccel options */
      enum HWAccelID hwaccel_id;
      char  *hwaccel_device;
@@ -119,7 +125,10 @@ extern VideoDecoder *CodecVideoNewDecoder(VideoHwDecoder *);
 
     /// Deallocate a video decoder context.
 extern void CodecVideoDelDecoder(VideoDecoder *);
-
+#ifdef USE_AVFILTER
+    /// Init video filter for deinterlacing
+extern int CodecVideoInitFilter(VideoDecoder *, const char *);
+#endif
     /// Open video codec.
 extern int CodecVideoOpen(VideoDecoder *, int);
 

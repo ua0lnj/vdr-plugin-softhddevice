@@ -60,6 +60,7 @@
 
 #include <libavcodec/avcodec.h>
 #include <libavutil/mem.h>
+#include <libavutil/pixdesc.h>
 // support old ffmpeg versions <1.0
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(55,18,102)
 #define AVCodecID CodecID
@@ -82,6 +83,11 @@
 #endif
 #ifdef USE_AVRESAMPLE
 #include <libavresample/avresample.h>
+#endif
+#ifdef USE_AVFILTER
+#include <libavfilter/avfilter.h>
+#include <libavfilter/buffersink.h>
+#include <libavfilter/buffersrc.h>
 #endif
 #include <libavutil/opt.h>
 
@@ -137,7 +143,6 @@ char CodecUsePossibleDefectFrames;
 //----------------------------------------------------------------------------
 //	Video
 //----------------------------------------------------------------------------
-
 //----------------------------------------------------------------------------
 //	Call-backs
 //----------------------------------------------------------------------------
@@ -400,6 +405,123 @@ void CodecVideoDelDecoder(VideoDecoder * decoder)
     free(decoder);
 }
 
+#ifdef USE_AVFILTER
+/**
+**	Init video filter.
+**
+**	@param decoder		private video decoder
+**	@param hardware		enable hardware filter
+*/
+int CodecVideoInitFilter(VideoDecoder * decoder, const char *filter_descr)
+{
+    char args[512];
+    int ret = 0;
+    const AVFilter *buffersrc  = avfilter_get_by_name("buffer");
+    const AVFilter *buffersink = avfilter_get_by_name("buffersink");
+    AVFilterInOut *outputs = avfilter_inout_alloc();
+    AVFilterInOut *inputs  = avfilter_inout_alloc();
+    enum AVPixelFormat pix_fmts[] = { decoder->VideoCtx->pix_fmt, AV_PIX_FMT_NONE };
+
+    // free filter if hardware decoder failed
+    if (decoder->filter_graph) {
+            avfilter_graph_free(&decoder->filter_graph);
+    }
+
+    decoder->filter_graph = avfilter_graph_alloc();
+    if (!outputs || !inputs || !decoder->filter_graph) {
+        ret = AVERROR(ENOMEM);
+        goto end;
+    }
+
+    snprintf(args, sizeof(args), "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
+        decoder->VideoCtx->width, decoder->VideoCtx->height, decoder->VideoCtx->pix_fmt,
+        decoder->VideoCtx->pkt_timebase.num, decoder->VideoCtx->pkt_timebase.den,
+        decoder->VideoCtx->sample_aspect_ratio.num, decoder->VideoCtx->sample_aspect_ratio.den);
+
+    Debug(3,"codec: filter init args: %s\n", args);
+
+    ret = avfilter_graph_create_filter(&decoder->buffersrc_ctx, buffersrc, "in",
+                                       args, NULL, decoder->filter_graph);
+    if (ret < 0) {
+        Error(_("Cannot create buffer source %s\n"), args);
+        goto end;
+    }
+
+    if (decoder->active_hwaccel_id != HWACCEL_NONE) {
+        AVBufferSrcParameters *params = av_buffersrc_parameters_alloc();
+
+        if (!params) goto end;
+
+        params->hw_frames_ctx = decoder->VideoCtx->hw_frames_ctx;
+
+        ret = av_buffersrc_parameters_set(decoder->buffersrc_ctx, params);
+        av_free(params);
+        if (ret < 0) {
+            Debug(3, "Cannot set hw_frames_ctx to src\n");
+            goto end;
+        }
+    }
+
+    ret = avfilter_graph_create_filter(&decoder->buffersink_ctx, buffersink, "out",
+                                       NULL, NULL, decoder->filter_graph);
+    if (ret < 0) {
+        Error(_("codec: cannot create buffer sink\n"));
+        goto end;
+    }
+
+    ret = av_opt_set_int_list(decoder->buffersink_ctx, "pix_fmts", pix_fmts,
+                              AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
+    if (ret < 0) {
+        Error(_("codec: cannot set output pixel format\n"));
+        goto end;
+    }
+    outputs->name       = av_strdup("in");
+    outputs->filter_ctx = decoder->buffersrc_ctx;
+    outputs->pad_idx    = 0;
+    outputs->next       = NULL;
+
+    inputs->name       = av_strdup("out");
+    inputs->filter_ctx = decoder->buffersink_ctx;
+    inputs->pad_idx    = 0;
+    inputs->next       = NULL;
+
+    ret = avfilter_graph_parse_ptr(decoder->filter_graph, filter_descr, &inputs, &outputs, NULL);
+
+    if (ret < 0) {
+        Error(_("codec: cannot parse ptr filter graph\n"));
+        goto end;
+    }
+
+    ret = avfilter_graph_config(decoder->filter_graph, NULL);
+    if (ret < 0) {
+        Error(_("codec: cannot config filter graph %d\n"),ret);
+        goto end;
+    }
+
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(56,28,1)
+    if (!(decoder->Filt_Frame = av_frame_alloc())) {
+	Error(_("codec: can't allocate video filter frame buffer\n"));
+	ret = -1;
+        goto end;
+    }
+#else
+    if (!(decoder->Filt_Frame = avcodec_alloc_frame())) {
+	Error(_("codec: can't allocate video filter frame buffer\n"));
+	ret = -1;
+        goto end;
+    }
+#endif
+
+end:
+    avfilter_inout_free(&inputs);
+    avfilter_inout_free(&outputs);
+    if (ret < 0)
+        avfilter_graph_free(&decoder->filter_graph);
+
+    return ret;
+}
+#endif
+
 /**
 **	Open video decoder.
 **
@@ -542,7 +664,9 @@ int CodecVideoOpen(VideoDecoder * decoder, int codec_id)
     }
 #endif
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59,55,100)
-    decoder->VideoCtx->hwaccel_flags |= AV_HWACCEL_FLAG_UNSAFE_OUTPUT;
+    if (VideoIsDriverNVdec()) {
+        decoder->VideoCtx->hwaccel_flags |= AV_HWACCEL_FLAG_UNSAFE_OUTPUT;
+    }
 #endif
     // FIXME: own memory management for video frames.
     if (video_codec->capabilities & AV_CODEC_CAP_DR1) {
@@ -635,6 +759,17 @@ void CodecVideoClose(VideoDecoder * video_decoder)
         if (VideoIsDriverCuvid() || VideoIsDriverNVdec())
             VideoUnregisterSurface(video_decoder->HwDecoder);
 	pthread_mutex_lock(&CodecLockMutex);
+#ifdef USE_AVFILTER
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(56,28,1)
+        av_frame_free(&video_decoder->Filt_Frame);
+#else
+        av_freep(&video_decoder->Filt_Frame);
+#endif
+	if (video_decoder->filter_graph) {
+	    avfilter_graph_free(&video_decoder->filter_graph);
+	    video_decoder->filter_graph = NULL;
+	}
+#endif
 #if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(55,63,100)
 	avcodec_close(video_decoder->VideoCtx);
 	av_freep(&video_decoder->VideoCtx);
@@ -771,8 +906,41 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 	                }
 	            } else {
 #endif
-	            //DisplayPts(video_ctx, frame);
-	            VideoRenderFrame(decoder->HwDecoder, video_ctx, frame);
+#ifdef USE_AVFILTER
+                        if (decoder->filter_graph) {
+                            int ret;
+                            if (av_buffersrc_add_frame_flags(decoder->buffersrc_ctx, frame, AV_BUFFERSRC_FLAG_KEEP_REF) < 0) {
+                                Error(_("Error while feeding the filtergraph\n"));
+                                got_frame = 0;
+                            }
+
+                            while (got_frame) {
+                                ret = av_buffersink_get_frame(decoder->buffersink_ctx, decoder->Filt_Frame);
+                                if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+                                    break;
+                                if (ret < 0) {
+                                    av_frame_unref(decoder->Filt_Frame);
+                                    return;
+                                }
+                                decoder->Filt_Frame->pts /=2;
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
+                                decoder->Filt_Frame->interlaced_frame = 0;
+#else
+                                decoder->Filt_Frame->flags &= ~AV_FRAME_FLAG_INTERLACED;
+#endif
+                                decoder->Filt_Frame->sample_aspect_ratio = frame->sample_aspect_ratio;
+
+                                if (video_ctx->framerate.num > 0 && (video_ctx->framerate.num / video_ctx->framerate.den <= 30))
+                                    video_ctx->framerate.num *= 2;
+                                VideoRenderFrame(decoder->HwDecoder, video_ctx, decoder->Filt_Frame);
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(56,28,1)
+                                av_frame_unref(decoder->Filt_Frame);
+#endif
+                            }
+                        } else
+#endif
+	                //DisplayPts(video_ctx, frame);
+	                VideoRenderFrame(decoder->HwDecoder, video_ctx, frame);
 #ifdef FFMPEG_WORKAROUND_ARTIFACTS
 	            }
 #endif

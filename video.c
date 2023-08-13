@@ -178,6 +178,10 @@ typedef enum
 #endif
 
 #include <libavcodec/avcodec.h>
+#ifdef USE_AVFILTER
+#include <libavfilter/buffersink.h>
+#include <libavfilter/buffersrc.h>
+#endif
 #include <libavutil/opt.h>
 #ifdef USE_SWSCALE
 #include <libswscale/swscale.h>
@@ -437,6 +441,7 @@ static VideoConfigValues CuvidConfigSharpen =
 
 static VideoConfigValues CuvidConfigStde =
 { .active = 0, .min_value = 0.0, .max_value = 1.0, .def_value = 1.0, .step = 1.0, .scale = 1.0, .drv_scale = 1.0 };
+
 
 static VideoConfigValues NVdecConfigBrightness =
 { .active = 1, .min_value = -1000.0, .max_value = 1000.0, .def_value = 0.0, .step = 1.0, .scale = 0.001, .drv_scale = 1.0 };
@@ -12975,7 +12980,17 @@ static void CuvidMixerSetup(CuvidDecoder * decoder)
                 Error(_("Can't set deinterlace mode\n"));
             if (av_opt_set(decoder->video_ctx->priv_data, "drop_second_field", drop ? "true" : "false", 0) < 0)
                 Error(_("Can't set drop second field\n"));
-        }//else soft deinterlace
+        } else { //soft deinterlace
+            if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceWeave) {
+                Debug(3, "video/cuvid: set weave");
+            } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceBob) {
+                Debug(3, "video/cuvid: set yadif");
+                CodecVideoInitFilter(ist, "yadif=1:-1:1");
+            } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceTemporal) {
+                Debug(3, "video/cuvid: set bwdif");
+                CodecVideoInitFilter(ist, "bwdif=1:-1:1");
+            }
+        }
     }
 }
 
@@ -15395,32 +15410,31 @@ static void NVdecPrintFrames(const NVdecDecoder * decoder)
 
 static void NVdecMixerSetup(NVdecDecoder * decoder)
 {
-    (void) decoder;
-/*
-    int mode = 0;
-    int drop = 0;
-
     if (decoder->video_ctx) {
-        if (decoder->PixFmt == AV_PIX_FMT_CUDA || decoder->PixFmt == AV_PIX_FMT_P010LE) {
+        VideoDecoder *ist = decoder->video_ctx->opaque;
+
+        if (ist->hwaccel_pix_fmt == AV_PIX_FMT_CUDA) {
             if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceWeave) {
                 Debug(3, "video/nvdec: set weave");
-                mode = 0;
-                drop = 0;
             } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceBob) {
-                Debug(3, "video/nvdec: set bob");
-                mode = 1;
-                drop = 1;
+                Debug(3, "video/nvdec: set yadif");
+                CodecVideoInitFilter(ist, "yadif_cuda=1:-1:1");
             } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceTemporal) {
-                Debug(3, "video/nvdec: set adap");
-                mode = 2;
-                drop = 0;
+                Debug(3, "video/nvdec: set bwdif");
+                CodecVideoInitFilter(ist, "bwdif_cuda=1:-1:1");
             }
-            if (av_opt_set_int(decoder->video_ctx->priv_data, "deint", mode, 0) < 0)
-                Error(_("Can't set deinterlace mode\n"));
-            if (av_opt_set(decoder->video_ctx->priv_data, "drop_second_field", drop ? "true" : "false", 0) < 0)
-                Error(_("Can't set drop second field to false\n"));
-        }//else soft deinterlace
-    }*/
+        } else { //software
+            if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceWeave) {
+                Debug(3, "video/nvdec: set weave");
+            } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceBob) {
+                Debug(3, "video/nvdec: set yadif");
+                CodecVideoInitFilter(ist, "yadif=1:-1:1");
+            } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceTemporal) {
+                Debug(3, "video/nvdec: set bwdif");
+                CodecVideoInitFilter(ist, "bwdif=1:-1:1");
+            }
+        }
+    }
 }
 
 ///
@@ -15938,7 +15952,7 @@ static enum AVPixelFormat NVdec_get_format(NVdecDecoder * decoder,
     ist->hwaccel_pix_fmt   = AV_PIX_FMT_NONE;
     ist->hwaccel_get_buffer = NULL;
     decoder->SurfacesNeeded = VIDEO_SURFACES_MAX * 2 + 2;
-    decoder->PixFmt = AV_PIX_FMT_NONE;//bit10 ? AV_PIX_FMT_YUV420P10LE : AV_PIX_FMT_YUV420P;
+    decoder->PixFmt = AV_PIX_FMT_NONE;
     video_ctx->thread_count = 0;
     decoder->InputWidth = 0;
     decoder->InputHeight = 0;
@@ -17876,32 +17890,19 @@ static void CpuPrintFrames(const CpuDecoder * decoder)
 
 static void CpuMixerSetup(CpuDecoder * decoder)
 {
-    (void) decoder;
-/*
-    int mode = 0;
-    int drop = 0;
-
     if (decoder->video_ctx) {
-        if (decoder->PixFmt == AV_PIX_FMT_NV12 || decoder->PixFmt == AV_PIX_FMT_P010LE) {
-            if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceWeave) {
-                Debug(3, "video/cuvid: set weave");
-                mode = 0;
-                drop = 0;
-            } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceBob) {
-                Debug(3, "video/cuvid: set bob");
-                mode = 1;
-                drop = 1;
-            } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceTemporal) {
-                Debug(3, "video/cuvid: set adap");
-                mode = 2;
-                drop = 0;
-            }
-            if (av_opt_set_int(decoder->video_ctx->priv_data, "deint", mode, 0) < 0)
-                Error(_("Can't set deinterlace mode\n"));
-            if (av_opt_set(decoder->video_ctx->priv_data, "drop_second_field", drop ? "true" : "false", 0) < 0)
-                Error(_("Can't set drop second field to false\n"));
-        }//else soft deinterlace
-    }*/
+        VideoDecoder *ist = decoder->video_ctx->opaque;
+
+        if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceWeave) {
+            Debug(3, "video/cpudec: set weave");
+        } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceBob) {
+            Debug(3, "video/cpudec: set yadif");
+            CodecVideoInitFilter(ist, "yadif=1:-1:1");
+        } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceTemporal) {
+            Debug(3, "video/cpudec: set bwdif");
+            CodecVideoInitFilter(ist, "bwdif=1:-1:1");
+        }
+    }
 }
 
 ///
@@ -18729,9 +18730,9 @@ static void CpuRenderFrame(CpuDecoder * decoder,
         || video_ctx->width != decoder->InputWidth
         || video_ctx->height != decoder->InputHeight) {
 
-            decoder->PixFmt = video_ctx->pix_fmt;
-            ist->hwaccel_pix_fmt = video_ctx->pix_fmt;
-            ist->active_hwaccel_id = HWACCEL_NONE;
+        decoder->PixFmt = video_ctx->pix_fmt;
+        ist->active_hwaccel_id = HWACCEL_NONE;
+        ist->hwaccel_pix_fmt = video_ctx->pix_fmt;
 
         decoder->InputWidth = video_ctx->width;
         decoder->InputHeight = video_ctx->height;
@@ -22681,18 +22682,18 @@ static const char *cuvid_deinterlace_short[] = {
 
 #ifdef USE_CUVID
 static const char *nvdec_deinterlace[] = {
-    "Bob",                ///< VideoDeinterlaceBob
+    "YADIF",                ///< VideoDeinterlaceBob
     "Weave/None",         ///< VideoDeinterlaceWeave
-    "Adaptive",           ///< VideoDeinterlaceTemporal
+    "BWDIF",           ///< VideoDeinterlaceTemporal
 //    "TemporalSpatial",    ///< VideoDeinterlaceTemporalSpatial
 //    "Software Bob",       ///< VideoDeinterlaceSoftBob
 //    "Software Spatial"    ///< VideoDeinterlaceSoftSpatial
 };
 
 static const char *nvdec_deinterlace_short[] = {
-    "B",                  ///< VideoDeinterlaceBob
+    "Y",                  ///< VideoDeinterlaceBob
     "W",                  ///< VideoDeinterlaceWeave
-    "A",                  ///< VideoDeinterlaceTemporal
+    "B",                  ///< VideoDeinterlaceTemporal
 //    "T+S",                ///< VideoDeinterlaceTemporalSpatial
 //    "S+B",                ///< VideoDeinterlaceSoftBob
 //    "S+S"                 ///< VideoDeinterlaceSoftSpatial

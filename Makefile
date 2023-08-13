@@ -47,7 +47,8 @@ CUVID ?= $(shell ffmpeg -loglevel quiet -decoders | grep -c cuvid)
 FFNVCODEC ?= $(shell pkg-config --exists ffnvcodec && echo 1)
     # use opengl for OSD
 OPENGLOSD ?= $(shell pkg-config --exists glew glu freetype2 && echo 1)
-
+    # support ffmpeg deinterlacing
+AVFILTER ?= $(shell pkg-config --exists libavfilter && echo 1)
 
 #CONFIG += -DDEBUG
 #CONFIG += -DOSD_DEBUG		# enable debug output+functions
@@ -165,6 +166,11 @@ ifeq ($(AVRESAMPLE),1)
 CONFIG += -DUSE_AVRESAMPLE
 _CFLAGS += $(shell pkg-config --cflags libavresample)
 LIBS += $(shell pkg-config --libs libavresample)
+endif
+ifeq ($(AVFILTER),1)
+CONFIG += -DUSE_AVFILTER
+_CFLAGS += $(shell pkg-config --cflags libavfilter)
+LIBS += $(shell pkg-config --libs libavfilter)
 endif
 ifneq ($(CUVID),0)
 ifeq ($(FFNVCODEC),1)
