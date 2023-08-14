@@ -16488,6 +16488,7 @@ static void NVdecRenderFrame(NVdecDecoder * decoder,
         break;
         case AV_PIX_FMT_YUV422P:
 //        case AV_PIX_FMT_YUV444P:
+        break;
         default:
             Error(_("video/nvdec: pixel format %d not supported\n"),
             video_ctx->pix_fmt);
@@ -18752,8 +18753,9 @@ static void CpuRenderFrame(CpuDecoder * decoder,
 //        case AV_PIX_FMT_YUVJ420P:     // some streams produce this
         case AV_PIX_FMT_YUV420P10LE:  // for softdecode of HEVC 10 Bit
         break;
-//        case AV_PIX_FMT_YUV422P:
+        case AV_PIX_FMT_YUV422P:
 //        case AV_PIX_FMT_YUV444P:
+        break;
         default:
             Error(_("video/cpu: pixel format %d not supported\n"),
             video_ctx->pix_fmt);
