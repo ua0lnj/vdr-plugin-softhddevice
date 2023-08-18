@@ -22651,7 +22651,7 @@ static const char *vaapi_deinterlace[] = {
     "Bob",                ///< VideoDeinterlaceBob
     "Weave/None",         ///< VideoDeinterlaceWeave
     "MotionAdaptive",     ///< VideoDeinterlaceTemporal
-    "MotionCompensated",  ///< VideoDeinterlaceTemporalSpatial
+    "MotionCompensated"   ///< VideoDeinterlaceTemporalSpatial
 };
 
 static const char *vaapi_deinterlace_short[] = {
@@ -22666,52 +22666,40 @@ static const char *vaapi_deinterlace_short[] = {
 static const char *cuvid_deinterlace[] = {
     "Bob",                ///< VideoDeinterlaceBob
     "Weave/None",         ///< VideoDeinterlaceWeave
-    "Adaptive",           ///< VideoDeinterlaceTemporal
-//    "TemporalSpatial",    ///< VideoDeinterlaceTemporalSpatial
-//    "Software Bob",       ///< VideoDeinterlaceSoftBob
-//    "Software Spatial"    ///< VideoDeinterlaceSoftSpatial
+    "Adaptive"            ///< VideoDeinterlaceTemporal
 };
 
 static const char *cuvid_deinterlace_short[] = {
     "B",                  ///< VideoDeinterlaceBob
     "W",                  ///< VideoDeinterlaceWeave
-    "A",                  ///< VideoDeinterlaceTemporal
-//    "T+S",                ///< VideoDeinterlaceTemporalSpatial
-//    "S+B",                ///< VideoDeinterlaceSoftBob
-//    "S+S"                 ///< VideoDeinterlaceSoftSpatial
+    "A"                   ///< VideoDeinterlaceTemporal
 };
 #endif
 
 #ifdef USE_CUVID
 static const char *nvdec_deinterlace[] = {
-    "YADIF",                ///< VideoDeinterlaceBob
+    "YADIF",              ///< VideoDeinterlaceBob
     "Weave/None",         ///< VideoDeinterlaceWeave
-    "BWDIF",           ///< VideoDeinterlaceTemporal
-//    "TemporalSpatial",    ///< VideoDeinterlaceTemporalSpatial
-//    "Software Bob",       ///< VideoDeinterlaceSoftBob
-//    "Software Spatial"    ///< VideoDeinterlaceSoftSpatial
+    "BWDIF"               ///< VideoDeinterlaceTemporal
 };
 
 static const char *nvdec_deinterlace_short[] = {
     "Y",                  ///< VideoDeinterlaceBob
     "W",                  ///< VideoDeinterlaceWeave
-    "B",                  ///< VideoDeinterlaceTemporal
-//    "T+S",                ///< VideoDeinterlaceTemporalSpatial
-//    "S+B",                ///< VideoDeinterlaceSoftBob
-//    "S+S"                 ///< VideoDeinterlaceSoftSpatial
+    "B"                   ///< VideoDeinterlaceTemporal
 };
 #endif
 
 static const char *cpu_deinterlace[] = {
-    "Bob",                ///< VideoDeinterlaceBob
+    "YADIF",              ///< VideoDeinterlaceBob
     "Weave/None",         ///< VideoDeinterlaceWeave
-//    "Adaptive",           ///< VideoDeinterlaceTemporal
+    "BWDIF"               ///< VideoDeinterlaceTemporal
 };
 
 static const char *cpu_deinterlace_short[] = {
-    "B",                  ///< VideoDeinterlaceBob
+    "Y",                  ///< VideoDeinterlaceBob
     "W",                  ///< VideoDeinterlaceWeave
-//    "A",                  ///< VideoDeinterlaceTemporal
+    "B"                   ///< VideoDeinterlaceTemporal
 };
 
 int VideoGetDeinterlaceModes(const char* **long_table, const char* **short_table)
