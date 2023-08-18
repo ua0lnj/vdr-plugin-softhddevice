@@ -919,7 +919,9 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
                                 if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
                                     break;
                                 if (ret < 0) {
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(56,28,1)
                                     av_frame_unref(decoder->Filt_Frame);
+#endif
                                     return;
                                 }
                                 decoder->Filt_Frame->pts /=2;
