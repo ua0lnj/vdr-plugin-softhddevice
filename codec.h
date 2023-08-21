@@ -136,7 +136,7 @@ extern int CodecVideoOpen(VideoDecoder *, int);
 extern void CodecVideoClose(VideoDecoder *);
 
     /// Decode a video packet.
-extern void CodecVideoDecode(VideoDecoder *, const AVPacket *);
+extern int CodecVideoDecode(VideoDecoder *, const AVPacket *);
 
     /// Flush video buffers.
 extern void CodecVideoFlushBuffers(VideoDecoder *);

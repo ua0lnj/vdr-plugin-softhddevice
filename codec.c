@@ -826,7 +826,7 @@ void DisplayPts(AVCodecContext * video_ctx, AVFrame * frame)
 **	@param decoder	video decoder data
 **	@param avpkt	video packet
 */
-void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
+int CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 {
     AVCodecContext *video_ctx;
     AVFrame *frame;
@@ -869,12 +869,12 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57,37,100)
                 used = avcodec_send_packet(video_ctx, pkt);
                 if (used < 0 && used != AVERROR(EAGAIN)&& used != AVERROR_EOF)
-                    return;
+                    return -1;
 
                 while(!used) { //multiple frames
                     used = avcodec_receive_frame(video_ctx, frame);
                     if (used < 0 && used != AVERROR(EAGAIN) && used != AVERROR_EOF)
-                        return;
+                        return -1;
                     if (used>=0)
                         got_frame = 1;
                     else got_frame = 0;
@@ -922,7 +922,7 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(56,28,1)
                                     av_frame_unref(decoder->Filt_Frame);
 #endif
-                                    return;
+                                    return -1;
                                 }
                                 decoder->Filt_Frame->pts /=2;
 #if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
@@ -963,7 +963,7 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 	        // ffmpeg 0.8.7 dislikes our seq_end_h264 and enters endless loop here
 	            if (used == 0 && pkt->size == 5 && pkt->data[4] == 0x0A) {
 	                Warning("codec: ffmpeg 0.8.x workaround used\n");
-	                return;
+	                return -1;
 	            }
 	            if (used >= 0 && used < pkt->size) {
 	            // some tv channels, produce this
@@ -987,6 +987,7 @@ void CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
         }//data_size
 #endif
     }//codec_type
+    return 0;
 }
 
 /**

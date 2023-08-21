@@ -15791,6 +15791,7 @@ void nvdec_uninit(AVCodecContext *s)
 
     ist->hwaccel_uninit = NULL;
     av_buffer_unref(&s->hw_frames_ctx);
+    s->hw_frames_ctx = NULL;
 }
 
 static int nvdec_alloc(AVCodecContext *s, NVdecDecoder * decoder)

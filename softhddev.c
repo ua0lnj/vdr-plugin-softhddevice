@@ -1259,7 +1259,12 @@ int VideoDecodeInput(VideoStream * stream)
     // lock decoder against close
     pthread_mutex_lock(&stream->DecoderLockMutex);
     if (stream->Decoder) {
-	CodecVideoDecode(stream->Decoder, avpkt);
+	if (CodecVideoDecode(stream->Decoder, avpkt) < 0) {
+	    pthread_mutex_unlock(&stream->DecoderLockMutex);
+	    stream->LastCodecID = AV_CODEC_ID_NONE;
+	    CodecVideoClose(stream->Decoder);
+	    goto skip;
+	}
     }
     pthread_mutex_unlock(&stream->DecoderLockMutex);
     //fprintf(stderr, "]\n");
