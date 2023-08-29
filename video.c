@@ -567,9 +567,6 @@ static char EnableDPMSatBlackScreen;	///< flag we should enable dpms at black sc
 static char DisableScreensaver;		///< flag we disable screensaver
 #endif
 
-uint32_t mutex_start_time;
-unsigned int max_mutex_delay = 1;
-
 void AudioDelayms(int);
 //----------------------------------------------------------------------------
 //	Common Functions
