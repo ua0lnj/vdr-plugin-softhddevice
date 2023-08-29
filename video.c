@@ -6813,7 +6813,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 		decoder->SyncCounter = 1;
 	} else if (diff < lower_limit * 90 && !filled && !IsReplay()) {
 		err = VaapiMessage(3, "video: speed up audio, delay audio\n");
-		AudioDelayms(-diff / 90);
+	    AudioDelayms(-diff / 90 + 55);
 	}
 #if defined(DEBUG) || defined(AV_INFO)
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
@@ -10949,7 +10949,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 		decoder->SyncCounter = 1;
 	} else if (diff < lower_limit * 90 && !filled && !IsReplay()) {
 		err = VdpauMessage(3, "video: speed up audio, delay audio\n");
-		AudioDelayms(-diff / 90);
+	    AudioDelayms(-diff / 90 + 55);
 	}
 #if defined(DEBUG) || defined(AV_INFO)
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
@@ -13519,7 +13519,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 		decoder->SyncCounter = 1;
 	} else if (diff < lower_limit * 90 && !filled && !IsReplay()) {
 		err = CuvidMessage(3, "video: speed up audio, delay audio\n");
-		AudioDelayms(-diff / 90);
+	    AudioDelayms(-diff / 90 + 55);
 	}
 #if defined(DEBUG) || defined(AV_INFO)
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
