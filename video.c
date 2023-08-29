@@ -12031,11 +12031,13 @@ static void CuvidPrintFrames(const CuvidDecoder * decoder)
 
 static void CuvidMixerSetup(CuvidDecoder * decoder)
 {
-    int mode = 0;
-    int drop = 0;
-
     if (decoder->video_ctx) {
-        if (decoder->PixFmt == AV_PIX_FMT_NV12 || decoder->PixFmt == AV_PIX_FMT_P010LE) {
+        VideoDecoder *ist = decoder->video_ctx->opaque;
+
+        if (ist->hwaccel_pix_fmt == AV_PIX_FMT_CUDA) {
+            int mode = 0;
+            int drop = 0;
+
             if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceWeave) {
                 Debug(3, "video/cuvid: set weave");
                 mode = 0;
@@ -12941,6 +12943,7 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
         }
         decoder->InputWidth = video_ctx->width;
         decoder->InputHeight = video_ctx->height;
+        decoder->video_ctx = (AVCodecContext *)video_ctx;
 
         CuvidCleanup(decoder);
         decoder->SurfacesNeeded = VIDEO_SURFACES_MAX * 2 + 1;
@@ -13000,22 +13003,14 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
 
         if (decoder->PixFmt != AV_PIX_FMT_YUV420P10LE) { //8bit
             //YV12 -> NV12
-            int size = frame->linesize[0] * decoder->InputHeight;
-            int quarter = size / 4;
-
-            outUV = (uint8_t*) malloc(size / 2 * sizeof(uint8_t));
-
-            if (!outUV) {
-                Error(_("video/cuvid: out of memory\n"));
-                return;
-            }
+            outUV = (uint8_t*) malloc(frame->linesize[1] * decoder->InputHeight * sizeof(uint8_t));
 
             if (!outUV) {
                 Error(_("video/cuvid: out of memory\n"));
                 return;
             }
             //TODO use shader or direct yuv render?
-            for (int i = 0; i < quarter; i++) {
+            for (int i = 0; i < (frame->linesize[1] * decoder->InputHeight / 2); i++) {
                 memcpy(outUV + i * 2, frame->data[1] + i, 1); // For NV12, U first
                 memcpy(outUV + i * 2 + 1, frame->data[2] + i, 1); // For NV12, V second
             }
@@ -13033,17 +13028,14 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
 
         } else { //10bit
             //yuv420ple -> p010le + 10bit -> 8bit
-            int size = frame->linesize[0] / 2 * decoder->InputHeight;
-            int quarter = size / 4;
-
-            outY = (uint8_t*) malloc(size * sizeof(uint8_t));
+            outY = (uint8_t*) malloc(frame->linesize[0] * decoder->InputHeight / 2 * sizeof(uint8_t));
 
             if (!outY) {
                 Error(_("video/cuvid: out of memory\n"));
                 return;
             }
 
-            outUV = (uint8_t*) malloc(size / 2 * sizeof(uint8_t));
+            outUV = (uint8_t*) malloc(frame->linesize[1] * decoder->InputHeight / 2 * sizeof(uint8_t));
 
             if (!outUV) {
                 Error(_("video/cuvid: out of memory\n"));
@@ -13051,11 +13043,11 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
             }
 
             //TODO use shader or direct yuv render?
-            for (int i = 0; i < size; i++) {
+            for (int i = 0; i < (frame->linesize[0] / 2 * decoder->InputHeight); i++) {
                 outY[i] = (*((uint16_t*)frame->data[0] + i) + 2) >> 2; // Y
             }
 
-            for (int i = 0; i < quarter; i++) {
+            for (int i = 0; i < (frame->linesize[1] * decoder->InputHeight / 4); i++) {
                 outUV[i * 2] = (*((uint16_t*)frame->data[1] + i) + 2) >> 2; // For p010le, U first
                 outUV[i * 2 + 1] = (*((uint16_t*)frame->data[2] + i) + 2) >> 2; // For p010le, V second
             }
