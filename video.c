@@ -6787,7 +6787,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	}
 	diff = video_clock - audio_clock - VideoAudioDelay;
 	lower_limit = !IsReplay() ? -25 : 32;
-	diff = (decoder->LastAVDiff + diff) / 2;
+	//diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
 	//Debug(4, "video/vaapi: diff %d %d lim %d fill %d\n",diff,diff/90,lower_limit,filled);
 	if (abs(diff) > 8000 * 90) {	// more than 8s
@@ -10923,7 +10923,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	}
 	diff = video_clock - audio_clock - VideoAudioDelay;
 	lower_limit = !IsReplay() ? -25 : 32;
-	diff = (decoder->LastAVDiff + diff) / 2;
+	//diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
 	//Debug(4, "video/vdpau: diff %d %d lim %d fill %d\n",diff,diff/90,lower_limit,filled);
 	if (abs(diff) > 8000 * 90) {	// more than 8s
@@ -13493,7 +13493,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	}
 	diff = video_clock - audio_clock - VideoAudioDelay;
 	lower_limit = !IsReplay() ? -25 : 32;
-	diff = (decoder->LastAVDiff + diff) / 2;
+	//diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
 	//Debug(4, "video/cuvid: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, filled);
 	if (abs(diff) > 8000 * 90) {	// more than 8s
