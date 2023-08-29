@@ -6804,15 +6804,15 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	} else if (diff > 55 * 90) {
 	    err = VaapiMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-		decoder->SyncCounter = 1;
-		goto out;
+	    decoder->SyncCounter = 1;
+	    goto out;
 	} else if (diff < lower_limit * 90 && filled > 1 + 2 * decoder->Interlaced) {
 	    err = VaapiMessage(3, "video: speed up video, droping frame\n");
 	    ++decoder->FramesDropped;
 	    VaapiAdvanceDecoderFrame(decoder);
-		decoder->SyncCounter = 1;
+	    decoder->SyncCounter = 1;
 	} else if (diff < lower_limit * 90 && !filled && !IsReplay()) {
-		err = VaapiMessage(3, "video: speed up audio, delay audio\n");
+	    err = VaapiMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
 #if defined(DEBUG) || defined(AV_INFO)
@@ -10936,19 +10936,19 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    if (VideoSoftStartSync) {
 		decoder->SyncCounter = diff > 100 * 90 ? diff % 2 : 1; //softsync :)
 	    }
-		goto out;
+	    goto out;
 	} else if (diff > 55 * 90) {
 	    err = VdpauMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-		decoder->SyncCounter = 1;
-		goto out;
+	    decoder->SyncCounter = 1;
+	    goto out;
 	} else if (diff < lower_limit * 90 && filled > 1 + 2 * decoder->Interlaced) {
 	    err = VdpauMessage(3, "video: speed up video, droping frame\n");
 	    ++decoder->FramesDropped;
 	    VdpauAdvanceDecoderFrame(decoder);
-		decoder->SyncCounter = 1;
+	    decoder->SyncCounter = 1;
 	} else if (diff < lower_limit * 90 && !filled && !IsReplay()) {
-		err = VdpauMessage(3, "video: speed up audio, delay audio\n");
+	    err = VdpauMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
 #if defined(DEBUG) || defined(AV_INFO)
@@ -13498,19 +13498,19 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    if (VideoSoftStartSync) {
 		decoder->SyncCounter = diff > 100 * 90 ? diff % 2 : 1; //softsync :)
 	    }
-		goto out;
+	    goto out;
 	} else if (diff > 55 * 90) {
 	    err = CuvidMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-		decoder->SyncCounter = 1;
-		goto out;
+	    decoder->SyncCounter = 1;
+	    goto out;
 	} else if (diff < lower_limit * 90 && filled > 1 + 2 * decoder->Interlaced) {
 	    err = CuvidMessage(3, "video: speed up video, droping frame\n");
 	    ++decoder->FramesDropped;
 	    CuvidAdvanceDecoderFrame(decoder);
-		decoder->SyncCounter = 1;
+	    decoder->SyncCounter = 1;
 	} else if (diff < lower_limit * 90 && !filled && !IsReplay()) {
-		err = CuvidMessage(3, "video: speed up audio, delay audio\n");
+	    err = CuvidMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
 #if defined(DEBUG) || defined(AV_INFO)
