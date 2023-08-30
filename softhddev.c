@@ -101,7 +101,7 @@ int LogLevel = 0;			///< our local log level
 //	Audio
 //////////////////////////////////////////////////////////////////////////////
 
-static volatile char NewAudioStream;	///< new audio stream
+volatile char NewAudioStream;	///< new audio stream
 static volatile char SkipAudio;		///< skip audio stream
 static AudioDecoder *MyAudioDecoder;	///< audio decoder
 static enum AVCodecID AudioCodecID;	///< current codec id

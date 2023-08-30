@@ -2421,20 +2421,42 @@ void AudioVideoReady(int64_t pts)
 {
     int64_t audio_pts;
     size_t used;
+    int first = 1;
+    int loop_max = 800; // 8s
 
     if (pts == (int64_t) INT64_C(0x8000000000000000)) {
 	Debug(3, "audio: a/v start, no valid video\n");
 	return;
     }
-    // no valid audio known
-    if (!AudioRing[AudioRingWrite].HwSampleRate
-	|| !AudioRing[AudioRingWrite].HwChannels
-	|| AudioRing[AudioRingWrite].PTS ==
-	(int64_t) INT64_C(0x8000000000000000)) {
-	Debug(3, "audio: a/v start, no valid audio\n");
-	AudioVideoIsReady = 1;
-	return;
+
+    for (int i = 0; i < loop_max; i++) {
+	// no valid audio known
+	if (!AudioRing[AudioRingWrite].HwSampleRate
+	    || !AudioRing[AudioRingWrite].HwChannels
+	    || AudioRing[AudioRingWrite].PTS ==
+	    (int64_t) INT64_C(0x8000000000000000)) {
+	    if (first){
+		Debug(3, "audio: a/v start, no valid audio\n");
+		// don't loop, if Replay or Video without Audio
+		if (IsReplay() || NewAudioStream) {
+		    AudioVideoIsReady = 1;
+		    return;
+		}
+		first = 0;
+	    }
+	    usleep(10 * 1000);
+	} else {
+	    if (i) {
+		Debug(3, "audio: a/v start, finally valid audio, looped %d times\n", i);
+	    }
+	    break;
+	}
+	if (i == loop_max - 1) {
+	    AudioVideoIsReady = 1;
+	    return;
+	}
     }
+
     // Audio.PTS = next written sample time stamp
 
     used = RingBufferUsedBytes(AudioRing[AudioRingWrite].RingBuffer);
