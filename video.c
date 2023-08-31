@@ -7566,7 +7566,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	int diff;
 	int lower_limit;
 	if (IsReplay()) {
-	    if((video_clock > audio_clock + VideoAudioDelay + 1200 * 90) && decoder->StartCounter < VideoSoftStartFrames) {
+	    if((video_clock > audio_clock + VideoAudioDelay + 8000 * 90) && decoder->StartCounter < VideoSoftStartFrames) { // 8s
 		Debug(3,"flush audio\n");
 		AudioFlushBuffers();
 		goto out;
@@ -7582,7 +7582,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
 	//Debug(4, "video/vaapi: diff %d %d lim %d fill %d\n",diff,diff/90,lower_limit,filled);
-	if (abs(diff) > 5000 * 90) {	// more than 5s
+	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = VaapiMessage(3, "video: audio/video difference too big\n");
 	}
 	if (diff > 100 * 90) {
@@ -11816,7 +11816,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	int diff;
 	int lower_limit;
 	if (IsReplay()) {
-	    if((video_clock > audio_clock + VideoAudioDelay + 1200 * 90) && decoder->StartCounter < VideoSoftStartFrames) {
+	    if((video_clock > audio_clock + VideoAudioDelay + 8000 * 90) && decoder->StartCounter < VideoSoftStartFrames) { // 8s
 		Debug(3,"flush audio\n");
 		AudioFlushBuffers();
 		goto out;
@@ -11832,7 +11832,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
 	//Debug(4, "video/vdpau: diff %d %d lim %d fill %d\n",diff,diff/90,lower_limit,filled);
-	if (abs(diff) > 5000 * 90) {	// more than 5s
+	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = VdpauMessage(3, "video: audio/video difference too big\n");
 	}
 	if (diff > 100 * 90) {
@@ -14500,7 +14500,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	int diff;
 	int lower_limit;
 	if (IsReplay()) {
-	    if((video_clock > audio_clock + VideoAudioDelay + 1200 * 90) && decoder->StartCounter < VideoSoftStartFrames) {
+	    if((video_clock > audio_clock + VideoAudioDelay + 8000 * 90) && decoder->StartCounter < VideoSoftStartFrames) { // 8s
 		Debug(3,"flush audio\n");
 		AudioFlushBuffers();
 		goto out;
@@ -14516,7 +14516,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
 	//Debug(4, "video/cuvid: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, filled);
-	if (abs(diff) > 5000 * 90) {	// more than 5s
+	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = CuvidMessage(3, "video: audio/video difference too big\n");
 	}
 	if (diff > 100 * 90) {
@@ -17035,7 +17035,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	int diff;
 	int lower_limit;
 	if (IsReplay()) {
-	    if((video_clock > audio_clock + VideoAudioDelay + 1200 * 90) && decoder->StartCounter < VideoSoftStartFrames) {
+	    if((video_clock > audio_clock + VideoAudioDelay + 8000 * 90) && decoder->StartCounter < VideoSoftStartFrames) { // 8s
 		Debug(3,"flush audio\n");
 		AudioFlushBuffers();
 		goto out;
@@ -17051,7 +17051,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
 	//Debug(4, "video/nvdec: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, filled);
-	if (abs(diff) > 5000 * 90) {	// more than 5s
+	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = NVdecMessage(3, "video: audio/video difference too big\n");
 	}
 	if (diff > 100 * 90) {
@@ -19281,7 +19281,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	int diff;
 	int lower_limit;
 	if (IsReplay()) {
-	    if((video_clock > audio_clock + VideoAudioDelay + 1200 * 90) && decoder->StartCounter < VideoSoftStartFrames) {
+	    if((video_clock > audio_clock + VideoAudioDelay + 8000 * 90) && decoder->StartCounter < VideoSoftStartFrames) { // 8s
 		Debug(3,"flush audio\n");
 		AudioFlushBuffers();
 		goto out;
@@ -19297,7 +19297,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
 	//Debug(4, "video/cpu: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, filled);
-	if (abs(diff) > 5000 * 90) {	// more than 5s
+	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = CpuMessage(3, "video: audio/video difference too big\n");
 	}
 	if (diff > 100 * 90) {
