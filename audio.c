@@ -895,6 +895,8 @@ static int AlsaPlayRingbuffer(void)
 			snd_strerror(err));
 		    err = snd_pcm_recover(AlsaPCMHandle, err, 0);
 		    if (err >= 0) {
+			// you'd expect 'continue;' here, but 'return 0;' is
+			// needed to make pause -> play in replay mode work flawlessly
 			return 0;
 		    }
 		    Error(_("audio/alsa: snd_pcm_writei failed: %s\n"),
@@ -2191,6 +2193,10 @@ static void *AudioPlayHandlerThread(void *dummy)
 	    if (AudioPaused) {
 		break;
 	    }
+	    if (AudioSkip) {
+                Debug(3, "audio: break on AudioSkip\n");
+		break;
+	    }
 	} while (AudioRing[AudioRingRead].HwSampleRate);
     }
     return dummy;
@@ -2395,9 +2401,9 @@ void AudioEnqueue(const void *samples, int count)
 	if (remain <= AUDIO_MIN_BUFFER_FREE) {
 	    Debug(3, "audio: force start\n");
 	}
-	if (AudioStartThreshold * 4 < n || remain <= AUDIO_MIN_BUFFER_FREE ||
-	      ((AudioVideoIsReady || !SoftIsPlayingVideo) &&
-		AudioStartThreshold < n)) {
+	if (remain <= AUDIO_MIN_BUFFER_FREE ||
+	    ((AudioVideoIsReady || !SoftIsPlayingVideo) &&
+	    AudioStartThreshold < n && !AudioSkip)) {
 	    // restart play-back
 	    // no lock needed, can wakeup next time
 	    AudioRunning = 1;
@@ -2415,20 +2421,42 @@ void AudioVideoReady(int64_t pts)
 {
     int64_t audio_pts;
     size_t used;
+    int first = 1;
+    int loop_max = 800; // 8s
 
     if (pts == (int64_t) INT64_C(0x8000000000000000)) {
 	Debug(3, "audio: a/v start, no valid video\n");
 	return;
     }
-    // no valid audio known
-    if (!AudioRing[AudioRingWrite].HwSampleRate
-	|| !AudioRing[AudioRingWrite].HwChannels
-	|| AudioRing[AudioRingWrite].PTS ==
-	(int64_t) INT64_C(0x8000000000000000)) {
-	Debug(3, "audio: a/v start, no valid audio\n");
-	AudioVideoIsReady = 1;
-	return;
+
+    for (int i = 0; i < loop_max; i++) {
+	// no valid audio known
+	if (!AudioRing[AudioRingWrite].HwSampleRate
+	    || !AudioRing[AudioRingWrite].HwChannels
+	    || AudioRing[AudioRingWrite].PTS ==
+	    (int64_t) INT64_C(0x8000000000000000)) {
+	    if (first){
+		Debug(3, "audio: a/v start, no valid audio\n");
+		// don't loop, if Replay or Video without Audio
+		if (IsReplay() || NewAudioStream) {
+		    AudioVideoIsReady = 1;
+		    return;
+		}
+		first = 0;
+	    }
+	    usleep(10 * 1000);
+	} else {
+	    if (i) {
+		Debug(3, "audio: a/v start, finally valid audio, looped %d times\n", i);
+	    }
+	    break;
+	}
+	if (i == loop_max - 1) {
+	    AudioVideoIsReady = 1;
+	    return;
+	}
     }
+
     // Audio.PTS = next written sample time stamp
 
     used = RingBufferUsedBytes(AudioRing[AudioRingWrite].RingBuffer);
@@ -2450,13 +2478,14 @@ void AudioVideoReady(int64_t pts)
 	// buffer ~15 video frames
 	// FIXME: HDTV can use smaller video buffer
 	skip =
-	    pts - audio_pts - VideoAudioDelay - (IsReplay() ? 0 : 1) * (15 * 20 * 90 + AudioBufferTime * 90);
+	    pts - audio_pts - VideoAudioDelay - (IsReplay() ? 1 : 0) * 5 * 20 * 90
+		- (IsReplay() ? 0 : 1) * (5 * 20 * 90 + AudioBufferTime * 90);
 #ifdef DEBUG
 	fprintf(stderr, "%dms %dms %dms\n", (int)(pts - audio_pts) / 90,
 	    VideoAudioDelay / 90, skip / 90);
 #endif
 	// guard against old PTS
-	if (skip > 0 && skip < 4000 * 90) {
+	if (skip > 0 && skip < 8000 * 90) { // 8s
 	    skip = (((int64_t) skip * AudioRing[AudioRingWrite].HwSampleRate)
 		/ (1000 * 90))
 		* AudioRing[AudioRingWrite].HwChannels * AudioBytesProSample;
@@ -2478,7 +2507,7 @@ void AudioVideoReady(int64_t pts)
 	// FIXME: skip<0 we need bigger audio buffer
 
 	// enough video + audio buffered
-	if (AudioStartThreshold < used) {
+	if (AudioStartThreshold < used && !AudioSkip) {
 	    AudioRunning = 1;
 	    pthread_cond_signal(&AudioStartCond);
 	}
