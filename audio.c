@@ -2414,8 +2414,6 @@ void AudioEnqueue(const void *samples, int count)
     }
 }
 
-extern volatile char NewAudioStream;
-
 /**
 **	Video is ready.
 **
