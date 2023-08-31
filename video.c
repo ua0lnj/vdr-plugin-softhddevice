@@ -7553,7 +7553,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	goto out;
     }
 
-    if (decoder->SyncCounter && decoder->SyncCounter--) {
+    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync) {
 	goto skip_sync;
     }
 
@@ -11803,7 +11803,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	goto out;
     }
 
-    if (decoder->SyncCounter && decoder->SyncCounter--) {
+    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync) {
 	goto skip_sync;
     }
 
@@ -14487,7 +14487,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	goto out;
     }
 
-    if (decoder->SyncCounter && decoder->SyncCounter--) {
+    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync) {
 	goto skip_sync;
     }
 
@@ -17022,7 +17022,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	goto out;
     }
 
-    if (decoder->SyncCounter && decoder->SyncCounter--) {
+    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync) {
 	goto skip_sync;
     }
 
@@ -19268,7 +19268,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	goto out;
     }
 
-    if (decoder->SyncCounter && decoder->SyncCounter--) {
+    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync) {
 	goto skip_sync;
     }
 
