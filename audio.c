@@ -173,6 +173,7 @@ static int AudioVolume;			///< current volume (0 .. 1000)
 extern int VideoAudioDelay;		///< import audio/video delay
 extern volatile char SoftIsPlayingVideo;	///< stream contains video data
 extern int IsReplay(void);
+extern volatile char NewAudioStream;
 
     /// default ring buffer size ~2s 8ch 16bit (3 * 5 * 7 * 8)
 static const unsigned AudioRingBufferSize = 3 * 5 * 7 * 8 * 2 * 1000;
@@ -2160,6 +2161,7 @@ static void *AudioPlayHandlerThread(void *dummy)
 
 		// underrun, and no new ring buffer, goto sleep.
 		if (!atomic_read(&AudioRingFilled)) {
+                    Debug(3, "audio: underrun (pcm not running) and no ring buffer, goto sleep\n");
 		    break;
 		}
 
@@ -2447,11 +2449,12 @@ void AudioVideoReady(int64_t pts)
 	    usleep(10 * 1000);
 	} else {
 	    if (i) {
-		Debug(3, "audio: a/v start, finally valid audio, looped %d times\n", i);
+		Debug(3, "audio: a/v start, finally valid audio, looped %d times, %d ms\n", i, i * 10);
 	    }
 	    break;
 	}
 	if (i == loop_max - 1) {
+	    Debug(3, "audio: a/v start, still no valid audio, giving up\n");
 	    AudioVideoIsReady = 1;
 	    return;
 	}
@@ -2502,7 +2505,11 @@ void AudioVideoReady(int64_t pts)
 
 	    used = RingBufferUsedBytes(AudioRing[AudioRingWrite].RingBuffer);
 	} else {
-	    Debug(3, "audio: did not sync advance, please fix guard condition, skip: %d\n", skip);
+	    if (skip < 0) {
+		Debug(3, "audio: skip negative: %d ms\n", skip/90);
+	    } else {
+		Debug(3, "audio: did not sync advance, please fix guard condition, skip: %d\n", skip);
+	    }
 	}
 	// FIXME: skip<0 we need bigger audio buffer
 
