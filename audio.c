@@ -2193,6 +2193,10 @@ static void *AudioPlayHandlerThread(void *dummy)
 	    if (AudioPaused) {
 		break;
 	    }
+	    if (AudioSkip) {
+                Debug(3, "audio: break on AudioSkip\n");
+		break;
+	    }
 	} while (AudioRing[AudioRingRead].HwSampleRate);
     }
     return dummy;
