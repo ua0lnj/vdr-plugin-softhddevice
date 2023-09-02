@@ -7578,7 +7578,10 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	lower_limit = !IsReplay() ? -25 : 32;
 	//diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
-	//Debug(4, "video/vaapi: diff %d %d lim %d fill %d\n",diff,diff/90,lower_limit,filled);
+#ifdef DEBUG
+	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
+	    Debug(3, "video/vaapi: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, filled);
+#endif
 	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = VaapiMessage(3, "video: audio/video difference too big\n");
 	}
@@ -11828,7 +11831,10 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	lower_limit = !IsReplay() ? -25 : 32;
 	//diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
-	//Debug(4, "video/vdpau: diff %d %d lim %d fill %d\n",diff,diff/90,lower_limit,filled);
+#ifdef DEBUG
+	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
+	    Debug(3, "video/vdpau: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, filled);
+#endif
 	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = VdpauMessage(3, "video: audio/video difference too big\n");
 	}
@@ -14512,7 +14518,10 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	lower_limit = !IsReplay() ? -25 : 32;
 	//diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
-	//Debug(4, "video/cuvid: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, filled);
+#ifdef DEBUG
+	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
+	    Debug(3, "video/cuvid: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, filled);
+#endif
 	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = CuvidMessage(3, "video: audio/video difference too big\n");
 	}
@@ -17047,7 +17056,10 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	lower_limit = !IsReplay() ? -25 : 32;
 	//diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
-	//Debug(4, "video/nvdec: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, filled);
+#ifdef DEBUG
+	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
+	    Debug(3, "video/nvdec: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, filled);
+#endif
 	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = NVdecMessage(3, "video: audio/video difference too big\n");
 	}
@@ -19293,7 +19305,10 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	lower_limit = !IsReplay() ? -25 : 32;
 	//diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
-	//Debug(4, "video/cpu: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, filled);
+#ifdef DEBUG
+	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
+	    Debug(3, "video/cpu: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, filled);
+#endif
 	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = CpuMessage(3, "video: audio/video difference too big\n");
 	}
