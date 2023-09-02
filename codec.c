@@ -907,6 +907,7 @@ int CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 	            } else {
 #endif
 #ifdef USE_AVFILTER
+                        //avfilter used for NVdec and CPU video modules only
                         if (decoder->filter_graph) {
                             int ret;
                             if (av_buffersrc_add_frame_flags(decoder->buffersrc_ctx, frame, AV_BUFFERSRC_FLAG_KEEP_REF) < 0) {
@@ -934,7 +935,10 @@ int CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 
                                 if (video_ctx->framerate.num > 0 && (video_ctx->framerate.num / video_ctx->framerate.den <= 30))
                                     video_ctx->framerate.num *= 2;
-                                VideoRenderFrame(decoder->HwDecoder, video_ctx, decoder->Filt_Frame);
+                                //do not render frames when flush buffers
+                                //avfilter not flushed when called avcodec_flush_buffers()
+                                if(decoder->FirstKeyFrame > 1)
+                                    VideoRenderFrame(decoder->HwDecoder, video_ctx, decoder->Filt_Frame);
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(56,28,1)
                                 av_frame_unref(decoder->Filt_Frame);
 #endif
@@ -946,6 +950,8 @@ int CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 #ifdef FFMPEG_WORKAROUND_ARTIFACTS
 	            }
 #endif
+                    //for drop avfilter output frames when flushed buffers
+                    if (VideoIsDriverNVdec() || VideoIsDriverCpu()) decoder->FirstKeyFrame++;
                 } else {
 	        // some frames are needed for references, interlaced frames ...
 	        // could happen with h264 dvb streams, just drop data.
