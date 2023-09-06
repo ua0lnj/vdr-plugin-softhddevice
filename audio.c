@@ -176,8 +176,8 @@ extern volatile char SoftIsPlayingVideo;	///< stream contains video data
 extern int IsReplay(void);
 extern volatile char NewAudioStream;
 
-    /// default ring buffer size ~2s 8ch 16bit (3 * 5 * 7 * 8)
-static const unsigned AudioRingBufferSize = 3 * 5 * 7 * 8 * 2 * 1000;
+    /// default ring buffer size ~8s 8ch 16bit (3 * 5 * 7 * 8)
+static const unsigned AudioRingBufferSize = 3 * 5 * 7 * 8 * 8 * 1000;
 
 #define AUDIO_MIN_BUFFER_FREE (3072 * 8 * 8)
 
@@ -2477,6 +2477,10 @@ void AudioVideoReady(int64_t pts)
     // Audio.PTS = next written sample time stamp
 
     used = RingBufferUsedBytes(AudioRing[AudioRingWrite].RingBuffer);
+    // This is only valid, if all audio is buffered. If the first video pts
+    // is late and the ringbuffer has already circled, this is wrong,
+    // which happens on several stations. Therefore the ringbuffer size needs to
+    // be sufficiently big (at least 8sec!)
     audio_pts =
 	AudioRing[AudioRingWrite].PTS -
 	(used * 90 * 1000) / (AudioRing[AudioRingWrite].HwSampleRate *
