@@ -138,6 +138,7 @@ static const char *AudioMixerDevice;	///< mixer device name
 static const char *AudioMixerChannel;	///< mixer channel name
 static char AudioDoingInit;		///> flag in init, reduce error
 static volatile char AudioRunning;	///< thread running / stopped
+static volatile char AudioStarted;	///< audio started
 static volatile char AudioPaused;	///< audio paused
 static volatile char AudioVideoIsReady;	///< video ready start early
 static int AudioSkip;			///< skip audio to sync to video
@@ -175,8 +176,8 @@ extern volatile char SoftIsPlayingVideo;	///< stream contains video data
 extern int IsReplay(void);
 extern volatile char NewAudioStream;
 
-    /// default ring buffer size ~2s 8ch 16bit (3 * 5 * 7 * 8)
-static const unsigned AudioRingBufferSize = 3 * 5 * 7 * 8 * 2 * 1000;
+    /// default ring buffer size ~8s 8ch 16bit (3 * 5 * 7 * 8)
+static const unsigned AudioRingBufferSize = 3 * 5 * 7 * 8 * 8 * 1000;
 
 #define AUDIO_MIN_BUFFER_FREE (3072 * 8 * 8)
 
@@ -2161,8 +2162,20 @@ static void *AudioPlayHandlerThread(void *dummy)
 
 		// underrun, and no new ring buffer, goto sleep.
 		if (!atomic_read(&AudioRingFilled)) {
-                    Debug(3, "audio: underrun (pcm not running) and no ring buffer, goto sleep\n");
+#ifdef USE_ALSA
+		    if (AudioStarted && snd_pcm_state(AlsaPCMHandle) != SND_PCM_STATE_XRUN) { // try a little longer, sometimes this helps
+			continue;
+		    } else {
+			if (AudioStarted) {
+			    Debug(3, "audio: audio started and underrun, increase AudioBufferTime?!\n");
+			}
+			Debug(3, "audio: buffer empty or pcm not running, and no new ring buffer, goto sleep\n");
+			break;
+		    }
+#else
+		    Debug(3, "audio: buffer empty or pcm not running, and no ring buffer, goto sleep\n");
 		    break;
+#endif
 		}
 
 		Debug(3, "audio: next ring buffer\n");
@@ -2409,6 +2422,7 @@ void AudioEnqueue(const void *samples, int count)
 	    // restart play-back
 	    // no lock needed, can wakeup next time
 	    AudioRunning = 1;
+	    AudioStarted = 1;
 	    pthread_cond_signal(&AudioStartCond);
 	}
     }
@@ -2463,6 +2477,10 @@ void AudioVideoReady(int64_t pts)
     // Audio.PTS = next written sample time stamp
 
     used = RingBufferUsedBytes(AudioRing[AudioRingWrite].RingBuffer);
+    // This is only valid, if all audio is buffered. If the first video pts
+    // is late and the ringbuffer has already circled, this is wrong,
+    // which happens on several stations. Therefore the ringbuffer size needs to
+    // be sufficiently big (at least 8sec!)
     audio_pts =
 	AudioRing[AudioRingWrite].PTS -
 	(used * 90 * 1000) / (AudioRing[AudioRingWrite].HwSampleRate *
@@ -2515,6 +2533,7 @@ void AudioVideoReady(int64_t pts)
 
 	// enough video + audio buffered
 	if (AudioStartThreshold < used && !AudioSkip) {
+	    AudioStarted = 1;
 	    AudioRunning = 1;
 	    pthread_cond_signal(&AudioStartCond);
 	}
@@ -2601,6 +2620,7 @@ void AudioFlushBuffers(void)
     Debug(3, "audio: reset video ready\n");
     AudioVideoIsReady = 0;
     AudioSkip = 0;
+    AudioStarted = 0;
 
     atomic_inc(&AudioRingFilled);
 
