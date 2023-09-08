@@ -12984,6 +12984,7 @@ static void CuvidMixerSetup(CuvidDecoder * decoder)
             if (av_opt_set(decoder->video_ctx->priv_data, "drop_second_field", drop ? "true" : "false", 0) < 0)
                 Error(_("Can't set drop second field\n"));
         } else { //soft deinterlace
+#ifdef USE_AVFILTER
             if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceWeave) {
                 Debug(3, "video/cuvid: set weave");
             } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceBob) {
@@ -12993,6 +12994,7 @@ static void CuvidMixerSetup(CuvidDecoder * decoder)
                 Debug(3, "video/cuvid: set bwdif");
                 CodecVideoInitFilter(ist, "bwdif=1:-1:1");
             }
+#endif
         }
     }
 }
@@ -15417,6 +15419,7 @@ static void NVdecPrintFrames(const NVdecDecoder * decoder)
 static void NVdecMixerSetup(NVdecDecoder * decoder)
 {
     if (decoder->video_ctx) {
+#ifdef USE_AVFILTER
         VideoDecoder *ist = decoder->video_ctx->opaque;
 
         if (ist->hwaccel_pix_fmt == AV_PIX_FMT_CUDA) {
@@ -15440,6 +15443,7 @@ static void NVdecMixerSetup(NVdecDecoder * decoder)
                 CodecVideoInitFilter(ist, "bwdif=1:-1:1");
             }
         }
+#endif
     }
 }
 
@@ -17902,6 +17906,7 @@ static void CpuPrintFrames(const CpuDecoder * decoder)
 static void CpuMixerSetup(CpuDecoder * decoder)
 {
     if (decoder->video_ctx) {
+#ifdef USE_AVFILTER
         VideoDecoder *ist = decoder->video_ctx->opaque;
 
         if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceWeave) {
@@ -17913,6 +17918,7 @@ static void CpuMixerSetup(CpuDecoder * decoder)
             Debug(3, "video/cpudec: set bwdif");
             CodecVideoInitFilter(ist, "bwdif=1:-1:1");
         }
+#endif
     }
 }
 

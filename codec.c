@@ -907,7 +907,7 @@ int CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 	            } else {
 #endif
 #ifdef USE_AVFILTER
-                        //avfilter used for NVdec and CPU video modules only
+                        //avfilter used for Cuvid, NVdec and CPU video modules
                         if (decoder->filter_graph) {
                             int ret;
                             if (av_buffersrc_add_frame_flags(decoder->buffersrc_ctx, frame, AV_BUFFERSRC_FLAG_KEEP_REF) < 0) {
