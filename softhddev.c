@@ -692,13 +692,15 @@ static void VideoEnqueue(VideoStream * stream, int64_t pts, const void *data,
     }
     if (avpkt->stream_index + size >= avpkt->size) {
 
-	Warning(_("video: packet buffer too small for %d\n"),
+	Debug(4,"video: packet %d buffer too small for %d\n", stream->PacketWrite,
 	    avpkt->stream_index + size);
 
 	// new + grow reserves FF_INPUT_BUFFER_PADDING_SIZE
-	av_grow_packet(avpkt, ((size + VIDEO_BUFFER_SIZE / 2)
-		/ (VIDEO_BUFFER_SIZE / 2)) * (VIDEO_BUFFER_SIZE / 2));
-	// FIXME: out of memory!
+	if (av_grow_packet(avpkt, ((size + VIDEO_BUFFER_SIZE / 2)
+		/ (VIDEO_BUFFER_SIZE / 2)) * (VIDEO_BUFFER_SIZE / 2))) {
+	    avpkt->stream_index = 0;
+	    return;
+	}
 #ifdef DEBUG
 	if (avpkt->size <= avpkt->stream_index + size) {
 	    fprintf(stderr, "%d %d %d\n", avpkt->size, avpkt->stream_index,
