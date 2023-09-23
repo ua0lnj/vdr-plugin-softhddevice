@@ -12989,10 +12989,16 @@ static void CuvidMixerSetup(CuvidDecoder * decoder)
                 Debug(3, "video/cuvid: set weave");
             } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceBob) {
                 Debug(3, "video/cuvid: set yadif");
-                CodecVideoInitFilter(ist, "yadif=1:-1:1");
+                if (decoder->video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO)
+                    CodecVideoInitFilter(ist, "yadif=1:-1:0");
+                else
+                    CodecVideoInitFilter(ist, "yadif=1:-1:1");
             } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceTemporal) {
                 Debug(3, "video/cuvid: set bwdif");
-                CodecVideoInitFilter(ist, "bwdif=1:-1:1");
+                if (decoder->video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO)
+                    CodecVideoInitFilter(ist, "bwdif=1:-1:0");
+                else
+                    CodecVideoInitFilter(ist, "bwdif=1:-1:1");
             }
 #endif
         }
@@ -15443,10 +15449,16 @@ static void NVdecMixerSetup(NVdecDecoder * decoder)
                 Debug(3, "video/nvdec: set weave");
             } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceBob) {
                 Debug(3, "video/nvdec: set yadif");
-                CodecVideoInitFilter(ist, "yadif=1:-1:1");
+                if (decoder->video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO)
+                    CodecVideoInitFilter(ist, "yadif=1:-1:0");
+                else
+                    CodecVideoInitFilter(ist, "yadif=1:-1:1");
             } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceTemporal) {
                 Debug(3, "video/nvdec: set bwdif");
-                CodecVideoInitFilter(ist, "bwdif=1:-1:1");
+                if (decoder->video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO)
+                    CodecVideoInitFilter(ist, "bwdif=1:-1:0");
+                else
+                    CodecVideoInitFilter(ist, "bwdif=1:-1:1");
             }
         }
 #endif
@@ -17919,10 +17931,16 @@ static void CpuMixerSetup(CpuDecoder * decoder)
             Debug(3, "video/cpudec: set weave");
         } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceBob) {
             Debug(3, "video/cpudec: set yadif");
-            CodecVideoInitFilter(ist, "yadif=1:-1:1");
+            if (decoder->video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO)
+                CodecVideoInitFilter(ist, "yadif=1:-1:0");
+            else
+                CodecVideoInitFilter(ist, "yadif=1:-1:1");
         } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceTemporal) {
             Debug(3, "video/cpudec: set bwdif");
-            CodecVideoInitFilter(ist, "bwdif=1:-1:1");
+            if (decoder->video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO)
+                CodecVideoInitFilter(ist, "bwdif=1:-1:0");
+            else
+                CodecVideoInitFilter(ist, "bwdif=1:-1:1");
         }
 #endif
     }
