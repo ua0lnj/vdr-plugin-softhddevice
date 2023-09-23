@@ -907,7 +907,7 @@ int CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 	            } else {
 #endif
 #ifdef USE_AVFILTER
-                        //avfilter used for Cuvid, NVdec and CPU video modules
+                        //avfilter used for Cuvid(software), NVdec and CPU video modules
                         if (decoder->filter_graph) {
                             int ret;
                             if (av_buffersrc_add_frame_flags(decoder->buffersrc_ctx, frame, AV_BUFFERSRC_FLAG_KEEP_REF) < 0) {
@@ -951,7 +951,7 @@ int CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 	            }
 #endif
                     //for drop avfilter output frames when flushed buffers
-                    if (VideoIsDriverNVdec() || VideoIsDriverCpu()) decoder->FirstKeyFrame++;
+                    if (decoder->filter_graph) decoder->FirstKeyFrame++;
                 } else {
 	        // some frames are needed for references, interlaced frames ...
 	        // could happen with h264 dvb streams, just drop data.
