@@ -6729,14 +6729,12 @@ void VaapiGetStats(VaapiDecoder * decoder, int *missed, int *duped,
 static void VaapiSyncDecoder(VaapiDecoder * decoder)
 {
     int err;
-    int filled;
     int64_t audio_clock;
     int64_t video_clock;
 
     err = 0;
     audio_clock = AudioGetClock();
     video_clock = VaapiGetClock(decoder);
-    filled = atomic_read(&decoder->SurfacesFilled);
 
     EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold : 0));
     if (EnoughVideo && EnoughAudio && !AudioRunning) {
@@ -6808,7 +6806,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	decoder->LastAVDiff = diff;
 #ifdef DEBUG
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
-	    Debug(3, "video/vaapi: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, filled);
+	    Debug(3, "video/vaapi: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, atomic_read(&decoder->SurfacesFilled));
 #endif
 	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = VaapiMessage(3, "video: audio/video difference too big\n");
@@ -6826,12 +6824,12 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
 	    goto out;
-	} else if (diff < lower_limit * 90 && filled > 1 + 2 * decoder->Interlaced) {
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) > 1 + 2 * decoder->Interlaced) {
 	    err = VaapiMessage(3, "video: speed up video, droping frame\n");
 	    ++decoder->FramesDropped;
 	    VaapiAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 1;
-	} else if (diff < lower_limit * 90 && !filled && !IsReplay()) {
+	} else if (diff < lower_limit * 90 && !atomic_read(&decoder->SurfacesFilled) && !IsReplay()) {
 	    err = VaapiMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
@@ -6851,8 +6849,8 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 
   skip_sync:
     // check if next field is available
-    if (decoder->SurfaceField && filled <= 1) {
-	if (filled == 1) {
+    if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) <= 1) {
+	if (atomic_read(&decoder->SurfacesFilled) == 1) {
 	    ++decoder->FramesDuped;
 	    // FIXME: don't warn after stream start, don't warn during pause
 	    err =
@@ -10872,13 +10870,11 @@ void VdpauGetStats(VdpauDecoder * decoder, int *missed, int *duped,
 static void VdpauSyncDecoder(VdpauDecoder * decoder)
 {
     int err;
-    int filled;
     int64_t audio_clock;
     int64_t video_clock;
 
     err = 0;
     video_clock = VdpauGetClock(decoder);
-    filled = atomic_read(&decoder->SurfacesFilled);
 
     EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold : 0));
     if (EnoughVideo && EnoughAudio && !AudioRunning) {
@@ -10956,7 +10952,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	decoder->LastAVDiff = diff;
 #ifdef DEBUG
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
-	    Debug(3, "video/vdpau: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, filled);
+	    Debug(3, "video/vdpau: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, atomic_read(&decoder->SurfacesFilled));
 #endif
 	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = VdpauMessage(3, "video: audio/video difference too big\n");
@@ -10974,12 +10970,12 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
 	    goto out;
-	} else if (diff < lower_limit * 90 && filled > 1 + 2 * decoder->Interlaced) {
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) > 1 + 2 * decoder->Interlaced) {
 	    err = VdpauMessage(3, "video: speed up video, droping frame\n");
 	    ++decoder->FramesDropped;
 	    VdpauAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 1;
-	} else if (diff < lower_limit * 90 && !filled && !IsReplay()) {
+	} else if (diff < lower_limit * 90 && !atomic_read(&decoder->SurfacesFilled) && !IsReplay()) {
 	    err = VdpauMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
@@ -10999,8 +10995,8 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 
   skip_sync:
     // check if next field is available
-    if (decoder->SurfaceField && filled <= 1 + 2 * decoder->Interlaced) {
-	if (filled == 1 + 2 * decoder->Interlaced) {
+    if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) <= 1 + 2 * decoder->Interlaced) {
+	if (atomic_read(&decoder->SurfacesFilled) == 1 + 2 * decoder->Interlaced) {
 	    ++decoder->FramesDuped;
 	    // FIXME: don't warn after stream start, don't warn during pause
 	    err =
@@ -13446,13 +13442,11 @@ void CuvidGetStats(CuvidDecoder * decoder, int *missed, int *duped,
 static void CuvidSyncDecoder(CuvidDecoder * decoder)
 {
     int err;
-    int filled;
     int64_t audio_clock;
     int64_t video_clock;
 
     err = 0;
     video_clock = CuvidGetClock(decoder);
-    filled = atomic_read(&decoder->SurfacesFilled);
 
     EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold : 0));
     if (EnoughVideo && EnoughAudio && !AudioRunning) {
@@ -13530,7 +13524,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	decoder->LastAVDiff = diff;
 #ifdef DEBUG
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
-	    Debug(3, "video/cuvid: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, filled);
+	    Debug(3, "video/cuvid: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, atomic_read(&decoder->SurfacesFilled));
 #endif
 	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = CuvidMessage(3, "video: audio/video difference too big\n");
@@ -13548,12 +13542,12 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
 	    goto out;
-	} else if (diff < lower_limit * 90 && filled > 1 + 2 * decoder->Interlaced) {
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) > 1 + 2 * decoder->Interlaced) {
 	    err = CuvidMessage(3, "video: speed up video, droping frame\n");
 	    ++decoder->FramesDropped;
 	    CuvidAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 1;
-	} else if (diff < lower_limit * 90 && !filled && !IsReplay()) {
+	} else if (diff < lower_limit * 90 && !atomic_read(&decoder->SurfacesFilled) && !IsReplay()) {
 	    err = CuvidMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
@@ -13573,8 +13567,8 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 
   skip_sync:
     // check if next field is available
-    if (decoder->SurfaceField && filled <= 1 + 2 * decoder->Interlaced) {
-	if (filled == 1 + 2 * decoder->Interlaced) {
+    if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) <= 1 + 2 * decoder->Interlaced) {
+	if (atomic_read(&decoder->SurfacesFilled) == 1 + 2 * decoder->Interlaced) {
 	    ++decoder->FramesDuped;
 	    // FIXME: don't warn after stream start, don't warn during pause
 	    err =
