@@ -6831,7 +6831,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    ++decoder->FramesDropped;
 	    VaapiAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 1;
-	} else if (diff < lower_limit * 90 && !atomic_read(&decoder->SurfacesFilled) && !IsReplay()) {
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced && !IsReplay()) {
 	    err = VaapiMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
@@ -10979,7 +10979,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    ++decoder->FramesDropped;
 	    VdpauAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 1;
-	} else if (diff < lower_limit * 90 && !atomic_read(&decoder->SurfacesFilled) && !IsReplay()) {
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced && !IsReplay()) {
 	    err = VdpauMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
@@ -13553,7 +13553,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    ++decoder->FramesDropped;
 	    CuvidAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 1;
-	} else if (diff < lower_limit * 90 && !atomic_read(&decoder->SurfacesFilled) && !IsReplay()) {
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced && !IsReplay()) {
 	    err = CuvidMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
