@@ -573,7 +573,7 @@ extern pthread_cond_t AudioStartCond;	///< condition variable
 volatile int EnoughVideo;
 extern volatile int EnoughAudio;
 volatile VideoResolutions VideoResolution;
-static int VideoStartThreshold = 15;
+static int VideoStartThreshold = 16;
 void AudioDelayms(int);
 //----------------------------------------------------------------------------
 //	Common Functions
