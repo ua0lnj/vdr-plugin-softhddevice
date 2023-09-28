@@ -6507,7 +6507,7 @@ static void VaapiDisplayFrame(void)
 #endif
 	filled = atomic_read(&decoder->SurfacesFilled);
 	// no surface availble show black with possible osd
-	if (filled < 1 + 2 * decoder->Interlaced && decoder->Closing) {
+	if (filled <= 1 && decoder->Closing) {
 	    if ((VideoShowBlackPicture && !decoder->TrickSpeed)
 		|| (VideoShowBlackPicture && decoder->Closing < -300)) {
 		VaapiBlackSurface(decoder);
@@ -6795,7 +6795,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 		goto out;
 	    }
 	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
-		if (!(decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced)) {
+		if (atomic_read(&decoder->SurfacesFilled) > 1) {
 		    Debug(3,"drop video\n");
 		    VaapiAdvanceDecoderFrame(decoder);
 		}
@@ -6826,12 +6826,12 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
 	    goto out;
-	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) > 1 + decoder->Interlaced) { // double advance possible?
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) > 2) { // double advance possible?
 	    err = VaapiMessage(3, "video: speed up video, droping frame\n");
 	    ++decoder->FramesDropped;
 	    VaapiAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 1;
-	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced && !IsReplay()) {
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 && !IsReplay()) {
 	    err = VaapiMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
@@ -6851,7 +6851,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 
   skip_sync:
     // is it not possible, to advance the surface and/or the field?
-    if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced) {
+    if (atomic_read(&decoder->SurfacesFilled) <= 1) {
 	++decoder->FramesDuped;
 	// FIXME: don't warn after stream start, don't warn during pause
 	err =
