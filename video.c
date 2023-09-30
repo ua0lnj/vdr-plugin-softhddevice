@@ -7584,8 +7584,10 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 		goto out;
 	    }
 	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
-		Debug(3,"drop video\n");
-		VaapiAdvanceDecoderFrame(decoder);
+		if (!(decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced)) {
+		    Debug(3,"drop video\n");
+		    VaapiAdvanceDecoderFrame(decoder);
+		}
 		goto skip_sync;
 	    }
 	}
@@ -12017,8 +12019,10 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 		goto out;
 	    }
 	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
-		Debug(3,"drop video\n");
-		VdpauAdvanceDecoderFrame(decoder);
+		if (!(decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced)) {
+		    Debug(3,"drop video\n");
+		    VdpauAdvanceDecoderFrame(decoder);
+		}
 		goto skip_sync;
 	    }
 	}
@@ -14803,8 +14807,10 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 		goto out;
 	    }
 	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
-		Debug(3,"drop video\n");
-		CuvidAdvanceDecoderFrame(decoder);
+		if (!(decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced)) {
+		    Debug(3,"drop video\n");
+		    CuvidAdvanceDecoderFrame(decoder);
+		}
 		goto skip_sync;
 	    }
 	}
@@ -17362,8 +17368,10 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 		goto out;
 	    }
 	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
-		Debug(3,"drop video\n");
-		NVdecAdvanceDecoderFrame(decoder);
+		if (!(decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced)) {
+		    Debug(3,"drop video\n");
+		    NVdecAdvanceDecoderFrame(decoder);
+		}
 		goto skip_sync;
 	    }
 	}
@@ -19626,8 +19634,10 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 		goto out;
 	    }
 	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
-		Debug(3,"drop video\n");
-		CpuAdvanceDecoderFrame(decoder);
+		if (!(decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced)) {
+		    Debug(3,"drop video\n");
+		    CpuAdvanceDecoderFrame(decoder);
+		}
 		goto skip_sync;
 	    }
 	}
