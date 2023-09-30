@@ -7583,7 +7583,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 		AudioFlushBuffers();
 		goto out;
 	    }
-	    if((video_clock < audio_clock - VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
+	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
 		Debug(3,"drop video\n");
 		VaapiAdvanceDecoderFrame(decoder);
 		goto skip_sync;
@@ -12016,7 +12016,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 		AudioFlushBuffers();
 		goto out;
 	    }
-	    if((video_clock < audio_clock - VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
+	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
 		Debug(3,"drop video\n");
 		VdpauAdvanceDecoderFrame(decoder);
 		goto skip_sync;
@@ -14802,7 +14802,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 		AudioFlushBuffers();
 		goto out;
 	    }
-	    if((video_clock < audio_clock - VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
+	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
 		Debug(3,"drop video\n");
 		CuvidAdvanceDecoderFrame(decoder);
 		goto skip_sync;
@@ -17361,7 +17361,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 		AudioFlushBuffers();
 		goto out;
 	    }
-	    if((video_clock < audio_clock - VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
+	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
 		Debug(3,"drop video\n");
 		NVdecAdvanceDecoderFrame(decoder);
 		goto skip_sync;
@@ -19625,7 +19625,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 		AudioFlushBuffers();
 		goto out;
 	    }
-	    if((video_clock < audio_clock - VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
+	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
 		Debug(3,"drop video\n");
 		CpuAdvanceDecoderFrame(decoder);
 		goto skip_sync;
