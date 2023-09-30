@@ -566,7 +566,7 @@ msgstr "Farbton (%d..[%d]..%d)"
 
 #, c-format
 msgid "Skin Tone Enhancement (%d..[%d]..%d)"
-msgstr "Skin Farbton verbesserung (%d..[%d]..%d)""
+msgstr "Skin Farbton verbesserung (%d..[%d]..%d)"
 
 msgid "Scaling"
 msgstr "Skalierung"
