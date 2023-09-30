@@ -444,7 +444,7 @@ msgid "[softhddev] ready%s\n"
 msgstr ""
 
 msgid "A software and GPU emulated UHD device"
-msgstr "Ein Software und GPU emulieres UHD-Gerät"
+msgstr "Ein Software und GPU emuliertes UHD-Gerät"
 
 msgid "SoftHdDevice"
 msgstr "SoftHdDevice"
@@ -489,10 +489,10 @@ msgid "Hide main menu entry"
 msgstr "Verstecke Hauptmenüeintrag"
 
 msgid "Store video geometry"
-msgstr ""
+msgstr "Video geometrie speichern?"
 
 msgid "Do on window close"
-msgstr ""
+msgstr "Beim Fenster schließen"
 
 msgid "Osd size"
 msgstr "OSD Größe"
@@ -504,7 +504,7 @@ msgid "Osd height"
 msgstr "OSD Höhe"
 
 msgid "GPU mem used for image caching (MB)"
-msgstr ""
+msgstr "GPU Speicher für Zwischenspeicher (MB)"
 
 msgid "Suspend"
 msgstr "Unterbrechen"
@@ -522,7 +522,7 @@ msgid "Video"
 msgstr "Video"
 
 msgid "Disable Screensaver"
-msgstr ""
+msgstr "Bildschirmschoner abschalten"
 
 msgid "Enable Screensaver(DPMS) at black screen"
 msgstr "Bildschirmschoner(DPMS) bei schwarzen Bild  aktivieren"
@@ -566,7 +566,7 @@ msgstr "Farbton (%d..[%d]..%d)"
 
 #, c-format
 msgid "Skin Tone Enhancement (%d..[%d]..%d)"
-msgstr ""
+msgstr "Skin Farbton verbesserung (%d..[%d]..%d)""
 
 msgid "Scaling"
 msgstr "Skalierung"
@@ -575,14 +575,14 @@ msgid "Deinterlace"
 msgstr "Deinterlace"
 
 msgid "SkipChromaDeinterlace"
-msgstr ""
+msgstr "Kein ChromaDeinterlace"
 
 msgid "Inverse Telecine"
 msgstr "Inverse Filmübertragung"
 
 #, c-format
 msgid "Denoise (%d..[%d]..%d)"
-msgstr ""
+msgstr "Entrauschen (%d..[%d]..%d)"
 
 #, c-format
 msgid "Sharpen (%d..[%d]..%d)"
