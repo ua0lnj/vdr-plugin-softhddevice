@@ -252,6 +252,10 @@ extern void *GetVDPAUDevice(void);
 extern void *GetVDPAUProcAdress(void);
     /// Get VDPAU OSD Output Surface
 extern void *GetVDPAUOsdOutputSurface(void);
+#ifdef USE_GLX
+extern void *GetVdpauGlxOsdOutputTexture(unsigned int);
+extern int VdpauInitGlx(void);
+#endif
 #endif
 #ifdef USE_CUVID
 extern void *GetCuvidOsdOutputTexture(unsigned int);

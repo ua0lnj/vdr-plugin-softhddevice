@@ -546,7 +546,7 @@ cOglOutputFb::cOglOutputFb(GLint width, GLint height) : cOglFb(width, height, wi
 
 cOglOutputFb::~cOglOutputFb(void) {
 #ifdef USE_VDPAU
-    if (VideoIsDriverVdpau()) {
+    if (!strcasecmp(VideoGetDriverName(), "vdpau")) {
         glVDPAUUnregisterSurfaceNV(surface);
     }
 #endif
@@ -595,6 +595,13 @@ bool cOglOutputFb::Init(void) {
     }
 #endif
 #endif
+#ifdef USE_VDPAU
+#ifdef USE_GLX
+    if (!strcasecmp(VideoGetDriverName(), "vdpau-glx")) {
+        GetVdpauGlxOsdOutputTexture(texture);
+    }
+#endif
+#endif
     glBindTexture(GL_TEXTURE_2D, texture);
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
@@ -611,7 +618,7 @@ bool cOglOutputFb::Init(void) {
         return false;
     }
 #ifdef USE_VDPAU
-    if (VideoIsDriverVdpau()) {
+    if (!strcasecmp(VideoGetDriverName(), "vdpau")) {
         //fetching osd vdpau output surface from softhddevice
         void *vdpauOsdOutputSurface = GetVDPAUOsdOutputSurface();
 
@@ -647,7 +654,7 @@ bool cOglOutputFb::Init(void) {
 
 void cOglOutputFb::BindWrite(void) {
 #ifdef USE_VDPAU
-    if (VideoIsDriverVdpau()) {
+    if (!strcasecmp(VideoGetDriverName(), "vdpau")) {
         glVDPAUMapSurfacesNV(1, &surface);
     }
 #endif
@@ -656,7 +663,7 @@ void cOglOutputFb::BindWrite(void) {
 
 void cOglOutputFb::Unbind(void) {
 #ifdef USE_VDPAU
-    if (VideoIsDriverVdpau()) {
+    if (!strcasecmp(VideoGetDriverName(), "vdpau")) {
         glVDPAUUnmapSurfacesNV(1, &surface);
     }
 #endif
@@ -1628,7 +1635,7 @@ void cOglThread::Action(void) {
     }
     dsyslog("[softhddev]Shaders initialized");
 #ifdef USE_VDPAU
-    if (VideoIsDriverVdpau()) {
+    if (!strcasecmp(VideoGetDriverName(), "vdpau")) {
         if (!InitVdpauInterop()) {
             esyslog("[softhddev]: vdpau interop NOT initialized");
             Cleanup();
@@ -1678,7 +1685,7 @@ void cOglThread::Action(void) {
 bool cOglThread::InitOpenGL(void) {
     int egl = 0;
 #ifdef USE_VDPAU
-    if (VideoIsDriverVdpau()) {
+    if (!strcasecmp(VideoGetDriverName(), "vdpau")) {
         const char *displayName = X11DisplayName;
         if (!displayName) {
             displayName = getenv("DISPLAY");
@@ -1751,6 +1758,13 @@ bool cOglThread::InitOpenGL(void) {
     }
 #endif
 #endif
+#ifdef USE_VDPAU
+#ifdef USE_GLX
+    if (!strcasecmp(VideoGetDriverName(), "vdpau-glx")) {
+        if (!VdpauInitGlx()) return false;
+    }
+#endif
+#endif
     glewExperimental = GL_TRUE;
     GLenum err = glewInit();
     if(err != GLEW_OK) {
@@ -1811,7 +1825,7 @@ void cOglThread::Cleanup(void) {
     DeleteShaders();
     cOglFont::Cleanup();
 #ifdef USE_VDPAU
-    if (VideoIsDriverVdpau()) {
+    if (!strcasecmp(VideoGetDriverName(), "vdpau")) {
         glutExit();
         glVDPAUFiniNV();
     }

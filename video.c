@@ -985,7 +985,7 @@ static int GlxIsExtensionSupported(const char *ext)
     return 0;
 }
 
-#ifdef USE_VAAPI
+#if defined USE_VAAPI || defined USE_VDPAU
 ///
 ///	Setup GLX decoder
 ///
@@ -8412,11 +8412,6 @@ typedef struct _vdpau_decoder_
     unsigned AutoCropBufferSize;	///< auto-crop buffer size
     AutoCropCtx AutoCrop[1];		///< auto-crop variables
 #endif
-#ifdef noyetUSE_GLX
-    GLuint GlTextures[2];		///< gl texture for VDPAU
-    void *GlxSurfaces[2];		///< VDPAU/GLX surface
-#endif
-
     VdpDecoderProfile Profile;		///< vdp decoder profile
     VdpDecoder VideoDecoder;		///< vdp video decoder
     VdpVideoMixer VideoMixer;		///< vdp video mixer
@@ -8484,6 +8479,10 @@ static VdpOutputSurface VdpauSurfacesRb[OUTPUT_SURFACES_MAX];
 static int VdpauSurfaceIndex;		///< current display surface
 static int VdpauSurfaceQueued;		///< number of display surfaces queued
 static struct timespec VdpauFrameTime;	///< time of last display
+#ifdef USE_GLX
+GLuint GlTextures[OUTPUT_SURFACES_MAX][2];		///< gl texture for VDPAU
+static GLvdpauSurfaceNV VdpauOutputSurfacesNV[OUTPUT_SURFACES_MAX];
+#endif
 
 #ifdef USE_BITMAP
     /// bitmap surfaces for osd
@@ -9220,7 +9219,6 @@ static void VdpauDelHwDecoder(VdpauDecoder * decoder)
 	    free(decoder->AutoCropBuffer);
 #endif
 	    free(decoder);
-
 	    return;
 	}
     }
@@ -9256,6 +9254,9 @@ static void VdpauInitOutputQueue(void)
     VdpRGBAFormat format;
     int i;
 
+#ifdef USE_GLX
+    if (GlxEnabled) goto output_surface;
+#endif
     status =
 	VdpauPresentationQueueTargetCreateX11(VdpauDevice, VideoWindow,
 	&VdpauQueueTarget);
@@ -9283,6 +9284,7 @@ static void VdpauInitOutputQueue(void)
     VdpauPresentationQueueSetBackgroundColor(VdpauQueue,
 	VdpauQueueBackgroundColor);
 
+output_surface:
     //
     //	Create display output surfaces
     //
@@ -9314,6 +9316,31 @@ static void VdpauInitOutputQueue(void)
     Debug(3,
 	"video/vdpau: created grab render output surface %dx%d with id 0x%08x\n",
 	VideoWindowWidth, VideoWindowHeight, VdpauGrabRenderSurface);
+
+#ifdef USE_GLX
+    if (GlxEnabled) {
+        if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxContext)) {
+	    Error(_("video/glx: can't make glx context current\n"));
+        }
+
+	for (i = 0; i < OUTPUT_SURFACES_MAX; ++i) {
+	GlxSetupDecoder(VideoWindowWidth, VideoWindowHeight,
+	    GlTextures[i]);
+	}
+
+	for (i = 0; i < OUTPUT_SURFACES_MAX; ++i) {
+	    VdpauOutputSurfacesNV[i] =
+		glVDPAURegisterOutputSurfaceNV((void*)(uintptr_t)VdpauSurfacesRb[i], GL_TEXTURE_2D,
+		    1, &GlTextures[i][0]);
+	    GlxCheck();
+	    Debug(3, "video/vdpau: created output GL surface %dx%d with id 0x%08x\n",
+		VideoWindowWidth, VideoWindowHeight, VdpauSurfacesRb[i]);
+
+	    glVDPAUSurfaceAccessNV(VdpauOutputSurfacesNV[i], GL_READ_ONLY);
+	    GlxCheck();
+	}
+    }
+#endif
 }
 
 ///
@@ -9332,6 +9359,18 @@ static void VdpauExitOutputQueue(void)
 	VdpauPresentationQueueTargetDestroy(VdpauQueueTarget);
 	VdpauQueueTarget = 0;
     }
+#ifdef USE_GLX
+    if (GlxEnabled) {
+        if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxContext)) {
+	    Error(_("video/glx: can't make glx context current\n"));
+        }
+	for (i = 0; i < OUTPUT_SURFACES_MAX; ++i) {
+	    glVDPAUUnregisterSurfaceNV(VdpauOutputSurfacesNV[i]);
+	    GlxCheck();
+	    glDeleteTextures(2, GlTextures[i]);
+	}
+    }
+#endif
     //
     //	destroy display output surfaces
     //
@@ -9792,6 +9831,19 @@ static int VdpauInit(const char *display_name)
 	Info(_("video/vdpau: 8bit BRGA format with %dx%d supported\n"),
 	    max_width, max_height);
     }
+#ifdef USE_GLX
+    if (GlxEnabled) {
+        void *vdpDevice = GetVDPAUDevice();
+        void *procAdress = GetVDPAUProcAdress();
+
+        if (!glXMakeCurrent(XlibDisplay, VideoWindow, GlxContext)) {
+	    Error(_("video/glx: can't make glx context current\n"));
+        }
+
+        glVDPAUInitNV(vdpDevice, procAdress);
+	GlxCheck();
+    }
+#endif
     // FIXME: does only check for rgba formats, but no action
 
     // FIXME: what if preemption happens during setup?
@@ -9807,6 +9859,31 @@ static int VdpauInit(const char *display_name)
 
     return 1;
 }
+
+#ifdef USE_GLX
+///
+///	VDPAU GLX setup.
+///
+///	@param display_name	x11/xcb display name
+///
+///	@returns true if VDPAU could be initialized, false otherwise.
+///
+static int VdpauGlxInit(const char *display_name)
+{
+    GlxEnabled = 1;
+
+    GlxInit();
+    if (GlxEnabled) {
+	GlxSetupWindow(VideoWindow, VideoWindowWidth, VideoWindowHeight,
+	    GlxSharedContext);
+    }
+    if (!GlxEnabled) {
+	Error(_("video/glx: glx error\n"));
+    }
+
+    return VdpauInit(display_name);
+}
+#endif
 
 ///
 ///	VDPAU cleanup.
@@ -9833,7 +9910,12 @@ static void VdpauExit(void)
 	}
 	VdpauDevice = 0;
     }
-
+#ifdef USE_GLX
+    if (GlxEnabled) {
+        glVDPAUFiniNV();
+        GlxCheck();
+    }
+#endif
     pthread_mutex_destroy(&VdpauGrabMutex);
 }
 
@@ -11261,6 +11343,30 @@ static void VdpauMixOsd(void)
     VdpauOsdSurfaceIndex = !VdpauOsdSurfaceIndex;
 }
 
+#ifdef USE_GLX
+static void VdpauMixVideoGlx(VdpauDecoder * decoder, int level)
+{
+    glViewport(0, 0, VideoWindowWidth, VideoWindowHeight);
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0.0, VideoWindowWidth, VideoWindowHeight, 0.0, -1.0, 1.0);
+
+    glVDPAUMapSurfacesNV (1,  &VdpauOutputSurfacesNV[VdpauSurfaceIndex]);
+    GlxCheck();
+
+    GlxRenderTexture(GlTextures[VdpauSurfaceIndex][0], decoder->OutputX,
+	decoder->OutputY, decoder->OutputWidth, decoder->OutputHeight);
+    GlxCheck();
+
+    glVDPAUUnmapSurfacesNV (1,  &VdpauOutputSurfacesNV[VdpauSurfaceIndex]);
+    GlxCheck();
+
+    Debug(4,"video/vdpau: yy glx video surface %d displayed\n", VdpauSurfaceIndex);
+    (void)level;
+}
+#endif
+
 ///
 ///	Render video surface to output surface.
 ///
@@ -11279,28 +11385,45 @@ static void VdpauMixVideo(VdpauDecoder * decoder, int level)
     // FIXME: can move to render frame
     VdpauCheckAutoCrop(decoder);
 #endif
-
-    if (level) {
-	dst_rect.x0 = decoder->VideoX;	// video window output (clip)
-	dst_rect.y0 = decoder->VideoY;
-	dst_rect.x1 = decoder->VideoX + decoder->VideoWidth;
-	dst_rect.y1 = decoder->VideoY + decoder->VideoHeight;
-    } else {
-	dst_rect.x0 = 0;		// complete window (clip)
+#ifdef USE_GLX
+    if (GlxEnabled) {
+	dst_rect.x0 = 0;
 	dst_rect.y0 = 0;
 	dst_rect.x1 = VideoWindowWidth;
 	dst_rect.y1 = VideoWindowHeight;
+	video_src_rect.x0 = decoder->CropX;
+	video_src_rect.y0 = decoder->CropY;
+	video_src_rect.x1 = decoder->CropX + decoder->CropWidth;
+	video_src_rect.y1 = decoder->CropY + decoder->CropHeight;
+	dst_video_rect.x0 = 0;
+	dst_video_rect.y0 = 0;
+	dst_video_rect.x1 = VideoWindowWidth;
+	dst_video_rect.y1 = VideoWindowHeight;
+    } else
+#endif
+    {
+	if (level) {
+	    dst_rect.x0 = decoder->VideoX;	// video window output (clip)
+	    dst_rect.y0 = decoder->VideoY;
+	    dst_rect.x1 = decoder->VideoX + decoder->VideoWidth;
+	    dst_rect.y1 = decoder->VideoY + decoder->VideoHeight;
+	} else {
+	    dst_rect.x0 = 0;		// complete window (clip)
+	    dst_rect.y0 = 0;
+	    dst_rect.x1 = VideoWindowWidth;
+	    dst_rect.y1 = VideoWindowHeight;
+	}
+
+	video_src_rect.x0 = decoder->CropX;	// video source (crop)
+	video_src_rect.y0 = decoder->CropY;
+	video_src_rect.x1 = decoder->CropX + decoder->CropWidth;
+	video_src_rect.y1 = decoder->CropY + decoder->CropHeight;
+
+	dst_video_rect.x0 = decoder->OutputX;	// video output (scale)
+	dst_video_rect.y0 = decoder->OutputY;
+	dst_video_rect.x1 = decoder->OutputX + decoder->OutputWidth;
+	dst_video_rect.y1 = decoder->OutputY + decoder->OutputHeight;
     }
-
-    video_src_rect.x0 = decoder->CropX;	// video source (crop)
-    video_src_rect.y0 = decoder->CropY;
-    video_src_rect.x1 = decoder->CropX + decoder->CropWidth;
-    video_src_rect.y1 = decoder->CropY + decoder->CropHeight;
-
-    dst_video_rect.x0 = decoder->OutputX;	// video output (scale)
-    dst_video_rect.y0 = decoder->OutputY;
-    dst_video_rect.x1 = decoder->OutputX + decoder->OutputWidth;
-    dst_video_rect.y1 = decoder->OutputY + decoder->OutputHeight;
 
     if (decoder->Interlaced
 	&& VideoDeinterlace[decoder->Resolution] != VideoDeinterlaceWeave) {
@@ -11394,6 +11517,7 @@ static void VdpauMixVideo(VdpauDecoder * decoder, int level)
 	    NULL, cps, past_n, past, current, future_n, future,
 	    &video_src_rect, VdpauSurfacesRb[VdpauSurfaceIndex], &dst_rect,
 	    &dst_video_rect, 0, NULL);
+
     } else {
 	if (decoder->Interlaced) {
 	    current = decoder->SurfacesRb[(decoder->SurfaceRead + 1)
@@ -11416,6 +11540,12 @@ static void VdpauMixVideo(VdpauDecoder * decoder, int level)
 
     Debug(4, "video/vdpau: yy video surface %#08x@%d displayed\n", current,
 	decoder->SurfaceRead);
+
+#ifdef USE_GLX
+    if (GlxEnabled) {
+        VdpauMixVideoGlx(decoder, level);
+    }
+#endif
 }
 
 ///
@@ -11433,8 +11563,11 @@ static void VdpauBlackSurface(VdpauDecoder * decoder)
     source_rect.y0 = 0;
     source_rect.x1 = 0;
     source_rect.y1 = 0;
-
-    if(((char*)decoder->Stream)[0]) {      //isPipStream == 0 PIP video
+#ifdef USE_GLX
+    if (GlxEnabled)			// already done
+	return;
+#endif
+    if(((char*)decoder->Stream)[0]) {      //isPipStream == 1 PIP video
 	output_rect.x0 = decoder->VideoX;
 	output_rect.y0 = decoder->VideoY;
 	output_rect.x1 = decoder->VideoWidth + decoder->VideoX;
@@ -11523,6 +11656,13 @@ static void VdpauDisplayFrame(void)
 	    }
 	}
     }
+#ifdef USE_GLX
+    if (GlxEnabled) {
+	glXMakeCurrent(XlibDisplay, VideoWindow, GlxContext);
+	glClear(GL_COLOR_BUFFER_BIT);
+	goto skip_query;
+    }
+#endif
     //
     //	check how many surfaces are queued
     //
@@ -11555,6 +11695,8 @@ static void VdpauDisplayFrame(void)
 	Error(_("video/vdpau: can't block queue: %s\n"),
 	    VdpauGetErrorString(status));
     }
+
+skip_query:
     // check if surface was displayed for more than 1 frame
     // FIXME: 21 only correct for 50Hz
     if (last_time && first_time > last_time + 21 * 1000 * 1000) {
@@ -11616,32 +11758,63 @@ static void VdpauDisplayFrame(void)
 	    X11SuspendScreenSaver(Connection, 0);
 #endif
 	}
-
 	VdpauMixVideo(decoder, i);
     }
+#ifdef USE_GLX
+    if (GlxEnabled) {
+	//
+	//	add OSD
+	//
+	if (OsdShown) {
+            glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
 
-    //
-    //	add osd to surface
-    //
-    if (OsdShown) {			// showing costs performance
-	VdpauMixOsd();
-    }
-    //
-    //	place surface in presentation queue
-    //
-    status =
-	VdpauPresentationQueueDisplay(VdpauQueue,
-	VdpauSurfacesRb[VdpauSurfaceIndex], 0, 0, 0);
-    if (status != VDP_STATUS_OK) {
-	Error(_("video/vdpau: can't queue display: %s\n"),
-	    VdpauGetErrorString(status));
-    }
-    // FIXME: CLOCK_MONOTONIC_RAW
-    clock_gettime(CLOCK_MONOTONIC, &VdpauFrameTime);
-    for (i = 0; i < VdpauDecoderN; ++i) {
-	// remember time of last shown surface
-	VdpauDecoders[i]->FrameTime = VdpauFrameTime;
-    }
+            glViewport(0, 0, VideoWindowWidth, VideoWindowHeight);
+            glMatrixMode(GL_PROJECTION);
+            glLoadIdentity();
+            glOrtho(0.0, VideoWindowWidth, VideoWindowHeight, 0.0, -1.0, 1.0);
+            GlxCheck();
+#ifdef USE_OPENGLOSD
+            if(!DisableOglOsd && OsdGlTexture) {
+                GlxRenderTexture(OsdGlTexture, 0,0, VideoWindowWidth, VideoWindowHeight);
+            } else
+#endif
+	    GlxRenderTexture(OsdGlTextures[OsdIndex], 0, 0, VideoWindowWidth, VideoWindowHeight);
+	    // FIXME: toggle osd
+	}
+
+	glXSwapBuffers(XlibDisplay, VideoWindow);
+
+	glXMakeCurrent(XlibDisplay, None, NULL);
+	GlxCheck();
+	goto skip_queue;
+    } else
+#endif
+    {
+	//
+	//	add osd to surface
+	//
+	if (OsdShown) {			// showing costs performance
+	    VdpauMixOsd();
+	}
+   }
+	//
+	//	place surface in presentation queue
+	//
+
+	status =
+	    VdpauPresentationQueueDisplay(VdpauQueue,
+	    VdpauSurfacesRb[VdpauSurfaceIndex], 0, 0, 0);
+	if (status != VDP_STATUS_OK) {
+	    Error(_("video/vdpau: can't queue display: %s\n"),
+		VdpauGetErrorString(status));
+	}
+skip_queue:
+	// FIXME: CLOCK_MONOTONIC_RAW
+	clock_gettime(CLOCK_MONOTONIC, &VdpauFrameTime);
+	for (i = 0; i < VdpauDecoderN; ++i) {
+	    // remember time of last shown surface
+	    VdpauDecoders[i]->FrameTime = VdpauFrameTime;
+	}
 
     VdpauSurfaceIndex = (VdpauSurfaceIndex + 1) % OUTPUT_SURFACES_MAX;
 
@@ -12039,6 +12212,9 @@ static int VdpauPreemptionRecover(void)
     VdpStatus status;
     int i;
 
+#ifdef USE_GLX
+    if (GlxEnabled) goto skip_callback;
+#endif
     status =
 	vdp_device_create_x11(XlibDisplay, DefaultScreen(XlibDisplay),
 	&VdpauDevice, &VdpauGetProcAddress);
@@ -12055,6 +12231,7 @@ static int VdpauPreemptionRecover(void)
 	    VdpauGetErrorString(status));
     }
 
+skip_callback:
     VdpauPreemption = 0;
     Debug(3, "video/vdpau: display preemption recovery\n");
 
@@ -12483,7 +12660,6 @@ static int VdpauMaxPixmapSize (void)
 	return MAX_PIXMAP_SIZE_VDPAU;
 }
 
-
 void *GetVDPAUDevice(void) {
     return (void*)(uintptr_t)VdpauDevice;
 }
@@ -12501,7 +12677,6 @@ void *GetVDPAUOsdOutputSurface(void) {
     return NULL;
 #endif
 }
-
 
 ///
 ///	VDPAU module.
@@ -12548,7 +12723,89 @@ static const VideoModule VdpauModule = {
     .Exit = VdpauExit,
 };
 
+#ifdef USE_GLX
+
+#ifdef USE_OPENGLOSD
+void *GetVdpauGlxOsdOutputTexture(GLuint texture) {
+    OsdGlTexture = texture;
+    return 0;
+}
+
+int VdpauInitGlx(void) {
+    int a = 0;
+
+    if (!GlxEnabled) {
+        Debug(3,"video/osd: can't create glx context\n");
+        return 0;
+    }
+    //after run an external player from time to time vdr not set playmode 1
+    //then try start GLX forced.
+    //is it a vdr bug or external player plugin???
+    while (!GlxSharedContext || !GlxThreadContext){
+        usleep(1000);
+        a++;
+        if (a > 10 && a < 1000) {
+            Debug(3,"Try start GLX forced\n");
+            VideoDisplayWakeup();
+            a = 1000;
+        }
+        if (a > 1010) return 0;
+    }
+    Debug(3,"Create OSD GLX context\n");
+    glXMakeCurrent(XlibDisplay, None, NULL);
+    glXMakeCurrent(XlibDisplay, VideoWindow, GlxSharedContext);
+    return 1;
+}
 #endif
+
+///
+///	VDPAU GLX module.
+///
+static const VideoModule VdpauGlxModule = {
+    .Name = "vdpau-glx",
+    .Enabled = 1,
+    .NewHwDecoder =
+	(VideoHwDecoder * (*const)(VideoStream *)) VdpauNewHwDecoder,
+    .DelHwDecoder = (void (*const) (VideoHwDecoder *))VdpauDelHwDecoder,
+    .GetSurface = (unsigned (*const) (VideoHwDecoder *,
+	    const AVCodecContext *))VdpauGetSurface,
+    .ReleaseSurface =
+	(void (*const) (VideoHwDecoder *, unsigned))VdpauReleaseSurface,
+    .get_format = (enum AVPixelFormat(*const) (VideoHwDecoder *,
+	    AVCodecContext *, const enum AVPixelFormat *))Vdpau_get_format,
+    .RenderFrame = (void (*const) (VideoHwDecoder *,
+	    const AVCodecContext *, const AVFrame *))VdpauSyncRenderFrame,
+    .GetHwAccelContext = (void *(*const)(VideoHwDecoder *))
+	VdpauGetHwAccelContext,
+    .SetClock = (void (*const) (VideoHwDecoder *, int64_t))VdpauSetClock,
+    .GetClock = (int64_t(*const) (const VideoHwDecoder *))VdpauGetClock,
+    .SetClosing = (void (*const) (const VideoHwDecoder *))VdpauSetClosing,
+    .ResetStart = (void (*const) (const VideoHwDecoder *))VdpauResetStart,
+    .SetTrickSpeed =
+	(void (*const) (const VideoHwDecoder *, int))VdpauSetTrickSpeed,
+#ifdef USE_GRAB
+    .GrabOutput = VdpauGrabOutputSurface,
+#endif
+    .GetStats = (void (*const) (VideoHwDecoder *, int *, int *, int *,
+	    int *))VdpauGetStats,
+    .SetBackground = VdpauSetBackground,
+    .SetVideoMode = VdpauSetVideoMode,
+#ifdef USE_AUTOCROP
+    .ResetAutoCrop = VdpauResetAutoCrop,
+#endif
+    .DisplayHandlerThread = VdpauDisplayHandlerThread,
+    .OsdClear = GlxOsdClear,
+    .OsdDrawARGB = GlxOsdDrawARGB,
+    .OsdInit = GlxOsdInit,
+    .OsdExit = GlxOsdExit,
+    .MaxPixmapSize = GlxMaxPixmapSize,
+    .Init = VdpauGlxInit,
+    .Exit = VdpauExit,
+
+};
+#endif //GLX
+
+#endif //VDPAU
 
 //----------------------------------------------------------------------------
 //	CUVID
@@ -20605,6 +20862,9 @@ void VideoDisplayWakeup(void)
 static const VideoModule *VideoModules[] = {
 #ifdef USE_VDPAU
     &VdpauModule,
+#ifdef USE_GLX
+    &VdpauGlxModule,
+#endif
 #endif
 #ifdef USE_VAAPI
     &VaapiModule,
@@ -21106,7 +21366,11 @@ void VideoGetVideoSize(VideoHwDecoder * hw_decoder, int *width, int *height,
     *aspect_den = 9;
     // FIXME: test to check if working, than make module function
 #ifdef USE_VDPAU
-    if (VideoUsedModule == &VdpauModule) {
+    if (VideoUsedModule == &VdpauModule
+#ifdef USE_GLX
+    || VideoUsedModule == &VdpauGlxModule
+#endif
+    ) {
 	*width = hw_decoder->Vdpau.InputWidth;
 	*height = hw_decoder->Vdpau.InputHeight;
 	av_reduce(aspect_num, aspect_den,
@@ -21497,7 +21761,11 @@ const char *VideoGetDriverName(void)
 int VideoIsDriverVdpau(void)
 {
 #ifdef USE_VDPAU
-    if (VideoUsedModule == &VdpauModule) {
+    if (VideoUsedModule == &VdpauModule
+#ifdef USE_GLX
+    || VideoUsedModule == &VdpauGlxModule
+#endif
+    ) {
 	return 1;
     }
 #endif
@@ -21661,7 +21929,11 @@ void VideoSetBrightness(int brightness)
 {
     // FIXME: test to check if working, than make module function
 #ifdef USE_VDPAU
-    if (VideoUsedModule == &VdpauModule) {
+    if (VideoUsedModule == &VdpauModule
+#ifdef USE_GLX
+    || VideoUsedModule == &VdpauGlxModule
+#endif
+    ) {
 	VdpauDecoders[0]->Procamp.brightness = VideoConfigClamp(&VdpauConfigBrightness, brightness) *
 					       VdpauConfigBrightness.scale;
     }
@@ -21698,7 +21970,11 @@ void VideoSetBrightness(int brightness)
 int VideoGetBrightnessConfig(int *minvalue, int *defvalue, int *maxvalue)
 {
 #ifdef USE_VDPAU
-    if (VideoUsedModule == &VdpauModule) {
+    if (VideoUsedModule == &VdpauModule
+#ifdef USE_GLX
+    || VideoUsedModule == &VdpauGlxModule
+#endif
+    ) {
 	*minvalue = VdpauConfigBrightness.min_value;
 	*defvalue = VdpauConfigBrightness.def_value;
 	*maxvalue = VdpauConfigBrightness.max_value;
@@ -21770,7 +22046,11 @@ void VideoSetContrast(int contrast)
 {
     // FIXME: test to check if working, than make module function
 #ifdef USE_VDPAU
-    if (VideoUsedModule == &VdpauModule) {
+    if (VideoUsedModule == &VdpauModule
+#ifdef USE_GLX
+    || VideoUsedModule == &VdpauGlxModule
+#endif
+    ) {
 	VdpauDecoders[0]->Procamp.contrast = VideoConfigClamp(&VdpauConfigContrast, contrast) *
 					     VdpauConfigContrast.scale;
     }
@@ -21807,7 +22087,11 @@ void VideoSetContrast(int contrast)
 int VideoGetContrastConfig(int *minvalue, int *defvalue, int *maxvalue)
 {
 #ifdef USE_VDPAU
-    if (VideoUsedModule == &VdpauModule) {
+    if (VideoUsedModule == &VdpauModule
+#ifdef USE_GLX
+    || VideoUsedModule == &VdpauGlxModule
+#endif
+    ) {
 	*minvalue = VdpauConfigContrast.min_value;
 	*defvalue = VdpauConfigContrast.def_value;
 	*maxvalue = VdpauConfigContrast.max_value;
@@ -21879,7 +22163,11 @@ void VideoSetSaturation(int saturation)
 {
     // FIXME: test to check if working, than make module function
 #ifdef USE_VDPAU
-    if (VideoUsedModule == &VdpauModule) {
+    if (VideoUsedModule == &VdpauModule
+#ifdef USE_GLX
+    || VideoUsedModule == &VdpauGlxModule
+#endif
+    ) {
 	VdpauDecoders[0]->Procamp.saturation = VideoConfigClamp(&VdpauConfigSaturation, saturation) *
 					       VdpauConfigSaturation.scale;
     }
@@ -21916,7 +22204,11 @@ void VideoSetSaturation(int saturation)
 int VideoGetSaturationConfig(int *minvalue, int *defvalue, int *maxvalue)
 {
 #ifdef USE_VDPAU
-    if (VideoUsedModule == &VdpauModule) {
+    if (VideoUsedModule == &VdpauModule
+#ifdef USE_GLX
+    || VideoUsedModule == &VdpauGlxModule
+#endif
+    ) {
 	*minvalue = VdpauConfigSaturation.min_value;
 	*defvalue = VdpauConfigSaturation.def_value;
 	*maxvalue = VdpauConfigSaturation.max_value;
@@ -21988,7 +22280,11 @@ void VideoSetHue(int hue)
 {
     // FIXME: test to check if working, than make module function
 #ifdef USE_VDPAU
-    if (VideoUsedModule == &VdpauModule) {
+    if (VideoUsedModule == &VdpauModule
+#ifdef USE_GLX
+    || VideoUsedModule == &VdpauGlxModule
+#endif
+    ) {
 	VdpauDecoders[0]->Procamp.hue = VideoConfigClamp(&VdpauConfigHue, hue) *
 					VdpauConfigHue.scale;
     }
@@ -22024,7 +22320,11 @@ void VideoSetHue(int hue)
 int VideoGetHueConfig(int *minvalue, int *defvalue, int *maxvalue)
 {
 #ifdef USE_VDPAU
-    if (VideoUsedModule == &VdpauModule) {
+    if (VideoUsedModule == &VdpauModule
+#ifdef USE_GLX
+    || VideoUsedModule == &VdpauGlxModule
+#endif
+    ) {
 	*minvalue = VdpauConfigHue.min_value;
 	*defvalue = VdpauConfigHue.def_value;
 	*maxvalue = VdpauConfigHue.max_value;
@@ -22096,7 +22396,11 @@ void VideoSetSkinToneEnhancement(int stde)
 {
     // FIXME: test to check if working, than make module function
 #ifdef USE_VDPAU
-    if (VideoUsedModule == &VdpauModule) {
+    if (VideoUsedModule == &VdpauModule
+#ifdef USE_GLX
+    || VideoUsedModule == &VdpauGlxModule
+#endif
+    ) {
 	VideoSkinToneEnhancement = VideoConfigClamp(&VdpauConfigStde, stde);
     }
 #endif
@@ -22150,7 +22454,11 @@ void VideoSetSkinToneEnhancement(int stde)
 int VideoGetSkinToneEnhancementConfig(int *minvalue, int *defvalue, int *maxvalue)
 {
 #ifdef USE_VDPAU
-    if (VideoUsedModule == &VdpauModule) {
+    if (VideoUsedModule == &VdpauModule
+#ifdef USE_GLX
+    || VideoUsedModule == &VdpauGlxModule
+#endif
+    ) {
         *minvalue = VdpauConfigStde.min_value;
         *defvalue = VdpauConfigStde.def_value;
         *maxvalue = VdpauConfigStde.max_value;
@@ -22244,7 +22552,11 @@ void VideoSetOutputPosition(VideoHwDecoder * hw_decoder, int x, int y,
 
     // FIXME: add function to module class
 #ifdef USE_VDPAU
-    if (VideoUsedModule == &VdpauModule) {
+    if (VideoUsedModule == &VdpauModule
+#ifdef USE_GLX
+    || VideoUsedModule == &VdpauGlxModule
+#endif
+    ) {
 	// check values to be able to avoid
 	// interfering with the video thread if possible
 
@@ -22608,7 +22920,11 @@ static const char *cpu_scaling_short[] = {
 int VideoGetScalingModes(const char* **long_table, const char* **short_table)
 {
 #ifdef USE_VDPAU
-    if (VideoUsedModule == &VdpauModule) {
+    if (VideoUsedModule == &VdpauModule
+#ifdef USE_GLX
+    || VideoUsedModule == &VdpauGlxModule
+#endif
+    ) {
 	*long_table = vdpau_scaling;
 	*short_table = vdpau_scaling_short;
 	return ARRAY_ELEMS(vdpau_scaling);
@@ -22748,7 +23064,11 @@ static const char *cpu_deinterlace_short[] = {
 int VideoGetDeinterlaceModes(const char* **long_table, const char* **short_table)
 {
 #ifdef USE_VDPAU
-    if (VideoUsedModule == &VdpauModule) {
+    if (VideoUsedModule == &VdpauModule
+#ifdef USE_GLX
+    || VideoUsedModule == &VdpauGlxModule
+#endif
+    ) {
 	*long_table = vdpau_deinterlace;
 	*short_table = vdpau_deinterlace_short;
 	return ARRAY_ELEMS(vdpau_deinterlace);
@@ -22870,7 +23190,11 @@ void VideoSetInverseTelecine(int onoff[VideoResolutionMax])
 void VideoSetDenoise(int level[VideoResolutionMax])
 {
 #ifdef USE_VDPAU
-    if (VideoUsedModule == &VdpauModule) {
+    if (VideoUsedModule == &VdpauModule
+#ifdef USE_GLX
+    || VideoUsedModule == &VdpauGlxModule
+#endif
+    ) {
 	int i;
 	for (i = 0; i < VideoResolutionMax; ++i) {
 	    level[i] = VideoConfigClamp(&VdpauConfigDenoise, level[i]);
@@ -22944,7 +23268,11 @@ void VideoSetDenoise(int level[VideoResolutionMax])
 int VideoGetDenoiseConfig(int *minvalue, int *defvalue, int *maxvalue)
 {
 #ifdef USE_VDPAU
-    if (VideoUsedModule == &VdpauModule) {
+    if (VideoUsedModule == &VdpauModule
+#ifdef USE_GLX
+    || VideoUsedModule == &VdpauGlxModule
+#endif
+    ) {
         *minvalue = VdpauConfigDenoise.min_value;
         *defvalue = VdpauConfigDenoise.def_value;
         *maxvalue = VdpauConfigDenoise.max_value;
@@ -23013,7 +23341,11 @@ int VideoGetDenoiseConfig(int *minvalue, int *defvalue, int *maxvalue)
 void VideoSetSharpen(int level[VideoResolutionMax])
 {
 #ifdef USE_VDPAU
-    if (VideoUsedModule == &VdpauModule) {
+    if (VideoUsedModule == &VdpauModule
+#ifdef USE_GLX
+    || VideoUsedModule == &VdpauGlxModule
+#endif
+    ) {
 	int i;
 	for (i = 0; i < VideoResolutionMax; ++i) {
 	    level[i] = VideoConfigClamp(&VdpauConfigSharpen, level[i]);
@@ -23087,7 +23419,11 @@ void VideoSetSharpen(int level[VideoResolutionMax])
 int VideoGetSharpenConfig(int *minvalue, int *defvalue, int *maxvalue)
 {
 #ifdef USE_VDPAU
-    if (VideoUsedModule == &VdpauModule) {
+    if (VideoUsedModule == &VdpauModule
+#ifdef USE_GLX
+    || VideoUsedModule == &VdpauGlxModule
+#endif
+    ) {
         *minvalue = VdpauConfigSharpen.min_value;
         *defvalue = VdpauConfigSharpen.def_value;
         *maxvalue = VdpauConfigSharpen.max_value;

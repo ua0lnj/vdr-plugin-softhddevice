@@ -22,7 +22,7 @@ A software and GPU emulated UHD output device plugin for VDR.
 Only 8-bit output now.
 
     o Video decoder CPU / VA-API / VDPAU / CUVID / NVDEC
-    o Video output VA-API / VDPAU / GLX (VA-API / CUVID / NVDEC / CPU) / EGL (VA-API / CUVID / NVDEC / CPU)
+    o Video output VA-API / VDPAU / GLX (VA-API / VDPAU / CUVID / NVDEC / CPU) / EGL (VA-API / CUVID / NVDEC / CPU)
     o OSD accelerated by GPU VDPAU / CUVID / NVDEC / VA-API-GLX/EGL / CPU-GLX/EGL
     o Audio FFMpeg / Alsa / Analog
     o Audio FFMpeg / Alsa / Digital
@@ -37,8 +37,6 @@ Only 8-bit output now.
     o Letterbox, Stretch and Center cut-out video display modes
     o atmo light support with plugin http://github.com/durchflieger/DFAtmo
     o PIP (Picture-in-Picture) (VDPAU / CUVID / NVDEC / VA-API-GLX/EGL / CPU-GLX/EGL)
-
-    o planned: Improved software deinterlacer (yadif or/and ffmpeg filters)
 
 To compile you must have the 'requires' installed.
 
@@ -312,7 +310,7 @@ Commandline:
     -f 			start with fullscreen window (only with window manager)
     -g geometry		x11 window geometry wxh+x+y
     -l loglevel		set the log level (0=none, 1=errors, 2=info, 3=debug)
-    -v device		video driver device (va-api, va-api-glx, va-api-egl, vdpau,
+    -v device		video driver device (va-api, va-api-glx, va-api-egl, vdpau, vdpau-glx,
 			     cuvid, cuvid-egl, nvdec, nvdec-egl, cpu-glx, cpu-egl, noop)
     -s 			start in suspended mode
     -x 			start x11 server, with -xx try to connect, if this fails
@@ -444,6 +442,6 @@ Optional:
 Note:
 	For old Intel video use va-api and va-api-glx.
 	For newest Intel video use va-api-egl.
-	For old Nvidia video use vdpau.
+	For old Nvidia video use vdpau and vdpau-glx.
 	For newest Nvidia video use cuvid and cuvid-egl or nvdec and nvdec-egl.
 	For all system with openGL you can use cpu-glx or cpu-egl.
