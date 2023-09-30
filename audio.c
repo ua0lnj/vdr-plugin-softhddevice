@@ -145,7 +145,7 @@ static int AudioSkip;			///< skip audio to sync to video
 
 static const int AudioBytesProSample = 2;	///< number of bytes per sample
 
-static int AudioBufferTime = 336;	///< audio buffer time in ms
+static int AudioBufferTime = 128;	///< audio buffer time in ms
 
 #ifdef USE_AUDIO_THREAD
 static pthread_t AudioThread;		///< audio play thread
@@ -2823,7 +2823,7 @@ void AudioPause(void)
 void AudioSetBufferTime(int delay)
 {
     if (!delay) {
-	delay = 336;
+	delay = 128;
     }
     AudioBufferTime = delay;
 }
