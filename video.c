@@ -632,6 +632,13 @@ static char EnableDPMSatBlackScreen;	///< flag we should enable dpms at black sc
 static char DisableScreensaver;		///< flag we disable screensaver
 #endif
 
+extern volatile char AudioRunning;
+extern volatile char AudioStarted;
+extern pthread_cond_t AudioStartCond;	///< condition variable
+volatile int EnoughVideo;
+extern volatile int EnoughAudio;
+volatile VideoResolutions VideoResolution;
+static int VideoStartThreshold = 15;
 void AudioDelayms(int);
 //----------------------------------------------------------------------------
 //	Common Functions
@@ -728,6 +735,7 @@ static void VideoSetPts(int64_t * pts_p, int interlaced,
 		return;
 	    }
 	} else {			// first new clock value
+	    EnoughVideo = 0;
 	    AudioVideoReady(pts);
 	}
 	if (*pts_p != pts && lastpts != pts) {
@@ -4346,6 +4354,7 @@ static void VaapiSetup(VaapiDecoder * decoder,
     // FIXME: interlaced not valid here?
     decoder->Resolution =
 	VideoResolutionGroup(width, height, decoder->Interlaced);
+    VideoResolution = decoder->Resolution;
     VaapiCreateSurfaces(decoder, width, height);
 
 #if defined USE_GLX && !defined VAAPI_NO_GLX
@@ -7518,6 +7527,14 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
     }
     audio_clock = AudioGetClock();
 
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold : 0));
+    if (EnoughVideo && EnoughAudio && !AudioRunning) {
+	Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
+	AudioStarted = 1;
+	AudioRunning = 1;
+	pthread_cond_signal(&AudioStartCond);
+    }
+
     // 60Hz: repeat every 5th field
     if (Video60HzMode && !(decoder->FramesDisplayed % 6)) {
 	if (audio_clock == (int64_t) AV_NOPTS_VALUE
@@ -7575,7 +7592,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    }
 	}
 	diff = video_clock - audio_clock - VideoAudioDelay;
-	lower_limit = !IsReplay() ? -25 : 32;
+	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 32;
 	//diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
 #ifdef DEBUG
@@ -9955,6 +9972,7 @@ static void VdpauSetupOutput(VdpauDecoder * decoder)
     decoder->Resolution =
 	VideoResolutionGroup(decoder->InputWidth, decoder->InputHeight,
 	decoder->Interlaced);
+    VideoResolution = decoder->Resolution;
     VdpauCreateSurfaces(decoder, decoder->InputWidth, decoder->InputHeight);
 
     VdpauMixerCreate(decoder);
@@ -11938,6 +11956,14 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
     video_clock = VdpauGetClock(decoder);
     filled = atomic_read(&decoder->SurfacesFilled);
 
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold : 0));
+    if (EnoughVideo && EnoughAudio && !AudioRunning) {
+	Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
+	AudioStarted = 1;
+	AudioRunning = 1;
+	pthread_cond_signal(&AudioStartCond);
+    }
+
     if (!decoder->SyncOnAudio) {
 	audio_clock = AV_NOPTS_VALUE;
 	// FIXME: 60Hz Mode
@@ -12001,7 +12027,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    }
 	}
 	diff = video_clock - audio_clock - VideoAudioDelay;
-	lower_limit = !IsReplay() ? -25 : 32;
+	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 32;
 	//diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
 #ifdef DEBUG
@@ -13570,6 +13596,7 @@ static void CuvidSetupOutput(CuvidDecoder * decoder)
     decoder->Resolution =
 	VideoResolutionGroup(decoder->InputWidth, decoder->InputHeight,
 	decoder->Interlaced);
+    VideoResolution = decoder->Resolution;
 
     CuvidMixerSetup(decoder);
 
@@ -14717,6 +14744,14 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
     video_clock = CuvidGetClock(decoder);
     filled = atomic_read(&decoder->SurfacesFilled);
 
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold : 0));
+    if (EnoughVideo && EnoughAudio && !AudioRunning) {
+	Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
+	AudioStarted = 1;
+	AudioRunning = 1;
+	pthread_cond_signal(&AudioStartCond);
+    }
+
     if (!decoder->SyncOnAudio) {
 	audio_clock = AV_NOPTS_VALUE;
 	// FIXME: 60Hz Mode
@@ -14780,7 +14815,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    }
 	}
 	diff = video_clock - audio_clock - VideoAudioDelay;
-	lower_limit = !IsReplay() ? -25 : 32;
+	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 32;
 	//diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
 #ifdef DEBUG
@@ -16032,6 +16067,7 @@ static void NVdecSetupOutput(NVdecDecoder * decoder)
     decoder->Resolution =
 	VideoResolutionGroup(decoder->InputWidth, decoder->InputHeight,
 	decoder->Interlaced);
+    VideoResolution = decoder->Resolution;
 
     NVdecMixerSetup(decoder);
 
@@ -17269,6 +17305,14 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
     video_clock = NVdecGetClock(decoder);
     filled = atomic_read(&decoder->SurfacesFilled);
 
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold : 0));
+    if (EnoughVideo && EnoughAudio && !AudioRunning) {
+        Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
+        AudioStarted = 1;
+        AudioRunning = 1;
+        pthread_cond_signal(&AudioStartCond);
+    }
+
     if (!decoder->SyncOnAudio) {
 	audio_clock = AV_NOPTS_VALUE;
 	// FIXME: 60Hz Mode
@@ -17332,7 +17376,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	    }
 	}
 	diff = video_clock - audio_clock - VideoAudioDelay;
-	lower_limit = !IsReplay() ? -25 : 32;
+	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 32;
 	//diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
 #ifdef DEBUG
@@ -18461,6 +18505,7 @@ static void CpuSetupOutput(CpuDecoder * decoder)
     decoder->Resolution =
 	VideoResolutionGroup(decoder->InputWidth, decoder->InputHeight,
 	decoder->Interlaced);
+    VideoResolution = decoder->Resolution;
 
     CpuMixerSetup(decoder);
 
@@ -19526,6 +19571,14 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
     video_clock = CpuGetClock(decoder);
     filled = atomic_read(&decoder->SurfacesFilled);
 
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold : 0));
+    if (EnoughVideo && EnoughAudio && !AudioRunning) {
+        Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
+        AudioStarted = 1;
+        AudioRunning = 1;
+        pthread_cond_signal(&AudioStartCond);
+    }
+
     if (!decoder->SyncOnAudio) {
 	audio_clock = AV_NOPTS_VALUE;
 	// FIXME: 60Hz Mode
@@ -19589,7 +19642,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	    }
 	}
 	diff = video_clock - audio_clock - VideoAudioDelay;
-	lower_limit = !IsReplay() ? -25 : 32;
+	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 32;
 	//diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
 #ifdef DEBUG

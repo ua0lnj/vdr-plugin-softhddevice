@@ -94,6 +94,7 @@
 #include "ringbuffer.h"
 #include "misc.h"
 #include "audio.h"
+#include "video.h"
 
 //----------------------------------------------------------------------------
 //	Declarations
@@ -137,8 +138,8 @@ static char AudioAppendAES;		///< flag automatic append AES
 static const char *AudioMixerDevice;	///< mixer device name
 static const char *AudioMixerChannel;	///< mixer channel name
 static char AudioDoingInit;		///> flag in init, reduce error
-static volatile char AudioRunning;	///< thread running / stopped
-static volatile char AudioStarted;	///< audio started
+volatile char AudioRunning;		///< thread running / stopped
+volatile char AudioStarted;		///< audio started
 static volatile char AudioPaused;	///< audio paused
 static volatile char AudioVideoIsReady;	///< video ready start early
 static int AudioSkip;			///< skip audio to sync to video
@@ -152,7 +153,7 @@ static pthread_t AudioThread;		///< audio play thread
 static pthread_mutex_t AudioMutex;	///< audio condition mutex
 pthread_mutex_t PTS_mutex;		///< PTS mutex
 pthread_mutex_t ReadAdvance_mutex;	///< PTS mutex
-static pthread_cond_t AudioStartCond;	///< condition variable
+pthread_cond_t AudioStartCond;		///< condition variable
 static char AudioThreadStop;		///< stop audio thread
 #else
 static const int AudioThread;		///< dummy audio thread
@@ -175,6 +176,9 @@ extern int VideoAudioDelay;		///< import audio/video delay
 extern volatile char SoftIsPlayingVideo;	///< stream contains video data
 extern int IsReplay(void);
 extern volatile char NewAudioStream;
+extern volatile int EnoughVideo;
+volatile int EnoughAudio;
+extern volatile VideoResolutions VideoResolution;
 
     /// default ring buffer size ~8s 8ch 16bit (3 * 5 * 7 * 8)
 static const unsigned AudioRingBufferSize = 3 * 5 * 7 * 8 * 8 * 1000;
@@ -2418,12 +2422,17 @@ void AudioEnqueue(const void *samples, int count)
 	}
 	if (remain <= AUDIO_MIN_BUFFER_FREE ||
 	    ((AudioVideoIsReady || !SoftIsPlayingVideo) &&
-	    AudioStartThreshold < n && !AudioSkip)) {
-	    // restart play-back
-	    // no lock needed, can wakeup next time
-	    AudioRunning = 1;
-	    AudioStarted = 1;
-	    pthread_cond_signal(&AudioStartCond);
+	    AudioStartThreshold < n && !AudioSkip)) { // enough audio
+	    if (!EnoughVideo && SoftIsPlayingVideo) { // not enough video
+		EnoughAudio = 1;
+	    } else { // enough video or radio
+		// restart play-back
+		// no lock needed, can wakeup next time
+		Debug(3, "audio: start audio after waiting for enough audio\n");
+		AudioRunning = 1;
+		AudioStarted = 1;
+		pthread_cond_signal(&AudioStartCond);
+	    }
 	}
     }
 }
@@ -2496,11 +2505,7 @@ void AudioVideoReady(int64_t pts)
     if (!AudioRunning || IsReplay()) {
 	int skip;
 
-	// buffer ~15 video frames
-	// FIXME: HDTV can use smaller video buffer
-	skip =
-	    pts - audio_pts - VideoAudioDelay - (IsReplay() ? 1 : 0) * 5 * 20 * 90
-		- (IsReplay() ? 0 : 1) * (5 * 20 * 90 + AudioBufferTime * 90);
+	skip = pts - audio_pts - VideoAudioDelay - (IsReplay() ? 0 : AudioBufferTime * 90) + (VideoResolution == VideoResolution576i && !IsReplay() ? 240 * 90 : 0);
 #ifdef DEBUG
 	fprintf(stderr, "%dms %dms %dms\n", (int)(pts - audio_pts) / 90,
 	    VideoAudioDelay / 90, skip / 90);
@@ -2531,11 +2536,15 @@ void AudioVideoReady(int64_t pts)
 	}
 	// FIXME: skip<0 we need bigger audio buffer
 
-	// enough video + audio buffered
-	if (AudioStartThreshold < used && !AudioSkip) {
-	    AudioStarted = 1;
-	    AudioRunning = 1;
-	    pthread_cond_signal(&AudioStartCond);
+	if (AudioStartThreshold < used && !AudioSkip) {// enough audio
+	    if (!EnoughVideo && SoftIsPlayingVideo) { // not enough video
+		EnoughAudio = 1;
+	    } else { // enough video or radio
+		Debug(3, "audio: start audio, already enough audio and video\n");
+		AudioStarted = 1;
+		AudioRunning = 1;
+		pthread_cond_signal(&AudioStartCond);
+	    }
 	}
     }
 
@@ -2621,6 +2630,7 @@ void AudioFlushBuffers(void)
     AudioVideoIsReady = 0;
     AudioSkip = 0;
     AudioStarted = 0;
+    EnoughAudio = 0;
 
     atomic_inc(&AudioRingFilled);
 
