@@ -567,6 +567,13 @@ static char EnableDPMSatBlackScreen;	///< flag we should enable dpms at black sc
 static char DisableScreensaver;		///< flag we disable screensaver
 #endif
 
+extern volatile char AudioRunning;
+extern volatile char AudioStarted;
+extern pthread_cond_t AudioStartCond;	///< condition variable
+volatile int EnoughVideo;
+extern volatile int EnoughAudio;
+volatile VideoResolutions VideoResolution;
+static int VideoStartThreshold = 16;
 void AudioDelayms(int);
 //----------------------------------------------------------------------------
 //	Common Functions
@@ -663,6 +670,7 @@ static void VideoSetPts(int64_t * pts_p, int interlaced,
 		return;
 	    }
 	} else {			// first new clock value
+	    EnoughVideo = 0;
 	    AudioVideoReady(pts);
 	}
 	if (*pts_p != pts && lastpts != pts) {
@@ -3747,6 +3755,7 @@ static void VaapiSetup(VaapiDecoder * decoder,
     // FIXME: interlaced not valid here?
     decoder->Resolution =
 	VideoResolutionGroup(width, height, decoder->Interlaced);
+    VideoResolution = decoder->Resolution;
     VaapiCreateSurfaces(decoder, width, height);
 
 #ifdef USE_GLX
@@ -6498,7 +6507,7 @@ static void VaapiDisplayFrame(void)
 #endif
 	filled = atomic_read(&decoder->SurfacesFilled);
 	// no surface availble show black with possible osd
-	if (filled < 1 + 2 * decoder->Interlaced && decoder->Closing) {
+	if (filled <= 1 && decoder->Closing) {
 	    if ((VideoShowBlackPicture && !decoder->TrickSpeed)
 		|| (VideoShowBlackPicture && decoder->Closing < -300)) {
 		VaapiBlackSurface(decoder);
@@ -6720,14 +6729,20 @@ void VaapiGetStats(VaapiDecoder * decoder, int *missed, int *duped,
 static void VaapiSyncDecoder(VaapiDecoder * decoder)
 {
     int err;
-    int filled;
     int64_t audio_clock;
     int64_t video_clock;
 
     err = 0;
     audio_clock = AudioGetClock();
     video_clock = VaapiGetClock(decoder);
-    filled = atomic_read(&decoder->SurfacesFilled);
+
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold : 0));
+    if (EnoughVideo && EnoughAudio && !AudioRunning) {
+	Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
+	AudioStarted = 1;
+	AudioRunning = 1;
+	pthread_cond_signal(&AudioStartCond);
+    }
 
     // 60Hz: repeat every 5th field
     if (Video60HzMode && !(decoder->FramesDisplayed % 6)) {
@@ -6779,19 +6794,21 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 		AudioFlushBuffers();
 		goto out;
 	    }
-	    if((video_clock < audio_clock - VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
-		Debug(3,"drop video\n");
-		VaapiAdvanceDecoderFrame(decoder);
+	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
+		if (atomic_read(&decoder->SurfacesFilled) > 1) {
+		    Debug(3,"drop video\n");
+		    VaapiAdvanceDecoderFrame(decoder);
+		}
 		goto skip_sync;
 	    }
 	}
 	diff = video_clock - audio_clock - VideoAudioDelay;
-	lower_limit = !IsReplay() ? -25 : 32;
+	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 32;
 	//diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
 #ifdef DEBUG
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
-	    Debug(3, "video/vaapi: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, filled);
+	    Debug(3, "video/vaapi: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, atomic_read(&decoder->SurfacesFilled));
 #endif
 	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = VaapiMessage(3, "video: audio/video difference too big\n");
@@ -6809,12 +6826,12 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
 	    goto out;
-	} else if (diff < lower_limit * 90 && filled > 1 + 2 * decoder->Interlaced) {
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) > 2) { // double advance possible?
 	    err = VaapiMessage(3, "video: speed up video, droping frame\n");
 	    ++decoder->FramesDropped;
 	    VaapiAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 1;
-	} else if (diff < lower_limit * 90 && !filled && !IsReplay()) {
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 && !IsReplay()) {
 	    err = VaapiMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
@@ -6833,22 +6850,20 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
     }
 
   skip_sync:
-    // check if next field is available
-    if (decoder->SurfaceField && filled <= 1) {
-	if (filled == 1) {
-	    ++decoder->FramesDuped;
-	    // FIXME: don't warn after stream start, don't warn during pause
-	    err =
-		VaapiMessage(3,
-		_("video: decoder buffer empty, "
-		    "duping frame (%d/%d) %d v-buf\n"), decoder->FramesDuped,
-		decoder->FrameCounter, VideoGetBuffers(decoder->Stream));
-	    // some time no new picture or black video configured
-	    if (decoder->Closing < -300 || (VideoShowBlackPicture
-		    && decoder->Closing)) {
-		// clear ring buffer to trigger black picture
-		atomic_set(&decoder->SurfacesFilled, 0);
-	    }
+    // is it not possible, to advance the surface and/or the field?
+    if (atomic_read(&decoder->SurfacesFilled) <= 1) {
+	++decoder->FramesDuped;
+	// FIXME: don't warn after stream start, don't warn during pause
+	err =
+	    VaapiMessage(3,
+	    _("video: decoder buffer empty, "
+		"duping frame (%d/%d) %d v-buf\n"), decoder->FramesDuped,
+	    decoder->FrameCounter, VideoGetBuffers(decoder->Stream));
+	// some time no new picture or black video configured
+	if (decoder->Closing < -300 || (VideoShowBlackPicture
+	    && decoder->Closing)) {
+	    // clear ring buffer to trigger black picture
+	    atomic_set(&decoder->SurfacesFilled, 0);
 	}
 	goto out;
     }
@@ -8970,6 +8985,7 @@ static void VdpauSetupOutput(VdpauDecoder * decoder)
     decoder->Resolution =
 	VideoResolutionGroup(decoder->InputWidth, decoder->InputHeight,
 	decoder->Interlaced);
+    VideoResolution = decoder->Resolution;
     VdpauCreateSurfaces(decoder, decoder->InputWidth, decoder->InputHeight);
 
     VdpauMixerCreate(decoder);
@@ -10854,13 +10870,19 @@ void VdpauGetStats(VdpauDecoder * decoder, int *missed, int *duped,
 static void VdpauSyncDecoder(VdpauDecoder * decoder)
 {
     int err;
-    int filled;
     int64_t audio_clock;
     int64_t video_clock;
 
     err = 0;
     video_clock = VdpauGetClock(decoder);
-    filled = atomic_read(&decoder->SurfacesFilled);
+
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold : 0));
+    if (EnoughVideo && EnoughAudio && !AudioRunning) {
+	Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
+	AudioStarted = 1;
+	AudioRunning = 1;
+	pthread_cond_signal(&AudioStartCond);
+    }
 
     if (!decoder->SyncOnAudio) {
 	audio_clock = AV_NOPTS_VALUE;
@@ -10918,19 +10940,21 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 		AudioFlushBuffers();
 		goto out;
 	    }
-	    if((video_clock < audio_clock - VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
-		Debug(3,"drop video\n");
-		VdpauAdvanceDecoderFrame(decoder);
+	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
+		if (!(decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced)) {
+		    Debug(3,"drop video\n");
+		    VdpauAdvanceDecoderFrame(decoder);
+		}
 		goto skip_sync;
 	    }
 	}
 	diff = video_clock - audio_clock - VideoAudioDelay;
-	lower_limit = !IsReplay() ? -25 : 32;
+	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 32;
 	//diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
 #ifdef DEBUG
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
-	    Debug(3, "video/vdpau: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, filled);
+	    Debug(3, "video/vdpau: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, atomic_read(&decoder->SurfacesFilled));
 #endif
 	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = VdpauMessage(3, "video: audio/video difference too big\n");
@@ -10948,12 +10972,12 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
 	    goto out;
-	} else if (diff < lower_limit * 90 && filled > 1 + 2 * decoder->Interlaced) {
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) > 1 + decoder->Interlaced) { // double advance possible?
 	    err = VdpauMessage(3, "video: speed up video, droping frame\n");
 	    ++decoder->FramesDropped;
 	    VdpauAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 1;
-	} else if (diff < lower_limit * 90 && !filled && !IsReplay()) {
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced && !IsReplay()) {
 	    err = VdpauMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
@@ -10972,22 +10996,20 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
     }
 
   skip_sync:
-    // check if next field is available
-    if (decoder->SurfaceField && filled <= 1 + 2 * decoder->Interlaced) {
-	if (filled == 1 + 2 * decoder->Interlaced) {
-	    ++decoder->FramesDuped;
-	    // FIXME: don't warn after stream start, don't warn during pause
-	    err =
-		VdpauMessage(3,
-		_("video: decoder buffer empty, "
-		    "duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
-		decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
-	    // some time no new picture or black video configured
-	    if (decoder->Closing < -300 || (VideoShowBlackPicture
-		    && decoder->Closing)) {
-		// clear ring buffer to trigger black picture
-		atomic_set(&decoder->SurfacesFilled, 0);
-	    }
+    // is it not possible, to advance the surface and/or the field?
+    if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced) {
+	++decoder->FramesDuped;
+	// FIXME: don't warn after stream start, don't warn during pause
+	err =
+	    VdpauMessage(3,
+	    _("video: decoder buffer empty, "
+	    "duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
+	    decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
+	// some time no new picture or black video configured
+	if (decoder->Closing < -300 || (VideoShowBlackPicture
+	    && decoder->Closing)) {
+	    // clear ring buffer to trigger black picture
+	    atomic_set(&decoder->SurfacesFilled, 0);
 	}
 	goto out;
     }
@@ -12328,6 +12350,7 @@ static void CuvidSetupOutput(CuvidDecoder * decoder)
     decoder->Resolution =
 	VideoResolutionGroup(decoder->InputWidth, decoder->InputHeight,
 	decoder->Interlaced);
+    VideoResolution = decoder->Resolution;
 
     CuvidMixerSetup(decoder);
 
@@ -13419,13 +13442,19 @@ void CuvidGetStats(CuvidDecoder * decoder, int *missed, int *duped,
 static void CuvidSyncDecoder(CuvidDecoder * decoder)
 {
     int err;
-    int filled;
     int64_t audio_clock;
     int64_t video_clock;
 
     err = 0;
     video_clock = CuvidGetClock(decoder);
-    filled = atomic_read(&decoder->SurfacesFilled);
+
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold : 0));
+    if (EnoughVideo && EnoughAudio && !AudioRunning) {
+	Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
+	AudioStarted = 1;
+	AudioRunning = 1;
+	pthread_cond_signal(&AudioStartCond);
+    }
 
     if (!decoder->SyncOnAudio) {
 	audio_clock = AV_NOPTS_VALUE;
@@ -13483,19 +13512,21 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 		AudioFlushBuffers();
 		goto out;
 	    }
-	    if((video_clock < audio_clock - VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
-		Debug(3,"drop video\n");
-		CuvidAdvanceDecoderFrame(decoder);
+	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
+		if (!(decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced)) {
+		    Debug(3,"drop video\n");
+		    CuvidAdvanceDecoderFrame(decoder);
+		}
 		goto skip_sync;
 	    }
 	}
 	diff = video_clock - audio_clock - VideoAudioDelay;
-	lower_limit = !IsReplay() ? -25 : 32;
+	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 32;
 	//diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
 #ifdef DEBUG
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
-	    Debug(3, "video/cuvid: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, filled);
+	    Debug(3, "video/cuvid: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, atomic_read(&decoder->SurfacesFilled));
 #endif
 	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = CuvidMessage(3, "video: audio/video difference too big\n");
@@ -13513,12 +13544,12 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
 	    goto out;
-	} else if (diff < lower_limit * 90 && filled > 1 + 2 * decoder->Interlaced) {
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) > 1 + decoder->Interlaced) { // double advance possible?
 	    err = CuvidMessage(3, "video: speed up video, droping frame\n");
 	    ++decoder->FramesDropped;
 	    CuvidAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 1;
-	} else if (diff < lower_limit * 90 && !filled && !IsReplay()) {
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced && !IsReplay()) {
 	    err = CuvidMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
@@ -13537,22 +13568,20 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
     }
 
   skip_sync:
-    // check if next field is available
-    if (decoder->SurfaceField && filled <= 1 + 2 * decoder->Interlaced) {
-	if (filled == 1 + 2 * decoder->Interlaced) {
-	    ++decoder->FramesDuped;
-	    // FIXME: don't warn after stream start, don't warn during pause
-	    err =
-		CuvidMessage(3,
-		_("video: decoder buffer empty, "
-		    "duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
-		decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
-	    // some time no new picture or black video configured
-	    if (decoder->Closing < -300 || (VideoShowBlackPicture
-		    && decoder->Closing)) {
-		// clear ring buffer to trigger black picture
-		atomic_set(&decoder->SurfacesFilled, 0);
-	    }
+    // is it not possible, to advance the surface and/or the field?
+    if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced) {
+	++decoder->FramesDuped;
+	// FIXME: don't warn after stream start, don't warn during pause
+	err =
+	    CuvidMessage(3,
+	    _("video: decoder buffer empty, "
+	    "duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
+	    decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
+	// some time no new picture or black video configured
+	if (decoder->Closing < -300 || (VideoShowBlackPicture
+	    && decoder->Closing)) {
+	    // clear ring buffer to trigger black picture
+	    atomic_set(&decoder->SurfacesFilled, 0);
 	}
 	goto out;
     }
