@@ -5260,6 +5260,7 @@ static void VaapiPutSurfaceGLX(VaapiDecoder * decoder, VASurfaceID surface,
 {
     unsigned type;
     int y;
+    float xcropf, ycropf,wcropf,hcropf;
     //uint32_t start;
     //uint32_t copy;
     //uint32_t end;
@@ -5294,17 +5295,22 @@ static void VaapiPutSurfaceGLX(VaapiDecoder * decoder, VASurfaceID surface,
     }
     //copy = GetMsTicks();
 #endif
-    glViewport(0, 0, VideoWindowWidth, VideoWindowHeight);
+
+    xcropf = (float) decoder->CropX / (float) decoder->InputWidth * (float) VideoWindowWidth;
+    ycropf = (float) decoder->CropY / (float) decoder->InputHeight * (float) VideoWindowHeight;
+    wcropf = (float) decoder->CropWidth / (float) decoder->InputWidth * (float) VideoWindowWidth;
+    hcropf = (float) decoder->CropHeight / (float) decoder->InputHeight * (float) VideoWindowHeight;
+
+    y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
+    if (y < 0)
+        y = 0;
+
+    glViewport(decoder->OutputX, y, decoder->OutputWidth, decoder->OutputHeight);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glOrtho(0.0, VideoWindowWidth, VideoWindowHeight, 0.0, -1.0, 1.0);
+    glOrtho(xcropf, wcropf, hcropf, ycropf, -1.0, 1.0);
 
-    //fix CropY
-    y = decoder->OutputHeight * ((float)decoder->CropY/(float)decoder->CropHeight);
-
-    // hardware surfaces are always busy
-    GlxRenderTexture(decoder->GlTextures[0], decoder->OutputX,
-	decoder->OutputY - y, decoder->OutputWidth, decoder->OutputHeight + y * 2);
+    GlxRenderTexture(decoder->GlTextures[0], 0, 0, VideoWindowWidth, VideoWindowHeight);
     //end = GetMsTicks();
     //Debug(3, "video/vaapi/glx: %d copy %d render\n", copy - start, end - copy);
 }
