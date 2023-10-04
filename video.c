@@ -7532,6 +7532,10 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
     }
 
     EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold : 0));
+    if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
+	Debug (3,"video: force enough video\n");
+	EnoughVideo = 1;
+    }
     if (EnoughVideo && EnoughAudio && !AudioRunning) {
 	Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
 	AudioStarted = 1;
@@ -11959,6 +11963,10 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
     video_clock = VdpauGetClock(decoder);
 
     EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold : 0));
+    if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
+	Debug (3,"video: force enough video\n");
+	EnoughVideo = 1;
+    }
     if (EnoughVideo && EnoughAudio && !AudioRunning) {
 	Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
 	AudioStarted = 1;
@@ -14745,6 +14753,10 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
     video_clock = CuvidGetClock(decoder);
 
     EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold : 0));
+    if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
+	Debug (3,"video: force enough video\n");
+	EnoughVideo = 1;
+    }
     if (EnoughVideo && EnoughAudio && !AudioRunning) {
 	Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
 	AudioStarted = 1;
@@ -17304,6 +17316,10 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
     video_clock = NVdecGetClock(decoder);
 
     EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold : 0));
+    if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
+	Debug (3,"video: force enough video\n");
+	EnoughVideo = 1;
+    }
     if (EnoughVideo && EnoughAudio && !AudioRunning) {
         Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
         AudioStarted = 1;
@@ -19568,6 +19584,10 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
     video_clock = CpuGetClock(decoder);
 
     EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold : 0));
+    if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
+	Debug (3,"video: force enough video\n");
+	EnoughVideo = 1;
+    }
     if (EnoughVideo && EnoughAudio && !AudioRunning) {
         Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
         AudioStarted = 1;
