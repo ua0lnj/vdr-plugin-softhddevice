@@ -22658,7 +22658,7 @@ void VideoSetOutputPosition(VideoHwDecoder * hw_decoder, int x, int y,
         // check values to be able to avoid
         // interfering with the video thread if possible
 
-        if(!hw_decoder->Vaapi.InputWidth || !hw_decoder->Vaapi.InputHeight) return; //no scale if no video
+        if(!((char*)hw_decoder->Vaapi.Stream)[0] && (!hw_decoder->Vaapi.InputWidth || !hw_decoder->Vaapi.InputHeight)) return; //no scale if no video and not pip
         if (x == hw_decoder->Vaapi.VideoX && y == hw_decoder->Vaapi.VideoY
             && width == hw_decoder->Vaapi.VideoWidth
             && height == hw_decoder->Vaapi.VideoHeight) {
