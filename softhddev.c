@@ -3860,6 +3860,7 @@ void Resume(void)
     // FIXME: start x11
     if (!MyVideoStream->HwDecoder) {	// video not running
 	StartVideo();
+	VideoDisplayWakeup();
     }
 
     if (MyVideoStream->Decoder) {
