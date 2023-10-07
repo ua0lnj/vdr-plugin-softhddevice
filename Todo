@@ -2,7 +2,7 @@
 
 Copyright (c) 2011 - 2013 by Johns.  All Rights Reserved.
 
-Contributor(s): 2019 - 2022 ua0lnj
+Contributor(s): 2019 - 2023 ua0lnj
 
 License: AGPLv3
 
@@ -100,9 +100,6 @@ unsorted:
 
 future features
 
-    video out with xv
-    openGL video output for VDPAU
-    deinterlacer with software decoder (software/openGL ?)
     correct display P-frame video
     save and use auto-crop with channel zapping
 

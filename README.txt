@@ -2,7 +2,7 @@
 
 Copyright (c) 2011 - 2013 by Johns.  All Rights Reserved.
 
-Contributor(s): 2019 - 2022 ua0lnj
+Contributor(s): 2019 - 2023 ua0lnj
 
 License: AGPLv3
 
@@ -74,6 +74,7 @@ Install:
 
 	You can edit Makefile to enable/disable VDPAU / VA-API / CUVID / Alsa / OSS / OPENGL OSD
 	support.  The default is to autodetect as much as possible.
+	You can also disable GLX for VA-API.
 
 Setup:	environment
 ------
@@ -443,5 +444,6 @@ Note:
 	For old Intel video use va-api and va-api-glx.
 	For newest Intel video use va-api-egl.
 	For old Nvidia video use vdpau and vdpau-glx.
+	For old hybrid video use vdpau-glx or va-api and va-api-glx.
 	For newest Nvidia video use cuvid and cuvid-egl or nvdec and nvdec-egl.
 	For all system with openGL you can use cpu-glx or cpu-egl.
