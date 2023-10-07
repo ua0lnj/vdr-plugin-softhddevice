@@ -6812,7 +6812,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    }
 	}
 	diff = video_clock - audio_clock - VideoAudioDelay;
-	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 32;
+	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 12;
 	//diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
 #ifdef DEBUG
