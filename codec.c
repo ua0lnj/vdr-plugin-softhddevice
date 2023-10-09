@@ -950,8 +950,10 @@ int CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 #ifdef FFMPEG_WORKAROUND_ARTIFACTS
 	            }
 #endif
+#ifdef USE_AVFILTER
                     //for drop avfilter output frames when flushed buffers
                     if (decoder->filter_graph) decoder->FirstKeyFrame++;
+#endif
                 } else {
 	        // some frames are needed for references, interlaced frames ...
 	        // could happen with h264 dvb streams, just drop data.
