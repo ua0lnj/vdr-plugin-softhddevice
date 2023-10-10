@@ -14319,15 +14319,18 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
             }
 
             //Y
+            glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[surface][0]);
             glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[0]);
-            glTextureSubImage2D(decoder->gl_textures[surface][0], 0, 0, 0, decoder->InputWidth,
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, decoder->InputWidth,
                 decoder->InputHeight, GL_RED, GL_UNSIGNED_BYTE, frame->data[0]);
             GlCheck();
             //UV
+            glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[surface][1]);
             glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[1]);
-            glTextureSubImage2D(decoder->gl_textures[surface][1], 0, 0, 0, decoder->InputWidth/2,
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, decoder->InputWidth/2,
                 decoder->InputHeight/2, GL_RG, GL_UNSIGNED_BYTE, outUV);
             GlCheck();
+            glBindTexture(GL_TEXTURE_2D, 0);
 
         } else { //10bit
             //yuv420ple -> p010le + 10bit -> 8bit
@@ -14356,15 +14359,19 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
             }
 
             //Y
+            glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[surface][0]);
             glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[0]/2);
-            glTextureSubImage2D(decoder->gl_textures[surface][0], 0, 0, 0, decoder->InputWidth,
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, decoder->InputWidth,
                 decoder->InputHeight,  GL_RED, GL_UNSIGNED_BYTE, outY);
             GlCheck();
             //UV
+            glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[surface][1]);
             glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[1]/2);
-            glTextureSubImage2D(decoder->gl_textures[surface][1], 0, 0, 0, decoder->InputWidth/2,
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, decoder->InputWidth/2,
                 decoder->InputHeight/2, GL_RG, GL_UNSIGNED_BYTE, outUV);
             GlCheck();
+            glBindTexture(GL_TEXTURE_2D, 0);
+
         }
         Debug(4, "video/cuvid: sw render hw surface %#08x\n", surface);
 
@@ -16882,15 +16889,18 @@ static void NVdecRenderFrame(NVdecDecoder * decoder,
             }
 
             //Y
+            glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[surface][0]);
             glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[0]);
-            glTextureSubImage2D(decoder->gl_textures[surface][0], 0, 0, 0, decoder->InputWidth,
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, decoder->InputWidth,
                 decoder->InputHeight, GL_RED, GL_UNSIGNED_BYTE, frame->data[0]);
             GlCheck();
             //UV
+            glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[surface][1]);
             glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[1]);
-            glTextureSubImage2D(decoder->gl_textures[surface][1], 0, 0, 0, decoder->InputWidth/2,
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, decoder->InputWidth/2,
                 decoder->InputHeight/2, GL_RG, GL_UNSIGNED_BYTE, outUV);
             GlCheck();
+            glBindTexture(GL_TEXTURE_2D, 0);
 
         } else { //10bit
             //yuv420ple -> p010le + 10bit -> 8bit
@@ -16919,15 +16929,19 @@ static void NVdecRenderFrame(NVdecDecoder * decoder,
             }
 
             //Y
+            glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[surface][0]);
             glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[0]/2);
-            glTextureSubImage2D(decoder->gl_textures[surface][0], 0, 0, 0, decoder->InputWidth,
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, decoder->InputWidth,
                 decoder->InputHeight,  GL_RED, GL_UNSIGNED_BYTE, outY);
             GlCheck();
             //UV
+            glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[surface][1]);
             glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[1]/2);
-            glTextureSubImage2D(decoder->gl_textures[surface][1], 0, 0, 0, decoder->InputWidth/2,
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, decoder->InputWidth/2,
                 decoder->InputHeight/2, GL_RG, GL_UNSIGNED_BYTE, outUV);
             GlCheck();
+            glBindTexture(GL_TEXTURE_2D, 0);
+
         }
         Debug(4, "video/nvdec: sw render hw surface %#08x\n", surface);
 
@@ -19152,15 +19166,18 @@ static void CpuRenderFrame(CpuDecoder * decoder,
             }
 
             //Y
+            glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[surface][0]);
             glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[0]);
-            glTextureSubImage2D(decoder->gl_textures[surface][0], 0, 0, 0, decoder->InputWidth,
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, decoder->InputWidth,
                 decoder->InputHeight, GL_RED, GL_UNSIGNED_BYTE, frame->data[0]);
             GlCheck();
             //UV
+            glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[surface][1]);
             glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[1]);
-            glTextureSubImage2D(decoder->gl_textures[surface][1], 0, 0, 0, decoder->InputWidth/2,
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, decoder->InputWidth/2,
                 decoder->InputHeight/2, GL_RG, GL_UNSIGNED_BYTE, outUV);
             GlCheck();
+            glBindTexture(GL_TEXTURE_2D, 0);
 
         } else { //10bit
             //yuv420ple -> p010le + 10bit -> 8bit
@@ -19189,15 +19206,19 @@ static void CpuRenderFrame(CpuDecoder * decoder,
             }
 
             //Y
+            glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[surface][0]);
             glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[0]/2);
-            glTextureSubImage2D(decoder->gl_textures[surface][0], 0, 0, 0, decoder->InputWidth,
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, decoder->InputWidth,
                 decoder->InputHeight,  GL_RED, GL_UNSIGNED_BYTE, outY);
             GlCheck();
             //UV
+            glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[surface][1]);
             glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[1]/2);
-            glTextureSubImage2D(decoder->gl_textures[surface][1], 0, 0, 0, decoder->InputWidth/2,
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, decoder->InputWidth/2,
                 decoder->InputHeight/2, GL_RG, GL_UNSIGNED_BYTE, outUV);
             GlCheck();
+            glBindTexture(GL_TEXTURE_2D, 0);
+
         }
         Debug(4, "video/cpu: sw render hw surface %#08x\n", surface);
 
