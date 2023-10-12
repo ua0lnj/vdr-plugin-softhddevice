@@ -307,7 +307,7 @@ typedef struct _video_module_
     void (*const ResetStart) (const VideoHwDecoder *);
     void (*const SetTrickSpeed) (const VideoHwDecoder *, int);
     uint8_t *(*const GrabOutput)(int *, int *, int *);
-    void (*const GetStats) (VideoHwDecoder *, int *, int *, int *, int *);
+    void (*const GetStats) (VideoHwDecoder *, int *, int *, int *, int *, int *);
     void (*const SetBackground) (uint32_t);
     void (*const SetVideoMode) (void);
     void (*const ResetAutoCrop) (void);
@@ -7495,12 +7495,13 @@ static void VaapiSetTrickSpeed(VaapiDecoder * decoder, int speed)
 ///	@param[out] count	number of decoded frames
 ///
 void VaapiGetStats(VaapiDecoder * decoder, int *missed, int *duped,
-    int *dropped, int *counter)
+    int *dropped, int *counter, int * dec)
 {
     *missed = decoder->FramesMissed;
     *duped = decoder->FramesDuped;
     *dropped = decoder->FramesDropped;
     *counter = decoder->FrameCounter;
+    *dec = (decoder->PixFmt == AV_PIX_FMT_NV12) ? HWACCEL_VAAPI : HWACCEL_NONE;
 }
 
 ///
@@ -8209,7 +8210,7 @@ static const VideoModule VaapiModule = {
 	(void (*const) (const VideoHwDecoder *, int))VaapiSetTrickSpeed,
     .GrabOutput = VaapiGrabOutputSurface,
     .GetStats = (void (*const) (VideoHwDecoder *, int *, int *, int *,
-	    int *))VaapiGetStats,
+	    int *, int *))VaapiGetStats,
     .SetBackground = VaapiSetBackground,
     .SetVideoMode = VaapiSetVideoMode,
 #ifdef USE_AUTOCROP
@@ -8287,7 +8288,7 @@ static const VideoModule VaapiGlxModule = {
 	(void (*const) (const VideoHwDecoder *, int))VaapiSetTrickSpeed,
     .GrabOutput = VaapiGrabOutputSurface,
     .GetStats = (void (*const) (VideoHwDecoder *, int *, int *, int *,
-	    int *))VaapiGetStats,
+	    int *, int *))VaapiGetStats,
     .SetBackground = VaapiSetBackground,
     .SetVideoMode = VaapiSetVideoMode,
 #ifdef USE_AUTOCROP
@@ -8368,7 +8369,7 @@ static const VideoModule VaapiEglModule = {
 	(void (*const) (const VideoHwDecoder *, int))VaapiSetTrickSpeed,
     .GrabOutput = VaapiGrabOutputSurface,
     .GetStats = (void (*const) (VideoHwDecoder *, int *, int *, int *,
-	    int *))VaapiGetStats,
+	    int *, int *))VaapiGetStats,
     .SetBackground = VaapiSetBackground,
     .SetVideoMode = VaapiSetVideoMode,
 #ifdef USE_AUTOCROP
@@ -11931,12 +11932,13 @@ static void VdpauSetTrickSpeed(VdpauDecoder * decoder, int speed)
 ///	@param[out] count	number of decoded frames
 ///
 void VdpauGetStats(VdpauDecoder * decoder, int *missed, int *duped,
-    int *dropped, int *counter)
+    int *dropped, int *counter, int *dec)
 {
     *missed = decoder->FramesMissed;
     *duped = decoder->FramesDuped;
     *dropped = decoder->FramesDropped;
     *counter = decoder->FrameCounter;
+    *dec = (decoder->VideoDecoder != VDP_INVALID_HANDLE) ? HWACCEL_VDPAU : HWACCEL_NONE;
 }
 
 ///
@@ -12741,7 +12743,7 @@ static const VideoModule VdpauModule = {
     .GrabOutput = VdpauGrabOutputSurface,
 #endif
     .GetStats = (void (*const) (VideoHwDecoder *, int *, int *, int *,
-	    int *))VdpauGetStats,
+	    int *, int *))VdpauGetStats,
     .SetBackground = VdpauSetBackground,
     .SetVideoMode = VdpauSetVideoMode,
 #ifdef USE_AUTOCROP
@@ -12821,7 +12823,7 @@ static const VideoModule VdpauGlxModule = {
     .GrabOutput = VdpauGrabOutputSurface,
 #endif
     .GetStats = (void (*const) (VideoHwDecoder *, int *, int *, int *,
-	    int *))VdpauGetStats,
+	    int *, int *))VdpauGetStats,
     .SetBackground = VdpauSetBackground,
     .SetVideoMode = VdpauSetVideoMode,
 #ifdef USE_AUTOCROP
@@ -14728,12 +14730,14 @@ static void CuvidSetTrickSpeed(CuvidDecoder * decoder, int speed)
 ///	@param[out] count	number of decoded frames
 ///
 void CuvidGetStats(CuvidDecoder * decoder, int *missed, int *duped,
-    int *dropped, int *counter)
+    int *dropped, int *counter, int *dec)
 {
     *missed = decoder->FramesMissed;
     *duped = decoder->FramesDuped;
     *dropped = decoder->FramesDropped;
     *counter = decoder->FrameCounter;
+    *dec = (decoder->PixFmt == AV_PIX_FMT_NV12 || decoder->PixFmt == AV_PIX_FMT_P010LE)
+        ? HWACCEL_CUVID : HWACCEL_NONE;
 }
 
 ///
@@ -15236,7 +15240,7 @@ static const VideoModule CuvidModule = {
     .GrabOutput = CuvidGrabOutputSurface,
 #endif
     .GetStats = (void (*const) (VideoHwDecoder *, int *, int *, int *,
-	    int *))CuvidGetStats,
+	    int *, int *))CuvidGetStats,
     .SetBackground = CuvidSetBackground,
     .SetVideoMode = CuvidSetVideoMode,
 #ifdef USE_AUTOCROP
@@ -15321,7 +15325,7 @@ static const VideoModule CuvidEglModule = {
     .GrabOutput = CuvidGrabOutputSurface,
 #endif
     .GetStats = (void (*const) (VideoHwDecoder *, int *, int *, int *,
-	    int *))CuvidGetStats,
+	    int *, int *))CuvidGetStats,
     .SetBackground = CuvidSetBackground,
     .SetVideoMode = CuvidSetVideoMode,
 #ifdef USE_AUTOCROP
@@ -17298,12 +17302,14 @@ static void NVdecSetTrickSpeed(NVdecDecoder * decoder, int speed)
 ///	@param[out] count	number of decoded frames
 ///
 void NVdecGetStats(NVdecDecoder * decoder, int *missed, int *duped,
-    int *dropped, int *counter)
+    int *dropped, int *counter, int *dec)
 {
     *missed = decoder->FramesMissed;
     *duped = decoder->FramesDuped;
     *dropped = decoder->FramesDropped;
     *counter = decoder->FrameCounter;
+    *dec = (decoder->PixFmt == AV_PIX_FMT_NV12 || decoder->PixFmt == AV_PIX_FMT_P010LE)
+        ? HWACCEL_NVDEC : HWACCEL_NONE;
 }
 
 ///
@@ -17806,7 +17812,7 @@ static const VideoModule NVdecModule = {
     .GrabOutput = NVdecGrabOutputSurface,
 #endif
     .GetStats = (void (*const) (VideoHwDecoder *, int *, int *, int *,
-	    int *))NVdecGetStats,
+	    int *, int *))NVdecGetStats,
     .SetBackground = NVdecSetBackground,
     .SetVideoMode = NVdecSetVideoMode,
 #ifdef USE_AUTOCROP
@@ -17891,7 +17897,7 @@ static const VideoModule NVdecEglModule = {
     .GrabOutput = NVdecGrabOutputSurface,
 #endif
     .GetStats = (void (*const) (VideoHwDecoder *, int *, int *, int *,
-	    int *))NVdecGetStats,
+	    int *, int *))NVdecGetStats,
     .SetBackground = NVdecSetBackground,
     .SetVideoMode = NVdecSetVideoMode,
 #ifdef USE_AUTOCROP
@@ -19573,12 +19579,13 @@ static void CpuSetTrickSpeed(CpuDecoder * decoder, int speed)
 ///	@param[out] count	number of decoded frames
 ///
 void CpuGetStats(CpuDecoder * decoder, int *missed, int *duped,
-    int *dropped, int *counter)
+    int *dropped, int *counter, int *dec)
 {
     *missed = decoder->FramesMissed;
     *duped = decoder->FramesDuped;
     *dropped = decoder->FramesDropped;
     *counter = decoder->FrameCounter;
+    *dec = HWACCEL_NONE;
 }
 
 ///
@@ -20079,7 +20086,7 @@ static const VideoModule CpuGlxModule = {
     .GrabOutput = CpuGrabOutputSurface,
 #endif
     .GetStats = (void (*const) (VideoHwDecoder *, int *, int *, int *,
-	    int *))CpuGetStats,
+	    int *, int *))CpuGetStats,
     .SetBackground = CpuSetBackground,
     .SetVideoMode = CpuSetVideoMode,
 #ifdef USE_AUTOCROP
@@ -20162,7 +20169,7 @@ static const VideoModule CpuEglModule = {
     .GrabOutput = CpuGrabOutputSurface,
 #endif
     .GetStats = (void (*const) (VideoHwDecoder *, int *, int *, int *,
-	    int *))CpuGetStats,
+	    int *, int *))CpuGetStats,
     .SetBackground = CpuSetBackground,
     .SetVideoMode = CpuSetVideoMode,
 #ifdef USE_AUTOCROP
@@ -20387,7 +20394,7 @@ static const VideoModule NoopModule = {
     .SetTrickSpeed =
 	(void (*const) (const VideoHwDecoder *, int))NoopSetTrickSpeed,
     .GetStats = (void (*const) (VideoHwDecoder *, int *, int *, int *,
-	    int *))NoopGetStats,
+	    int *, int *))NoopGetStats,
 #endif
     .SetBackground = NoopSetBackground,
     .SetVideoMode = NoopVoid,
@@ -21431,9 +21438,9 @@ uint8_t *VideoGrabService(int *size, int *width, int *height)
 ///	@param[out] count	number of decoded frames
 ///
 void VideoGetStats(VideoHwDecoder * hw_decoder, int *missed, int *duped,
-    int *dropped, int *counter)
+    int *dropped, int *counter, int *dec)
 {
-    VideoUsedModule->GetStats(hw_decoder, missed, duped, dropped, counter);
+    VideoUsedModule->GetStats(hw_decoder, missed, duped, dropped, counter, dec);
 }
 
 ///

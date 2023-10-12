@@ -3890,15 +3890,16 @@ void Resume(void)
 **	@param[out] dropped	dropped frames
 **	@param[out] count	number of decoded frames
 */
-void GetStats(int *missed, int *duped, int *dropped, int *counter)
+void GetStats(int *missed, int *duped, int *dropped, int *counter, int *dec)
 {
     *missed = 0;
     *duped = 0;
     *dropped = 0;
     *counter = 0;
+    *dec = HWACCEL_NONE;
     if (MyVideoStream->HwDecoder) {
 	VideoGetStats(MyVideoStream->HwDecoder, missed, duped, dropped,
-	    counter);
+	    counter, dec);
     }
 }
 

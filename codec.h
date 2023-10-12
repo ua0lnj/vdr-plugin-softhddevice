@@ -49,6 +49,7 @@ enum HWAccelID {
      HWACCEL_QSV,
      HWACCEL_VAAPI,
      HWACCEL_CUVID,
+     HWACCEL_NVDEC,
 };
 
 ///

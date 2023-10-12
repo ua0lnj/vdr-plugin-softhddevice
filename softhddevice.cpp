@@ -207,6 +207,7 @@ static volatile int DoMakePrimary;	///< switch primary device to this
 #define SUSPEND_DETACHED	2	///< detached suspend mode
 static signed char SuspendMode;		///< suspend mode
 volatile char SoftIsPlayingVideo;       ///< stream contains video data
+static bool UseOpenGl = 0;
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -444,6 +445,7 @@ cSoftOsd::cSoftOsd(int left, int top, uint level)
 
     size = VideoMaxPixmapSize();
     maxPixmapSize.Set(size, size);
+    UseOpenGl = 0;
 }
 
 /**
@@ -864,8 +866,10 @@ cOsd *cSoftOsdProvider::CreateOsd(int left, int top, uint level)
     }
     if (VideoOsdNeedRestart())
         StopOpenGlThread();
-    if (StartOpenGlThread())
+    if (StartOpenGlThread()) {
+        UseOpenGl = 1;
         return Osd = new cOglOsd(left, top, level, oglThread);
+    }
     //return dummy osd if shd is detached
     dsyslog("[softhddev]OpenGl Thread not started successfully, using Dummy OSD");
     return Osd = new cDummyOsd(left, top, 999);
@@ -2392,6 +2396,20 @@ void cSoftHdMenu::Create(void)
     int duped;
     int dropped;
     int counter;
+    int dec;
+    const char * HWAccelName[] = {
+     "SOFTWARE",
+     "AUTO",
+     "VDPAU",
+     "DXVA2",
+     "VDA",
+     "VIDEOTOOLBOX",
+     "QSV",
+     "VAAPI",
+     "CUVID",
+     "NVDEC"
+    };
+
 
     current = Current();		// get current menu item index
     Clear();				// clear the menu
@@ -2426,7 +2444,9 @@ void cSoftHdMenu::Create(void)
 #endif
     Add(new cOsdItem(NULL, osUnknown, false));
     Add(new cOsdItem(NULL, osUnknown, false));
-    GetStats(&missed, &duped, &dropped, &counter);
+    GetStats(&missed, &duped, &dropped, &counter, &dec);
+    Add(new cOsdItem(cString::sprintf(tr (" Video Decoder: %s  OSD: %s"), HWAccelName[dec], 
+        UseOpenGl ? "OpenGL" : "SOFTWARE"), osUnknown, false));
     Add(new
 	cOsdItem(cString::sprintf(tr
 		(" Frames missed(%d) duped(%d) dropped(%d) total(%d)"), missed,
