@@ -12087,7 +12087,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 
   skip_sync:
     // is it not possible, to advance the surface and/or the field?
-    if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) <= 1 + 2 * decoder->Interlaced) {
+    if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced * !IsReplay()) {
 	++decoder->FramesDuped;
 	// FIXME: don't warn after stream start, don't warn during pause
 	err =
@@ -14886,7 +14886,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 
   skip_sync:
     // is it not possible, to advance the surface and/or the field?
-    if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) <= 1 + 2 * decoder->Interlaced) {
+    if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced + 1 * !IsReplay()) {
 	++decoder->FramesDuped;
 	// FIXME: don't warn after stream start, don't warn during pause
 	err =
@@ -17458,7 +17458,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 
   skip_sync:
     // is it not possible, to advance the surface and/or the field?
-    if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) <= 1 + 2 * decoder->Interlaced) {
+    if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced + 1 * !IsReplay()) {
         ++decoder->FramesDuped;
         // FIXME: don't warn after stream start, don't warn during pause
         err =
@@ -19734,7 +19734,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 
   skip_sync:
     // is it not possible, to advance the surface and/or the field?
-    if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) <= 1 + 2 * decoder->Interlaced) {
+    if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced + 1 * !IsReplay()) {
         ++decoder->FramesDuped;
         // FIXME: don't warn after stream start, don't warn during pause
         err =
