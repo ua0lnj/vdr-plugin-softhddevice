@@ -7532,7 +7532,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
         goto skip_sync;
     }
 
-    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold : 0));
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold * !!VideoSoftStartSync : 0));
     if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
@@ -7569,7 +7569,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
     }
     // at start of new video stream, soft or hard sync video to audio
     // FIXME: video waits for audio, audio for video
-    if (!IsReplay() && !VideoSoftStartSync && decoder->StartCounter < VideoSoftStartFrames
+    if (!IsReplay() && VideoSoftStartSync < 2 && decoder->StartCounter < VideoSoftStartFrames
 	&& video_clock != (int64_t) AV_NOPTS_VALUE
 	&& (audio_clock == (int64_t) AV_NOPTS_VALUE
 	    || video_clock > audio_clock + VideoAudioDelay + 120 * 90)) {
@@ -7579,7 +7579,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	goto out;
     }
 
-    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync) {
+    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync > 1) {
 	goto skip_sync;
     }
 
@@ -7594,7 +7594,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 		AudioFlushBuffers();
 		goto out;
 	    }
-	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
+	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && VideoSoftStartSync < 2) {
 		if (atomic_read(&decoder->SurfacesFilled) > 1) {
 		    Debug(3,"drop video\n");
 		    VaapiAdvanceDecoderFrame(decoder);
@@ -7617,7 +7617,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    // FIXME: this quicker sync step, did not work with new code!
 	    err = VaapiMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-	    if (VideoSoftStartSync) {
+	    if (VideoSoftStartSync > 1) {
 		decoder->SyncCounter = diff > 100 * 90 ? diff % 2 : 1; //softsync :)
 	    }
 		goto out;
@@ -7630,7 +7630,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    err = VaapiMessage(3, "video: speed up video, droping frame\n");
 	    ++decoder->FramesDropped;
 	    VaapiAdvanceDecoderFrame(decoder);
-	    decoder->SyncCounter = 1;
+	    decoder->SyncCounter = 2;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 && !IsReplay()) {
 	    err = VaapiMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
@@ -11962,7 +11962,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
     err = 0;
     video_clock = VdpauGetClock(decoder);
 
-    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold : 0));
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold * !!VideoSoftStartSync : 0));
     if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
@@ -12005,7 +12005,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	goto skip_sync;
     }
     // at start of new video stream, soft or hard sync video to audio
-    if (!IsReplay() && !VideoSoftStartSync && decoder->StartCounter < VideoSoftStartFrames
+    if (!IsReplay() && VideoSoftStartSync < 2 && decoder->StartCounter < VideoSoftStartFrames
 	&& video_clock != (int64_t) AV_NOPTS_VALUE
 	&& (audio_clock == (int64_t) AV_NOPTS_VALUE
 	    || video_clock > audio_clock + VideoAudioDelay + 120 * 90)) {
@@ -12015,7 +12015,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	goto out;
     }
 
-    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync) {
+    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync > 1) {
 	goto skip_sync;
     }
 
@@ -12030,7 +12030,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 		AudioFlushBuffers();
 		goto out;
 	    }
-	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
+	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && VideoSoftStartSync < 2) {
 		if (!(decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced)) {
 		    Debug(3,"drop video\n");
 		    VdpauAdvanceDecoderFrame(decoder);
@@ -12053,7 +12053,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    // FIXME: this quicker sync step, did not work with new code!
 	    err = VdpauMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-	    if (VideoSoftStartSync) {
+	    if (VideoSoftStartSync > 1) {
 		decoder->SyncCounter = diff > 100 * 90 ? diff % 2 : 1; //softsync :)
 	    }
 	    goto out;
@@ -12066,7 +12066,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    err = VdpauMessage(3, "video: speed up video, droping frame\n");
 	    ++decoder->FramesDropped;
 	    VdpauAdvanceDecoderFrame(decoder);
-	    decoder->SyncCounter = 1;
+	    decoder->SyncCounter = 2;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced && !IsReplay()) {
 	    err = VdpauMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
@@ -14761,7 +14761,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
     err = 0;
     video_clock = CuvidGetClock(decoder);
 
-    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold : 0));
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold * !!VideoSoftStartSync : 0));
     if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
@@ -14804,7 +14804,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	goto skip_sync;
     }
     // at start of new video stream, soft or hard sync video to audio
-    if (!IsReplay() && !VideoSoftStartSync && decoder->StartCounter < VideoSoftStartFrames
+    if (!IsReplay() && VideoSoftStartSync < 2 && decoder->StartCounter < VideoSoftStartFrames
 	&& video_clock != (int64_t) AV_NOPTS_VALUE
 	&& (audio_clock == (int64_t) AV_NOPTS_VALUE
 	    || video_clock > audio_clock + VideoAudioDelay + 120 * 90)) {
@@ -14814,7 +14814,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	goto out;
     }
 
-    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync) {
+    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync > 1) {
 	goto skip_sync;
     }
 
@@ -14829,7 +14829,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 		AudioFlushBuffers();
 		goto out;
 	    }
-	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
+	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && VideoSoftStartSync < 2) {
 		if (!(decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced)) {
 		    Debug(3,"drop video\n");
 		    CuvidAdvanceDecoderFrame(decoder);
@@ -14852,7 +14852,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    // FIXME: this quicker sync step, did not work with new code!
 	    err = CuvidMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-	    if (VideoSoftStartSync) {
+	    if (VideoSoftStartSync > 1) {
 		decoder->SyncCounter = diff > 100 * 90 ? diff % 2 : 1; //softsync :)
 	    }
 	    goto out;
@@ -14865,7 +14865,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    err = CuvidMessage(3, "video: speed up video, droping frame\n");
 	    ++decoder->FramesDropped;
 	    CuvidAdvanceDecoderFrame(decoder);
-	    decoder->SyncCounter = 1;
+	    decoder->SyncCounter = 2;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced && !IsReplay()) {
 	    err = CuvidMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
@@ -17333,7 +17333,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
     err = 0;
     video_clock = NVdecGetClock(decoder);
 
-    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold : 0));
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold * !!VideoSoftStartSync : 0));
     if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
@@ -17376,7 +17376,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	goto skip_sync;
     }
     // at start of new video stream, soft or hard sync video to audio
-    if (!IsReplay() && !VideoSoftStartSync && decoder->StartCounter < VideoSoftStartFrames
+    if (!IsReplay() && VideoSoftStartSync < 2 && decoder->StartCounter < VideoSoftStartFrames
 	&& video_clock != (int64_t) AV_NOPTS_VALUE
 	&& (audio_clock == (int64_t) AV_NOPTS_VALUE
 	    || video_clock > audio_clock + VideoAudioDelay + 120 * 90)) {
@@ -17386,7 +17386,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	goto out;
     }
 
-    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync) {
+    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync > 1) {
 	goto skip_sync;
     }
 
@@ -17401,7 +17401,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 		AudioFlushBuffers();
 		goto out;
 	    }
-	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
+	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && VideoSoftStartSync < 2) {
 		if (!(decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced)) {
 		    Debug(3,"drop video\n");
 		    NVdecAdvanceDecoderFrame(decoder);
@@ -17424,7 +17424,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	    // FIXME: this quicker sync step, did not work with new code!
 	    err = NVdecMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-	    if (VideoSoftStartSync) {
+	    if (VideoSoftStartSync > 1) {
 		decoder->SyncCounter = diff > 100 * 90 ? diff % 2 : 1; //softsync :)
 	    }
 	    goto out;
@@ -17437,7 +17437,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	    err = NVdecMessage(3, "video: speed up video, droping frame\n");
 	    ++decoder->FramesDropped;
 	    NVdecAdvanceDecoderFrame(decoder);
-	    decoder->SyncCounter = 1;
+	    decoder->SyncCounter = 2;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced && !IsReplay()) {
 	    err = NVdecMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
@@ -19609,7 +19609,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
     err = 0;
     video_clock = CpuGetClock(decoder);
 
-    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold : 0));
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold * !!VideoSoftStartSync : 0));
     if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
@@ -19652,7 +19652,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	goto skip_sync;
     }
     // at start of new video stream, soft or hard sync video to audio
-    if (!IsReplay() && !VideoSoftStartSync && decoder->StartCounter < VideoSoftStartFrames
+    if (!IsReplay() && VideoSoftStartSync < 2 && decoder->StartCounter < VideoSoftStartFrames
 	&& video_clock != (int64_t) AV_NOPTS_VALUE
 	&& (audio_clock == (int64_t) AV_NOPTS_VALUE
 	    || video_clock > audio_clock + VideoAudioDelay + 120 * 90)) {
@@ -19662,7 +19662,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	goto out;
     }
 
-    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync) {
+    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync > 1) {
 	goto skip_sync;
     }
 
@@ -19677,7 +19677,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 		AudioFlushBuffers();
 		goto out;
 	    }
-	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && !VideoSoftStartSync) {
+	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && VideoSoftStartSync < 2) {
 		if (!(decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced)) {
 		    Debug(3,"drop video\n");
 		    CpuAdvanceDecoderFrame(decoder);
@@ -19700,7 +19700,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	    // FIXME: this quicker sync step, did not work with new code!
 	    err = CpuMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-	    if (VideoSoftStartSync) {
+	    if (VideoSoftStartSync > 1) {
 		decoder->SyncCounter = diff > 100 * 90 ? diff % 2 : 1; //softsync :)
 	    }
 	    goto out;
@@ -19713,7 +19713,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	    err = CpuMessage(3, "video: speed up video, droping frame\n");
 	    ++decoder->FramesDropped;
 	    CpuAdvanceDecoderFrame(decoder);
-	    decoder->SyncCounter = 1;
+	    decoder->SyncCounter = 2;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced && !IsReplay()) {
 	    err = CpuMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);

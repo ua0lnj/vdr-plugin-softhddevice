@@ -107,7 +107,7 @@ static int ConfigOsdWidth;		///< config OSD width
 static int ConfigOsdHeight;		///< config OSD height
 static char ConfigVideoStudioLevels;	///< config use studio levels
 static char ConfigVideo60HzMode;	///< config use 60Hz display mode
-static char ConfigVideoSoftStartSync;	///< config use softstart sync
+static char ConfigVideoSoftStartSync = 1;	///< config use softstart sync
 static char ConfigVideoBlackPicture;	///< config enable black picture mode
 char ConfigVideoClearOnSwitch;		///< config enable Clear on channel switch
 
@@ -1131,6 +1131,9 @@ void cMenuSetupSoft::Create(void)
     static const char *const video_display_formats_16_9[] = {
 	"pan&scan", "pillarbox", "center cut-out",
     };
+    static const char *const video_sync_mode[] = {
+	"fast", "accurate", "soft",
+    };
     static const char *const audiodrift[] = {
 	tr("None"), "PCM", "AC-3", "PCM + AC-3"
     };
@@ -1235,8 +1238,8 @@ void cMenuSetupSoft::Create(void)
 			&StudioLevels, trVDR("no"), trVDR("yes")));
 	Add(new cMenuEditBoolItem(tr("60hz display mode"), &_60HzMode,
 		trVDR("no"), trVDR("yes")));
-	Add(new cMenuEditBoolItem(tr("Soft start a/v sync"), &SoftStartSync,
-		trVDR("no"), trVDR("yes")));
+	Add(new cMenuEditStraItem(tr("A/V sync start:"),
+		 &SoftStartSync, 3, video_sync_mode));
 	Add(new cMenuEditBoolItem(tr("Black during channel switch"),
 		&BlackPicture, trVDR("no"), trVDR("yes")));
 	Add(new cMenuEditBoolItem(tr("Clear decoder on channel switch"),
