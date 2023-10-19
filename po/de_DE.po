@@ -459,25 +459,25 @@ msgid "hide"
 msgstr "verstecken"
 
 msgid "auto"
-msgstr ""
+msgstr "automatisch"
 
 msgid "custom"
-msgstr ""
+msgstr "benutzerdefiniert"
 
 msgid "None"
-msgstr ""
+msgstr "Nichts"
 
 msgid "Shutdown VDR"
-msgstr ""
+msgstr "VDR herunterfahren"
 
 msgid "Suspend SoftHdDevice"
 msgstr "Unterbreche SoftHdDevice"
 
 msgid "Detach SoftHdDevice"
-msgstr ""
+msgstr "SoftHdDevice trennen"
 
 msgid "Ignore"
-msgstr ""
+msgstr "Ignorieren"
 
 msgid "General"
 msgstr "Allgemeines"
@@ -539,8 +539,17 @@ msgstr "Benutze Studio Levels"
 msgid "60hz display mode"
 msgstr "60Hz Anzeigemodus"
 
-msgid "Soft start a/v sync"
-msgstr "Sanftanlauf A/V Sync"
+msgid "A/V sync start:"
+msgstr "A/V Sync Start:"
+
+msgid "fast"
+msgstr "Schnell"
+
+msgid "accurate"
+msgstr "Exact"
+
+msgid "soft"
+msgstr "Sanft"
 
 msgid "Black during channel switch"
 msgstr "Schwarz während Kanalwechsel"
