@@ -1132,7 +1132,7 @@ void cMenuSetupSoft::Create(void)
 	"pan&scan", "pillarbox", "center cut-out",
     };
     static const char *const video_sync_mode[] = {
-	"fast", "accurate", "soft",
+	tr("fast"), tr("accurate"), tr("soft"),
     };
     static const char *const audiodrift[] = {
 	tr("None"), "PCM", "AC-3", "PCM + AC-3"
