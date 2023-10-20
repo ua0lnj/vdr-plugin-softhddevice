@@ -1238,7 +1238,7 @@ void cMenuSetupSoft::Create(void)
 			&StudioLevels, trVDR("no"), trVDR("yes")));
 	Add(new cMenuEditBoolItem(tr("60hz display mode"), &_60HzMode,
 		trVDR("no"), trVDR("yes")));
-	Add(new cMenuEditStraItem(tr("A/V sync start:"),
+	Add(new cMenuEditStraItem(tr("A/V sync start"),
 		 &SoftStartSync, 3, video_sync_mode));
 	Add(new cMenuEditBoolItem(tr("Black during channel switch"),
 		&BlackPicture, trVDR("no"), trVDR("yes")));

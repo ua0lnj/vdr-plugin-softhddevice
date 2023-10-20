@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: VDR \n"
 "Report-Msgid-Bugs-To: <see README>\n"
-"POT-Creation-Date: 2022-10-24 23:45+1000\n"
+"POT-Creation-Date: 2023-10-20 20:47+1000\n"
 "PO-Revision-Date: \n"
 "Last-Translator: fiveten_59\n"
 "Language-Team: fiveten_59\n"
@@ -254,11 +254,34 @@ msgstr ""
 msgid "codec: can't allocate vodeo decoder\n"
 msgstr ""
 
+#, c-format
+msgid "Cannot create buffer source %s\n"
+msgstr ""
+
+msgid "codec: cannot create buffer sink\n"
+msgstr ""
+
+msgid "codec: cannot set output pixel format\n"
+msgstr ""
+
+msgid "codec: cannot parse ptr filter graph\n"
+msgstr ""
+
+#, c-format
+msgid "codec: cannot config filter graph %d\n"
+msgstr ""
+
+msgid "codec: can't allocate video filter frame buffer\n"
+msgstr ""
+
 msgid "codec: missing close\n"
 msgstr ""
 
 #, c-format
 msgid "codec: codec ID %#06x not found\n"
+msgstr ""
+
+msgid "codec: can't init parser\n"
 msgstr ""
 
 msgid "codec: can't allocate video codec context\n"
@@ -268,6 +291,9 @@ msgid "codec: can't open video codec!\n"
 msgstr ""
 
 msgid "codec: can't allocate video decoder frame buffer\n"
+msgstr ""
+
+msgid "Error while feeding the filtergraph\n"
 msgstr ""
 
 msgid "codec: can't allocate audio decoder\n"
@@ -310,10 +336,6 @@ msgid "codec/audio: can't open resample\n"
 msgstr ""
 
 msgid "[softhddev] out of memory\n"
-msgstr ""
-
-#, c-format
-msgid "video: packet buffer too small for %d\n"
 msgstr ""
 
 msgid "video: no empty slot in packet ringbuffer\n"
@@ -387,10 +409,6 @@ msgid "[softhddev] invalid video packet %d/%d bytes\n"
 msgstr ""
 
 #, c-format
-msgid "softhddev: %s called without hw decoder\n"
-msgstr ""
-
-#, c-format
 msgid "[softhddev] invalid still video packet size %d\n"
 msgstr ""
 
@@ -457,6 +475,15 @@ msgid "auto"
 msgstr ""
 
 msgid "custom"
+msgstr ""
+
+msgid "fast"
+msgstr ""
+
+msgid "accurate"
+msgstr ""
+
+msgid "soft"
 msgstr ""
 
 msgid "None"
@@ -534,8 +561,8 @@ msgstr "Utilizzo livelli studio"
 msgid "60hz display mode"
 msgstr "Modalità schermo 60Hz"
 
-msgid "Soft start a/v sync"
-msgstr "Avvio graduale sincronizzazione a/v "
+msgid "A/V sync start"
+msgstr ""
 
 msgid "Black during channel switch"
 msgstr "Schermo nero durante il cambio canale"
@@ -629,6 +656,9 @@ msgid "  AC-3 pass-through"
 msgstr ""
 
 msgid "  E-AC-3 pass-through"
+msgstr ""
+
+msgid "   Enable HBR"
 msgstr ""
 
 msgid "  DTS pass-through"
@@ -762,6 +792,10 @@ msgid "PIP close"
 msgstr "Chiudere PIP"
 
 #, c-format
+msgid " Video Decoder: %s  OSD: %s"
+msgstr ""
+
+#, c-format
 msgid " Frames missed(%d) duped(%d) dropped(%d) total(%d)"
 msgstr " Frames persi(%d) duped(%d) scartati(%d) totali(%d)"
 
@@ -881,7 +915,6 @@ msgstr ""
 msgid "video/vaapi: out of memory\n"
 msgstr ""
 
-#, c-format
 msgid "video/vaapi: invalid surface in ringbuffer\n"
 msgstr ""
 
@@ -1039,6 +1072,9 @@ msgstr ""
 msgid "codec: YUV 420 supported\n"
 msgstr ""
 
+msgid "codec: YUV 420 10 bit supported\n"
+msgstr ""
+
 msgid "codec: YUV 422 supported\n"
 msgstr ""
 
@@ -1046,6 +1082,9 @@ msgid "codec: YUV 444 supported\n"
 msgstr ""
 
 msgid "codec: YUV 420 not supported\n"
+msgstr ""
+
+msgid "codec: YUV 420 10 bit not supported\n"
 msgstr ""
 
 #, c-format
@@ -1495,7 +1534,7 @@ msgstr ""
 msgid "Can't set deinterlace mode\n"
 msgstr ""
 
-msgid "Can't set drop second field to false\n"
+msgid "Can't set drop second field\n"
 msgstr ""
 
 msgid "video/cuvid: out of decoders\n"
@@ -1553,6 +1592,82 @@ msgstr ""
 
 #, c-format
 msgid "video/cuvid: missed frame (%d/%d)\n"
+msgstr ""
+
+msgid "video/nvdec: cuGraphicsGLRegisterImage failed \n"
+msgstr ""
+
+msgid "video/nvdec: cuGraphicsMapResources failed \n"
+msgstr ""
+
+msgid "video/nvdec: cuGraphicsSubResourceGetMappedArray failed \n"
+msgstr ""
+
+msgid "video/nvdec: cuGraphicsUnmapResources failed \n"
+msgstr ""
+
+msgid "video/nvdec: surface needed not set\n"
+msgstr ""
+
+msgid "video/nvdec: out of surfaces\n"
+msgstr ""
+
+#, c-format
+msgid "video/nvdec: release surface %#08x, which is not in use\n"
+msgstr ""
+
+msgid "video/nvdec: out of decoders\n"
+msgstr ""
+
+msgid "video/nvdec: out of memory\n"
+msgstr ""
+
+msgid "video/nvdec: need 1 future, 1 current, 1 back and 1 work surface\n"
+msgstr ""
+
+msgid "video/nvdec: CUDA context create failed"
+msgstr ""
+
+msgid "video/nvdec: decoder not in decoder list.\n"
+msgstr ""
+
+msgid "video/nvdec: Start NVDEC\n"
+msgstr ""
+
+msgid "video/nvdec: GLX error\n"
+msgstr ""
+
+msgid "video/nvdec: Start NVdec ok\n"
+msgstr ""
+
+msgid "video/nvdec: EGL error\n"
+msgstr ""
+
+msgid "video/nvdec: Start NVDEC ok\n"
+msgstr ""
+
+msgid "video/nvdec: no valid nvdec pixfmt found\n"
+msgstr ""
+
+msgid "video/nvdec: grab out of memory\n"
+msgstr ""
+
+#, c-format
+msgid "video/nvdec: output buffer full, dropping frame (%d/%d)\n"
+msgstr ""
+
+#, c-format
+msgid "video/nvdec: pixel format %d not supported\n"
+msgstr ""
+
+msgid "video/nvdec: render frame error\n"
+msgstr ""
+
+msgid "video/ndec: out of memory\n"
+msgstr ""
+
+#, c-format
+msgid "video/nvdec: missed frame (%d/%d)\n"
 msgstr ""
 
 msgid "video/cpu: surface needed not set\n"
@@ -1664,54 +1779,3 @@ msgstr ""
 
 msgid "video: error closing display\n"
 msgstr ""
-
-#~ msgid "A software and GPU emulated HD device"
-#~ msgstr "<un <hd device emulato da Software e GPU"
-
-#~ msgid "Enable (E-)AC-3 (decoder) downmix"
-#~ msgstr "Attiva (E-)AC-3 (decoder) downmix"
-
-#~ msgid "Use studio levels (vdpau only)"
-#~ msgstr "Utilizza studio levels (solo vdpau)"
-
-#~ msgid "Brightness (-1000..1000) (vdpau)"
-#~ msgstr "Luminosità (-1000..1000) (vdpau)"
-
-#~ msgid "min"
-#~ msgstr "min"
-
-#~ msgid "max"
-#~ msgstr "max"
-
-#~ msgid "Contrast (0..10000) (vdpau)"
-#~ msgstr "Contrasto (0..10000) (vdpau)"
-
-#~ msgid "Saturation (0..10000) (vdpau)"
-#~ msgstr "Saturazione (0..10000) (vdpau)"
-
-#~ msgid "Hue (-3141..3141) (vdpau)"
-#~ msgstr "Tonalità (-3141..3141) (vdpau)"
-
-#~ msgid "SkipChromaDeinterlace (vdpau)"
-#~ msgstr "SkipChromaDeinterlace (vdpau)"
-
-#~ msgid "Inverse Telecine (vdpau)"
-#~ msgstr "Inverse Telecine (vdpau)"
-
-#~ msgid "Denoise (0..1000) (vdpau)"
-#~ msgstr "Denoise (0..1000) (vdpau)"
-
-#~ msgid "Sharpen (-1000..1000) (vdpau)"
-#~ msgstr "Nitidezza (-1000..1000) (vdpau)"
-
-#~ msgid "blur max"
-#~ msgstr "blur max"
-
-#~ msgid "sharpen max"
-#~ msgstr "sharpen max"
-
-#~ msgid "Audio pass-through"
-#~ msgstr "Audio pass-through"
-
-#~ msgid "Enable AC-3 (decoder) downmix"
-#~ msgstr "Abilita downmix decodifica AC-3"
