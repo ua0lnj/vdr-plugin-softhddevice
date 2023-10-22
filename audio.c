@@ -2463,7 +2463,7 @@ void AudioVideoReady(int64_t pts)
 	    if (first){
 		Debug(3, "audio: a/v start, no valid audio\n");
 		// don't loop, if Replay or Video without Audio
-		if (IsReplay() || NewAudioStream) {
+		if (IsReplay() || NewAudioStream || AudioDoingInit) {
 		    AudioVideoIsReady = 1;
 		    return;
 		}
@@ -2598,6 +2598,8 @@ void AudioFlushBuffers(void)
 {
     int old;
     int i;
+
+    if (AudioDoingInit) return;
 
     if (atomic_read(&AudioRingFilled) >= AUDIO_RING_MAX) {
 	// wait for space in ring buffer, should never happen
@@ -3025,6 +3027,7 @@ void AudioInit(void)
 	} else {
 	    AudioChannelsInHw[chan] = chan;
 	    AudioRatesInHw[Audio44100] |= (1 << chan);
+	    AudioDoingInit++;
 	}
     }
     freq = 48000;
@@ -3043,6 +3046,7 @@ void AudioInit(void)
 	} else {
 	    AudioChannelsInHw[chan] = chan;
 	    AudioRatesInHw[Audio48000] |= (1 << chan);
+	    AudioDoingInit++;
 	}
     }
     freq = 192000;
@@ -3061,6 +3065,7 @@ void AudioInit(void)
 	} else {
 	    AudioChannelsInHw[chan] = chan;
 	    AudioRatesInHw[Audio192000] |= (1 << chan);
+	    AudioDoingInit++;
 	}
     }
     //	build channel support and conversion table
@@ -3141,7 +3146,8 @@ void AudioInit(void)
 	AudioInitThread();
     }
 #endif
-    AudioDoingInit = 0;
+    if (AudioDoingInit > 1)
+	AudioDoingInit = 0;
 }
 
 /**
