@@ -16847,6 +16847,7 @@ static void NVdecRenderFrame(NVdecDecoder * decoder,
         return;
     if (video_ctx->pix_fmt == AV_PIX_FMT_CUDA) { //hardware
 
+        cu->cuCtxPushCurrent(decoder->cu_ctx);
         for (n = 0; n < 2; n++) { //.
             // widthInBytes must account for the chroma plane
             // elements being two samples wide.
