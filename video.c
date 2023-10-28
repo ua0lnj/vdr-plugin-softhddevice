@@ -11550,7 +11550,7 @@ static void VdpauMixVideo(VdpauDecoder * decoder, int level)
 	} else {
 	    current = decoder->SurfacesRb[decoder->SurfaceRead];
 	}
-	if (atomic_read(&decoder->SurfacesFilled) < 1) return;
+
 	// Render Progressive frame and simple interlaced
 	status =
 	    VdpauVideoMixerRender(decoder->VideoMixer, VDP_INVALID_HANDLE,
