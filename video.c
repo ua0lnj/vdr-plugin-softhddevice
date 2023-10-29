@@ -11588,10 +11588,7 @@ static void VdpauBlackSurface(VdpauDecoder * decoder)
     source_rect.y0 = 0;
     source_rect.x1 = 0;
     source_rect.y1 = 0;
-#ifdef USE_GLX
-    if (GlxEnabled)			// already done
-	return;
-#endif
+
     if(((char*)decoder->Stream)[0]) {      //isPipStream == 1 PIP video
 	output_rect.x0 = decoder->VideoX;
 	output_rect.y0 = decoder->VideoY;
