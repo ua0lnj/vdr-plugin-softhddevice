@@ -577,7 +577,7 @@ static VideoZoomModes Video4to3ZoomMode;
 static VideoZoomModes VideoOtherZoomMode;
 
 static char Video60HzMode;		///< handle 60hz displays
-static char VideoSoftStartSync;		///< soft start sync audio/video
+volatile char VideoSoftStartSync;		///< soft start sync audio/video
 static const int VideoSoftStartFrames = 100;	///< soft start frames
 static char VideoShowBlackPicture;	///< flag show black picture
 
@@ -638,7 +638,7 @@ extern pthread_cond_t AudioStartCond;	///< condition variable
 volatile int EnoughVideo;
 extern volatile int EnoughAudio;
 volatile VideoResolutions VideoResolution;
-static int VideoStartThreshold = 16;
+static int VideoStartThreshold_SD = 16;
 void AudioDelayms(int);
 //----------------------------------------------------------------------------
 //	Common Functions
@@ -7532,12 +7532,12 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
         goto skip_sync;
     }
 
-    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold * !!VideoSoftStartSync : 0));
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold_SD * !!VideoSoftStartSync : 0));
     if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
     }
-    if (((EnoughVideo && EnoughAudio && VideoSoftStartSync) ||  !VideoSoftStartSync) && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE) {
+    if (((EnoughVideo && EnoughAudio && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE) {
 	Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
 	AudioStarted = 1;
 	AudioRunning = 1;
@@ -11969,12 +11969,12 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	goto skip_sync;
     }
 
-    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold * !!VideoSoftStartSync : 0));
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold_SD * !!VideoSoftStartSync : 0));
     if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
     }
-    if (((EnoughVideo && EnoughAudio && VideoSoftStartSync) ||  !VideoSoftStartSync) && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE) {
+    if (EnoughVideo && EnoughAudio && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE) {
 	Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
 	AudioStarted = 1;
 	AudioRunning = 1;
@@ -14768,12 +14768,12 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	goto skip_sync;
     }
 
-    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold * !!VideoSoftStartSync : 0));
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold_SD * !!VideoSoftStartSync : 0));
     if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
     }
-    if (((EnoughVideo && EnoughAudio && VideoSoftStartSync) ||  !VideoSoftStartSync) && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE) {
+    if (EnoughVideo && EnoughAudio && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE) {
 	Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
 	AudioStarted = 1;
 	AudioRunning = 1;
@@ -17341,7 +17341,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	goto skip_sync;
     }
 
-    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold * !!VideoSoftStartSync : 0));
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold_SD * !!VideoSoftStartSync : 0));
     if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
@@ -19617,7 +19617,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	goto skip_sync;
     }
 
-    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold * !!VideoSoftStartSync : 0));
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold_SD * !!VideoSoftStartSync : 0));
     if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
