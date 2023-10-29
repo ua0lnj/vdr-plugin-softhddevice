@@ -179,6 +179,7 @@ extern volatile char NewAudioStream;
 extern volatile int EnoughVideo;
 volatile int EnoughAudio;
 extern volatile VideoResolutions VideoResolution;
+extern char VideoSoftStartSync;		///< soft start sync audio/video
 
     /// default ring buffer size ~8s 8ch 16bit (3 * 5 * 7 * 8)
 static const unsigned AudioRingBufferSize = 3 * 5 * 7 * 8 * 8 * 1000;
@@ -2212,7 +2213,7 @@ static void *AudioPlayHandlerThread(void *dummy)
 	    if (AudioPaused) {
 		break;
 	    }
-	    if (AudioSkip) {
+	    if (AudioSkip && VideoSoftStartSync == 1) {
                 Debug(3, "audio: break on AudioSkip\n");
 		break;
 	    }
@@ -2420,9 +2421,9 @@ void AudioEnqueue(const void *samples, int count)
 	if (remain <= AUDIO_MIN_BUFFER_FREE) {
 	    Debug(3, "audio: force start\n");
 	}
-	if (remain <= AUDIO_MIN_BUFFER_FREE ||
+	if ((AudioStartThreshold * 4 < n && VideoSoftStartSync != 1) || remain <= AUDIO_MIN_BUFFER_FREE ||
 	    ((AudioVideoIsReady || !SoftIsPlayingVideo) &&
-	    AudioStartThreshold < n && !AudioSkip)) { // enough audio
+	    AudioStartThreshold < n && (!AudioSkip || VideoSoftStartSync != 1))) { // enough audio
 	    if (!EnoughVideo && SoftIsPlayingVideo) { // not enough video
 		EnoughAudio = 1;
 	    } else { // enough video or radio
@@ -2536,7 +2537,7 @@ void AudioVideoReady(int64_t pts)
 	}
 	// FIXME: skip<0 we need bigger audio buffer
 
-	if (AudioStartThreshold < used && !AudioSkip) {// enough audio
+	if (AudioStartThreshold < used && (!AudioSkip || VideoSoftStartSync != 1)) {// enough audio
 	    if (!EnoughVideo && SoftIsPlayingVideo) { // not enough video
 		EnoughAudio = 1;
 	    } else { // enough video or radio
