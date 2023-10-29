@@ -11536,6 +11536,7 @@ static void VdpauMixVideo(VdpauDecoder * decoder, int level)
 	    cps == VDP_VIDEO_MIXER_PICTURE_STRUCTURE_TOP_FIELD ? 'T' : 'B',
 	    current, future[0], future[1]);
 
+	if ((int)current < 0) goto end;
 	// Render complex interlaced
 	status =
 	    VdpauVideoMixerRender(decoder->VideoMixer, VDP_INVALID_HANDLE,
@@ -11551,6 +11552,7 @@ static void VdpauMixVideo(VdpauDecoder * decoder, int level)
 	    current = decoder->SurfacesRb[decoder->SurfaceRead];
 	}
 
+	if ((int)current < 0) goto end;
 	// Render Progressive frame and simple interlaced
 	status =
 	    VdpauVideoMixerRender(decoder->VideoMixer, VDP_INVALID_HANDLE,
@@ -11562,7 +11564,7 @@ static void VdpauMixVideo(VdpauDecoder * decoder, int level)
 	Error(_("video/vdpau: can't render mixer: %s\n"),
 	    VdpauGetErrorString(status));
     }
-
+end:
     Debug(4, "video/vdpau: yy video surface %#08x@%d displayed\n", current,
 	decoder->SurfaceRead);
 
