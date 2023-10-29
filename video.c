@@ -11752,7 +11752,10 @@ skip_query:
     for (i = 0; i < VdpauDecoderN; ++i) {
 	int filled;
 	VdpauDecoder *decoder;
-
+#ifdef USE_GLX
+	if (GlxEnabled)
+	    VdpauSurfaceIndex = i;
+#endif
 	decoder = VdpauDecoders[i];
 	decoder->FramesDisplayed++;
 	decoder->StartCounter++;
