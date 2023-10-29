@@ -7537,7 +7537,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
     }
-    if (((EnoughVideo && EnoughAudio && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE) {
+    if (EnoughVideo && EnoughAudio && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE) {
 	Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
 	AudioStarted = 1;
 	AudioRunning = 1;
@@ -17346,7 +17346,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
     }
-    if (((EnoughVideo && EnoughAudio && VideoSoftStartSync) ||  !VideoSoftStartSync) && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE) {
+    if (EnoughVideo && EnoughAudio && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE) {
         Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
         AudioStarted = 1;
         AudioRunning = 1;
@@ -19622,7 +19622,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
     }
-    if (((EnoughVideo && EnoughAudio && VideoSoftStartSync) ||  !VideoSoftStartSync) && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE) {
+    if (EnoughVideo && EnoughAudio && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE) {
         Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
         AudioStarted = 1;
         AudioRunning = 1;
