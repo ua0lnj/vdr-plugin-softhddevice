@@ -7568,7 +7568,6 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	goto skip_sync;
     }
     // at start of new video stream, soft or hard sync video to audio
-    // FIXME: video waits for audio, audio for video
     if (!IsReplay() && VideoSoftStartSync < 2 && decoder->StartCounter < VideoSoftStartFrames
 	&& video_clock != (int64_t) AV_NOPTS_VALUE
 	&& (audio_clock == (int64_t) AV_NOPTS_VALUE
