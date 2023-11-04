@@ -2213,7 +2213,7 @@ static void *AudioPlayHandlerThread(void *dummy)
 	    if (AudioPaused) {
 		break;
 	    }
-	    if (AudioSkip && VideoSoftStartSync == 1) {
+	    if (AudioSkip && VideoSoftStartSync > 1) { // early sync
                 Debug(3, "audio: break on AudioSkip\n");
 		break;
 	    }
@@ -2421,9 +2421,9 @@ void AudioEnqueue(const void *samples, int count)
 	if (remain <= AUDIO_MIN_BUFFER_FREE) {
 	    Debug(3, "audio: force start\n");
 	}
-	if ((AudioStartThreshold * 4 < n && VideoSoftStartSync != 1) || remain <= AUDIO_MIN_BUFFER_FREE ||
+	if ((AudioStartThreshold * 4 < n && VideoSoftStartSync < 2) || remain <= AUDIO_MIN_BUFFER_FREE ||  // early audio
 	    ((AudioVideoIsReady || !SoftIsPlayingVideo) &&
-	    AudioStartThreshold < n && (!AudioSkip || VideoSoftStartSync != 1))) { // enough audio
+	    AudioStartThreshold < n && (!AudioSkip || VideoSoftStartSync < 2))) { // enough audio, early audio
 	    if (!EnoughVideo && SoftIsPlayingVideo) { // not enough video
 		EnoughAudio = 1;
 	    } else { // enough video or radio
@@ -2506,7 +2506,7 @@ void AudioVideoReady(int64_t pts)
     if (!AudioRunning || IsReplay()) {
 	int skip;
 
-	skip = pts - audio_pts - VideoAudioDelay - (IsReplay() ? 0 : AudioBufferTime * 90) + (VideoResolution == VideoResolution576i && !IsReplay() && VideoSoftStartSync == 1 ? 240 * 90 : 0);
+	skip = pts - audio_pts - VideoAudioDelay - (IsReplay() ? 0 : AudioBufferTime * 90) + (VideoResolution == VideoResolution576i && !IsReplay() && VideoSoftStartSync > 1 ? 240 * 90 : 0); // early sync
 #ifdef DEBUG
 	fprintf(stderr, "%dms %dms %dms\n", (int)(pts - audio_pts) / 90,
 	    VideoAudioDelay / 90, skip / 90);
@@ -2537,7 +2537,7 @@ void AudioVideoReady(int64_t pts)
 	}
 	// FIXME: skip<0 we need bigger audio buffer
 
-	if (AudioStartThreshold < used && (!AudioSkip || VideoSoftStartSync != 1)) {// enough audio
+	if (AudioStartThreshold < used && (!AudioSkip || VideoSoftStartSync < 2)) {// enough audio, early audio
 	    if (!EnoughVideo && SoftIsPlayingVideo) { // not enough video
 		EnoughAudio = 1;
 	    } else { // enough video or radio
