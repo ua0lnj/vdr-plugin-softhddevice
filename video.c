@@ -12087,15 +12087,18 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
     }
 
   skip_sync:
-    // is it not possible, to advance the surface and/or the field?
+    // trigger black picture?
     if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced + 1 * !IsReplay()) {
-	++decoder->FramesDuped;
-	// FIXME: don't warn after stream start, don't warn during pause
-	err =
-	    VdpauMessage(3,
-	    _("video: decoder buffer empty, "
-	    "duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
-	    decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
+	// is it not possible, to advance the surface and/or the field?
+	if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced) {
+	    ++decoder->FramesDuped;
+	    // FIXME: don't warn after stream start, don't warn during pause
+	    err =
+		VdpauMessage(3,
+		_("video: decoder buffer empty, "
+		"duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
+		decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
+	}
 	// some time no new picture or black video configured
 	if (decoder->Closing < -300 || (VideoShowBlackPicture
 	    && decoder->Closing)) {
@@ -14886,15 +14889,18 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
     }
 
   skip_sync:
-    // is it not possible, to advance the surface and/or the field?
+    // trigger black picture?
     if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced + 1 * !IsReplay()) {
-	++decoder->FramesDuped;
-	// FIXME: don't warn after stream start, don't warn during pause
-	err =
-	    CuvidMessage(3,
-	    _("video: decoder buffer empty, "
-	    "duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
-	    decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
+	// is it not possible, to advance the surface and/or the field?
+	if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced) {
+	    ++decoder->FramesDuped;
+	    // FIXME: don't warn after stream start, don't warn during pause
+	    err =
+		CuvidMessage(3,
+		("video: decoder buffer empty, "
+		"duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
+		decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
+	}
 	// some time no new picture or black video configured
 	if (decoder->Closing < -300 || (VideoShowBlackPicture
 	    && decoder->Closing)) {
@@ -17459,15 +17465,18 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
     }
 
   skip_sync:
-    // is it not possible, to advance the surface and/or the field?
+   // trigger black picture?
     if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced + 1 * !IsReplay()) {
-        ++decoder->FramesDuped;
-        // FIXME: don't warn after stream start, don't warn during pause
-        err =
-            NVdecMessage(3,
-            _("video: decoder buffer empty, "
-            "duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
-            decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
+	// is it not possible, to advance the surface and/or the field?
+	if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced) {
+	    ++decoder->FramesDuped;
+	    // FIXME: don't warn after stream start, don't warn during pause
+	    err =
+		NVdecMessage(3,
+		_("video: decoder buffer empty, "
+		"duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
+	    decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
+	}
         // some time no new picture or black video configured
         if (decoder->Closing < -300 || (VideoShowBlackPicture
             && decoder->Closing)) {
@@ -19735,15 +19744,18 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
     }
 
   skip_sync:
-    // is it not possible, to advance the surface and/or the field?
+    // trigger black picture?
     if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced + 1 * !IsReplay()) {
-        ++decoder->FramesDuped;
-        // FIXME: don't warn after stream start, don't warn during pause
-        err =
-            CpuMessage(3,
-            _("video: decoder buffer empty, "
-            "duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
-            decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
+	// is it not possible, to advance the surface and/or the field?
+	if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced) {
+	    ++decoder->FramesDuped;
+	    // FIXME: don't warn after stream start, don't warn during pause
+	    err =
+		CpuMessage(3,
+		_("video: decoder buffer empty, "
+		"duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
+		decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
+	}
         // some time no new picture or black video configured
         if (decoder->Closing < -300 || (VideoShowBlackPicture
             && decoder->Closing)) {
