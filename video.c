@@ -640,6 +640,7 @@ extern volatile int EnoughAudio;
 volatile VideoResolutions VideoResolution;
 static int VideoStartThreshold_SD = 16;
 void AudioDelayms(int);
+extern volatile char SoftIsPlayingVideo;        ///< stream contains video data
 //----------------------------------------------------------------------------
 //	Common Functions
 //----------------------------------------------------------------------------
@@ -12068,7 +12069,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    ++decoder->FramesDropped;
 	    VdpauAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 2;
-	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { if double advance video not possible, delay audio
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { //if double advance video not possible, delay audio
 	    err = VdpauMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
@@ -14772,7 +14773,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	goto skip_sync;
     }
 
-    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i && VideoSoftStartSync == 3 ? VideoSartThreshold_SD  : 0)); // accurate SD
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i && VideoSoftStartSync == 3 ? VideoStartThreshold_SD  : 0)); // accurate SD
     if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
@@ -14870,7 +14871,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    ++decoder->FramesDropped;
 	    CuvidAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 2;
-	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { if double advance video not possible, delay audio
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { //if double advance video not possible, delay audio
 	    err = CuvidMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
@@ -17446,7 +17447,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	    ++decoder->FramesDropped;
 	    NVdecAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 2;
-	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { if double advance video not possible, delay audio
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { //if double advance video not possible, delay audio
 	    err = NVdecMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
@@ -19725,7 +19726,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	    ++decoder->FramesDropped;
 	    CpuAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 2;
-	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { if double advance video not possible, delay audio
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { //if double advance video not possible, delay audio
 	    err = CpuMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
