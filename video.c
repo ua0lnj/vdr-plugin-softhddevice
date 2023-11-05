@@ -7532,7 +7532,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
         goto skip_sync;
     }
 
-    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold_SD * !!VideoSoftStartSync : 0));
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i && VideoSoftStartSync == 3 ? VideoStartThreshold_SD  : 0)); // accurate SD
     if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
@@ -7568,8 +7568,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	goto skip_sync;
     }
     // at start of new video stream, soft or hard sync video to audio
-    // FIXME: video waits for audio, audio for video
-    if (!IsReplay() && VideoSoftStartSync < 2 && decoder->StartCounter < VideoSoftStartFrames
+    if (!IsReplay() && VideoSoftStartSync != 1 && decoder->StartCounter < VideoSoftStartFrames // not soft sync
 	&& video_clock != (int64_t) AV_NOPTS_VALUE
 	&& (audio_clock == (int64_t) AV_NOPTS_VALUE
 	    || video_clock > audio_clock + VideoAudioDelay + 120 * 90)) {
@@ -7579,7 +7578,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	goto out;
     }
 
-    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync > 1) {
+    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync == 1) { // soft sync
 	goto skip_sync;
     }
 
@@ -7594,7 +7593,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 		AudioFlushBuffers();
 		goto out;
 	    }
-	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && VideoSoftStartSync < 2) {
+	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && VideoSoftStartSync != 1) { // not soft sync
 		if (atomic_read(&decoder->SurfacesFilled) > 1) {
 		    Debug(3,"drop video\n");
 		    VaapiAdvanceDecoderFrame(decoder);
@@ -7617,7 +7616,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    // FIXME: this quicker sync step, did not work with new code!
 	    err = VaapiMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-	    if (VideoSoftStartSync > 1) {
+	    if (VideoSoftStartSync == 1) {
 		decoder->SyncCounter = diff > 100 * 90 ? diff % 2 : 1; //softsync :)
 	    }
 		goto out;
@@ -11971,7 +11970,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	goto skip_sync;
     }
 
-    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold_SD * !!VideoSoftStartSync : 0));
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i && VideoSoftStartSync == 3 ? VideoStartThreshold_SD  : 0)); // accurate SD
     if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
@@ -12007,7 +12006,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	goto skip_sync;
     }
     // at start of new video stream, soft or hard sync video to audio
-    if (!IsReplay() && VideoSoftStartSync < 2 && decoder->StartCounter < VideoSoftStartFrames
+    if (!IsReplay() && VideoSoftStartSync != 1 && decoder->StartCounter < VideoSoftStartFrames // not soft sync
 	&& video_clock != (int64_t) AV_NOPTS_VALUE
 	&& (audio_clock == (int64_t) AV_NOPTS_VALUE
 	    || video_clock > audio_clock + VideoAudioDelay + 120 * 90)) {
@@ -12017,7 +12016,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	goto out;
     }
 
-    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync > 1) {
+    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync == 1) { // soft sync
 	goto skip_sync;
     }
 
@@ -12032,7 +12031,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 		AudioFlushBuffers();
 		goto out;
 	    }
-	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && VideoSoftStartSync < 2) {
+	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && VideoSoftStartSync != 1) { // not soft sync
 		if (!(decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced)) {
 		    Debug(3,"drop video\n");
 		    VdpauAdvanceDecoderFrame(decoder);
@@ -12055,7 +12054,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    // FIXME: this quicker sync step, did not work with new code!
 	    err = VdpauMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-	    if (VideoSoftStartSync > 1) {
+	    if (VideoSoftStartSync == 1) {
 		decoder->SyncCounter = diff > 100 * 90 ? diff % 2 : 1; //softsync :)
 	    }
 	    goto out;
@@ -12069,7 +12068,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    ++decoder->FramesDropped;
 	    VdpauAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 2;
-	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced && !IsReplay()) {
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { if double advance video not possible, delay audio
 	    err = VdpauMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
@@ -12088,15 +12087,18 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
     }
 
   skip_sync:
-    // is it not possible, to advance the surface and/or the field?
-    if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced/* + 1 * !IsReplay()*/) {
-	++decoder->FramesDuped;
-	// FIXME: don't warn after stream start, don't warn during pause
-	err =
-	    VdpauMessage(3,
-	    _("video: decoder buffer empty, "
-	    "duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
-	    decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
+    // trigger black picture?
+    if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced + 1 * !IsReplay()) {
+	// is it not possible, to advance the surface and/or the field?
+	if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced) {
+	    ++decoder->FramesDuped;
+	    // FIXME: don't warn after stream start, don't warn during pause
+	    err =
+		VdpauMessage(3,
+		_("video: decoder buffer empty, "
+		"duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
+		decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
+	}
 	// some time no new picture or black video configured
 	if (decoder->Closing < -300 || (VideoShowBlackPicture
 	    && decoder->Closing)) {
@@ -14770,7 +14772,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	goto skip_sync;
     }
 
-    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold_SD * !!VideoSoftStartSync : 0));
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i && VideoSoftStartSync == 3 ? VideoSartThreshold_SD  : 0)); // accurate SD
     if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
@@ -14806,7 +14808,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	goto skip_sync;
     }
     // at start of new video stream, soft or hard sync video to audio
-    if (!IsReplay() && VideoSoftStartSync < 2 && decoder->StartCounter < VideoSoftStartFrames
+    if (!IsReplay() && VideoSoftStartSync != 1 && decoder->StartCounter < VideoSoftStartFrames // not soft sync
 	&& video_clock != (int64_t) AV_NOPTS_VALUE
 	&& (audio_clock == (int64_t) AV_NOPTS_VALUE
 	    || video_clock > audio_clock + VideoAudioDelay + 120 * 90)) {
@@ -14816,7 +14818,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	goto out;
     }
 
-    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync > 1) {
+    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync == 1) { // soft sync
 	goto skip_sync;
     }
 
@@ -14831,7 +14833,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 		AudioFlushBuffers();
 		goto out;
 	    }
-	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && VideoSoftStartSync < 2) {
+	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && VideoSoftStartSync != 1) { // not soft sync
 		if (!(decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced)) {
 		    Debug(3,"drop video\n");
 		    CuvidAdvanceDecoderFrame(decoder);
@@ -14854,7 +14856,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    // FIXME: this quicker sync step, did not work with new code!
 	    err = CuvidMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-	    if (VideoSoftStartSync > 1) {
+	    if (VideoSoftStartSync == 1) {
 		decoder->SyncCounter = diff > 100 * 90 ? diff % 2 : 1; //softsync :)
 	    }
 	    goto out;
@@ -14868,7 +14870,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    ++decoder->FramesDropped;
 	    CuvidAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 2;
-	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced && !IsReplay()) {
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { if double advance video not possible, delay audio
 	    err = CuvidMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
@@ -14887,15 +14889,18 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
     }
 
   skip_sync:
-    // is it not possible, to advance the surface and/or the field?
-    if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced/* + 1 * !IsReplay()*/) {
-	++decoder->FramesDuped;
-	// FIXME: don't warn after stream start, don't warn during pause
-	err =
-	    CuvidMessage(3,
-	    _("video: decoder buffer empty, "
-	    "duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
-	    decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
+    // trigger black picture?
+    if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced + 1 * !IsReplay()) {
+	// is it not possible, to advance the surface and/or the field? don't warn, if radio
+	if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced && SoftIsPlayingVideo) {
+	    ++decoder->FramesDuped;
+	    // FIXME: don't warn after stream start, don't warn during pause
+	    err =
+		CuvidMessage(3,
+		("video: decoder buffer empty, "
+		"duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
+		decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
+	}
 	// some time no new picture or black video configured
 	if (decoder->Closing < -300 || (VideoShowBlackPicture
 	    && decoder->Closing)) {
@@ -17343,7 +17348,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	goto skip_sync;
     }
 
-    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold_SD * !!VideoSoftStartSync : 0));
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i && VideoSoftStartSync == 3 ? VideoStartThreshold_SD  : 0)); // accurate SD
     if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
@@ -17379,7 +17384,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	goto skip_sync;
     }
     // at start of new video stream, soft or hard sync video to audio
-    if (!IsReplay() && VideoSoftStartSync < 2 && decoder->StartCounter < VideoSoftStartFrames
+    if (!IsReplay() && VideoSoftStartSync != 1 && decoder->StartCounter < VideoSoftStartFrames // not soft sync
 	&& video_clock != (int64_t) AV_NOPTS_VALUE
 	&& (audio_clock == (int64_t) AV_NOPTS_VALUE
 	    || video_clock > audio_clock + VideoAudioDelay + 120 * 90)) {
@@ -17389,7 +17394,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	goto out;
     }
 
-    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync > 1) {
+    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync == 1) { // soft sync
 	goto skip_sync;
     }
 
@@ -17404,7 +17409,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 		AudioFlushBuffers();
 		goto out;
 	    }
-	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && VideoSoftStartSync < 2) {
+	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && VideoSoftStartSync != 1) { // not soft sync
 		if (!(decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced)) {
 		    Debug(3,"drop video\n");
 		    NVdecAdvanceDecoderFrame(decoder);
@@ -17427,7 +17432,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	    // FIXME: this quicker sync step, did not work with new code!
 	    err = NVdecMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-	    if (VideoSoftStartSync > 1) {
+	    if (VideoSoftStartSync == 1) {
 		decoder->SyncCounter = diff > 100 * 90 ? diff % 2 : 1; //softsync :)
 	    }
 	    goto out;
@@ -17441,7 +17446,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	    ++decoder->FramesDropped;
 	    NVdecAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 2;
-	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced && !IsReplay()) {
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { if double advance video not possible, delay audio
 	    err = NVdecMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
@@ -17460,15 +17465,18 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
     }
 
   skip_sync:
-    // is it not possible, to advance the surface and/or the field?
+   // trigger black picture?
     if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced + 1 * !IsReplay()) {
-        ++decoder->FramesDuped;
-        // FIXME: don't warn after stream start, don't warn during pause
-        err =
-            NVdecMessage(3,
-            _("video: decoder buffer empty, "
-            "duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
-            decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
+	// is it not possible, to advance the surface and/or the field?
+	if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced) {
+	    ++decoder->FramesDuped;
+	    // FIXME: don't warn after stream start, don't warn during pause
+	    err =
+		NVdecMessage(3,
+		_("video: decoder buffer empty, "
+		"duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
+	    decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
+	}
         // some time no new picture or black video configured
         if (decoder->Closing < -300 || (VideoShowBlackPicture
             && decoder->Closing)) {
@@ -19619,7 +19627,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	goto skip_sync;
     }
 
-    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold_SD * !!VideoSoftStartSync : 0));
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i && VideoSoftStartSync == 3 ? VideoStartThreshold_SD  : 0)); // accurate SD
     if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
@@ -19655,7 +19663,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	goto skip_sync;
     }
     // at start of new video stream, soft or hard sync video to audio
-    if (!IsReplay() && VideoSoftStartSync < 2 && decoder->StartCounter < VideoSoftStartFrames
+    if (!IsReplay() && VideoSoftStartSync != 1 && decoder->StartCounter < VideoSoftStartFrames // not soft sync
 	&& video_clock != (int64_t) AV_NOPTS_VALUE
 	&& (audio_clock == (int64_t) AV_NOPTS_VALUE
 	    || video_clock > audio_clock + VideoAudioDelay + 120 * 90)) {
@@ -19665,7 +19673,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	goto out;
     }
 
-    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync > 1) {
+    if (decoder->SyncCounter && decoder->SyncCounter-- && VideoSoftStartSync == 1) { // soft sync
 	goto skip_sync;
     }
 
@@ -19680,7 +19688,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 		AudioFlushBuffers();
 		goto out;
 	    }
-	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && VideoSoftStartSync < 2) {
+	    if((video_clock < audio_clock + VideoAudioDelay - 120 * 90) && VideoSoftStartSync != 1) { // not soft sync
 		if (!(decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced)) {
 		    Debug(3,"drop video\n");
 		    CpuAdvanceDecoderFrame(decoder);
@@ -19703,7 +19711,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	    // FIXME: this quicker sync step, did not work with new code!
 	    err = CpuMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
-	    if (VideoSoftStartSync > 1) {
+	    if (VideoSoftStartSync == 1) {
 		decoder->SyncCounter = diff > 100 * 90 ? diff % 2 : 1; //softsync :)
 	    }
 	    goto out;
@@ -19717,7 +19725,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	    ++decoder->FramesDropped;
 	    CpuAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 2;
-	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced && !IsReplay()) {
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { if double advance video not possible, delay audio
 	    err = CpuMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
@@ -19736,15 +19744,18 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
     }
 
   skip_sync:
-    // is it not possible, to advance the surface and/or the field?
+    // trigger black picture?
     if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced + 1 * !IsReplay()) {
-        ++decoder->FramesDuped;
-        // FIXME: don't warn after stream start, don't warn during pause
-        err =
-            CpuMessage(3,
-            _("video: decoder buffer empty, "
-            "duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
-            decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
+	// is it not possible, to advance the surface and/or the field?
+	if (decoder->SurfaceField && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced) {
+	    ++decoder->FramesDuped;
+	    // FIXME: don't warn after stream start, don't warn during pause
+	    err =
+		CpuMessage(3,
+		_("video: decoder buffer empty, "
+		"duping frame (%d/%d) %d v-buf closing %d\n"), decoder->FramesDuped,
+		decoder->FrameCounter, VideoGetBuffers(decoder->Stream), decoder->Closing);
+	}
         // some time no new picture or black video configured
         if (decoder->Closing < -300 || (VideoShowBlackPicture
             && decoder->Closing)) {

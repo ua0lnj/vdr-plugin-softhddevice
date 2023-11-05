@@ -1132,7 +1132,7 @@ void cMenuSetupSoft::Create(void)
 	"pan&scan", "pillarbox", "center cut-out",
     };
     static const char *const video_sync_mode[] = {
-	tr("fast"), tr("accurate"), tr("soft"),
+	tr("early audio"), tr("early audio + soft sync"), tr("early sync + fast SD"), tr("early sync + accurate SD"),
     };
     static const char *const audiodrift[] = {
 	tr("None"), "PCM", "AC-3", "PCM + AC-3"
@@ -1239,7 +1239,7 @@ void cMenuSetupSoft::Create(void)
 	Add(new cMenuEditBoolItem(tr("60hz display mode"), &_60HzMode,
 		trVDR("no"), trVDR("yes")));
 	Add(new cMenuEditStraItem(tr("A/V sync start"),
-		 &SoftStartSync, 3, video_sync_mode));
+		 &SoftStartSync, 4, video_sync_mode));
 	Add(new cMenuEditBoolItem(tr("Black during channel switch"),
 		&BlackPicture, trVDR("no"), trVDR("yes")));
 	Add(new cMenuEditBoolItem(tr("Clear decoder on channel switch"),
