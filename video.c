@@ -12068,7 +12068,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    ++decoder->FramesDropped;
 	    VdpauAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 2;
-	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced && !IsReplay()) {
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { if double advance video not possible, delay audio
 	    err = VdpauMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
@@ -14870,7 +14870,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    ++decoder->FramesDropped;
 	    CuvidAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 2;
-	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced && !IsReplay()) {
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { if double advance video not possible, delay audio
 	    err = CuvidMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
@@ -17446,7 +17446,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	    ++decoder->FramesDropped;
 	    NVdecAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 2;
-	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced && !IsReplay()) {
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { if double advance video not possible, delay audio
 	    err = NVdecMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
@@ -19725,7 +19725,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	    ++decoder->FramesDropped;
 	    CpuAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 2;
-	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) < 1 + 2 * decoder->Interlaced && !IsReplay()) {
+	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { if double advance video not possible, delay audio
 	    err = CpuMessage(3, "video: speed up audio, delay audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 	}
