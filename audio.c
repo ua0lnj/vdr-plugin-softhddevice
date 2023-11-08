@@ -2470,7 +2470,7 @@ void AudioVideoReady(int64_t pts)
 		}
 		first = 0;
 	    }
-	    usleep(10 * 1000);
+	    usleep(10 * 1000);  // wait for audio pts
 	} else {
 	    if (i) {
 		Debug(3, "audio: a/v start, finally valid audio, looped %d times, %d ms\n", i, i * 10);
