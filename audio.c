@@ -2172,7 +2172,7 @@ static void *AudioPlayHandlerThread(void *dummy)
 			continue;
 		    } else {
 			if (AudioStarted && snd_pcm_state(AlsaPCMHandle) == SND_PCM_STATE_XRUN && !IsReplay()) {
-			    Debug(3, "audio: audio started and underrun, increase AudioBufferTime?!\n");
+			    Warning(_("audio: audio started and underrun, increase AudioBufferTime?!\n"));
 			}
 			Debug(3, "audio: buffer empty or pcm not running, and no new ring buffer, goto sleep\n");
 			break;
