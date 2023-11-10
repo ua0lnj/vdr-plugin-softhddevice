@@ -2506,7 +2506,7 @@ void AudioVideoReady(int64_t pts)
     if (!AudioRunning || IsReplay()) {
 	int skip;
 
-	skip = pts - audio_pts - VideoAudioDelay - (IsReplay() ? 0 : AudioBufferTime * 90) + (VideoResolution == VideoResolution576i && !IsReplay() && VideoSoftStartSync > 1 ? 240 * 90 : 0); // early sync
+	skip = pts - audio_pts - VideoAudioDelay - (IsReplay() ? 0 : 15 * 20 *90 * (VideoSoftStartSync < 2) + AudioBufferTime * 90) + (VideoResolution == VideoResolution576i && !IsReplay() && VideoSoftStartSync > 1 ? 240 * 90 : 0); // early sync
 #ifdef DEBUG
 	fprintf(stderr, "%dms %dms %dms\n", (int)(pts - audio_pts) / 90,
 	    VideoAudioDelay / 90, skip / 90);
