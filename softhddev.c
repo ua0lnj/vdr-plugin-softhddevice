@@ -89,6 +89,7 @@ static void DumpMpeg(const uint8_t * data, int size);
 extern int ConfigAudioBufferTime;	///< config size ms of audio buffer
 extern int DisableOglOsd;		///< disable OpenGL OSD
 extern char ConfigVideoClearOnSwitch;	///< clear decoder on channel switch
+extern volatile char AudioStarted;
 char ConfigStartX11Server;		///< flag start the x11 server
 static signed char ConfigStartSuspended;	///< flag to start in suspend mode
 static char ConfigFullscreen;		///< fullscreen modus
@@ -2965,6 +2966,7 @@ int SetPlayMode(int play_mode)
 	    if (MyAudioDecoder) {	// tell audio parser we have new stream
 		if (AudioCodecID != AV_CODEC_ID_NONE) {
 		    NewAudioStream = 1;
+		    AudioStarted = 0;
 		}
 	    }
 	    break;
