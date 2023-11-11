@@ -639,6 +639,7 @@ volatile int EnoughVideo;
 extern volatile int EnoughAudio;
 volatile VideoResolutions VideoResolution;
 static int VideoStartThreshold_SD = 16;
+static int VideoStartThreshold_HD = 38;
 void AudioDelayms(int);
 extern volatile char SoftIsPlayingVideo;        ///< stream contains video data
 //----------------------------------------------------------------------------
@@ -7533,7 +7534,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
         goto skip_sync;
     }
 
-    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i && VideoSoftStartSync == 3 ? VideoStartThreshold_SD  : 0)); // accurate SD
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold_SD : VideoStartThreshold_HD) * (VideoSoftStartSync == 3)); // accurate switch
     if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
@@ -11971,7 +11972,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	goto skip_sync;
     }
 
-    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i && VideoSoftStartSync == 3 ? VideoStartThreshold_SD  : 0)); // accurate SD
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold_SD : VideoStartThreshold_HD) * (VideoSoftStartSync == 3)); // accurate switch
     if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
@@ -14773,7 +14774,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	goto skip_sync;
     }
 
-    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i && VideoSoftStartSync == 3 ? VideoStartThreshold_SD  : 0)); // accurate SD
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold_SD : VideoStartThreshold_HD) * (VideoSoftStartSync == 3)); // accurate switch
     if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
@@ -17349,7 +17350,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	goto skip_sync;
     }
 
-    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i && VideoSoftStartSync == 3 ? VideoStartThreshold_SD  : 0)); // accurate SD
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold_SD : VideoStartThreshold_HD) * (VideoSoftStartSync == 3)); // accurate switch
     if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
@@ -19628,7 +19629,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	goto skip_sync;
     }
 
-    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i && VideoSoftStartSync == 3 ? VideoStartThreshold_SD  : 0)); // accurate SD
+    EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold_SD : VideoStartThreshold_HD) * (VideoSoftStartSync == 3)); // accurate switch
     if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;

@@ -233,8 +233,8 @@ Setup: /etc/vdr/setup.conf
 	softhddevice.SoftStartSync = 0
 	0 early audio + fast SD (was disable soft start)
 	1 early audio + fast SD + soft start of audio/video sync (was enable soft start)
-	2 early audio/video sync + fast SD
-	3 early audio/video sync + accurate SD
+	2 early audio/video sync + fast switch
+	3 early audio/video sync + accurate swicth
 
 	softhddevice.BlackPicture = 0
 	0 disable black picture during channel switch
