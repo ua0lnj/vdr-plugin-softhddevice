@@ -14423,6 +14423,9 @@ static void CuvidMixVideo(CuvidDecoder * decoder, int level)
 
     current = decoder->SurfacesRb[decoder->SurfaceRead];
 
+    if (level == 0)
+        glClear(GL_COLOR_BUFFER_BIT);
+
     if (!decoder->gl_textures[current][0] || !decoder->gl_textures[current][1]) return;
     // Render Progressive frame and simple interlaced
     y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
@@ -14451,7 +14454,6 @@ static void CuvidMixVideo(CuvidDecoder * decoder, int level)
     glActiveTexture(GL_TEXTURE0);
 
     Debug(4,"video/cuvid: yy video surface %d displayed\n", current);
-    (void)level;
 }
 
 ///
@@ -14464,8 +14466,16 @@ static void CuvidMixVideo(CuvidDecoder * decoder, int level)
 ///
 static void CuvidBlackSurface(CuvidDecoder * decoder)
 {
+    int y;
+    y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
+    if (y < 0)
+        y = 0;
+
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(decoder->OutputX, y, decoder->OutputWidth, decoder->OutputHeight);
     glClear(GL_COLOR_BUFFER_BIT);
-    (void)decoder;
+    glDisable(GL_SCISSOR_TEST);
+
     return;
 }
 
@@ -14523,12 +14533,10 @@ static void CuvidDisplayFrame(void)
 
     if (GlxEnabled) {
 	glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
-	glClear(GL_COLOR_BUFFER_BIT);
     }
 #ifdef USE_EGL
     if (EglEnabled) {
 	eglMakeCurrent(EglDisplay, EglSurface, EglSurface, EglThreadContext);
-	glClear(GL_COLOR_BUFFER_BIT);
     }
 #endif
     // check if surface was displayed for more than 1 frame
@@ -16999,6 +17007,9 @@ static void NVdecMixVideo(NVdecDecoder * decoder, int level)
 
     current = decoder->SurfacesRb[decoder->SurfaceRead];
 
+    if (level == 0)
+        glClear(GL_COLOR_BUFFER_BIT);
+
     if (!decoder->gl_textures[current][0] || !decoder->gl_textures[current][1]) return;
     // Render Progressive frame and simple interlaced
     y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
@@ -17027,7 +17038,6 @@ static void NVdecMixVideo(NVdecDecoder * decoder, int level)
     glActiveTexture(GL_TEXTURE0);
 
     Debug(4,"video/nvdec: yy video surface %d displayed\n", current);
-    (void)level;
 }
 
 ///
@@ -17040,8 +17050,16 @@ static void NVdecMixVideo(NVdecDecoder * decoder, int level)
 ///
 static void NVdecBlackSurface(NVdecDecoder * decoder)
 {
+    int y;
+    y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
+    if (y < 0)
+        y = 0;
+
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(decoder->OutputX, y, decoder->OutputWidth, decoder->OutputHeight);
     glClear(GL_COLOR_BUFFER_BIT);
-    (void)decoder;
+    glDisable(GL_SCISSOR_TEST);
+
     return;
 }
 
@@ -17099,12 +17117,10 @@ static void NVdecDisplayFrame(void)
 
     if (GlxEnabled) {
 	glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
-	glClear(GL_COLOR_BUFFER_BIT);
     }
 #ifdef USE_EGL
     if (EglEnabled) {
 	eglMakeCurrent(EglDisplay, EglSurface, EglSurface, EglThreadContext);
-	glClear(GL_COLOR_BUFFER_BIT);
     }
 #endif
     // check if surface was displayed for more than 1 frame
@@ -19279,6 +19295,9 @@ static void CpuMixVideo(CpuDecoder * decoder, int level)
 
     current = decoder->SurfacesRb[decoder->SurfaceRead];
 
+    if (level == 0)
+        glClear(GL_COLOR_BUFFER_BIT);
+
     if (!decoder->gl_textures[current][0] || !decoder->gl_textures[current][1]) return;
     // Render Progressive frame and simple interlaced
     y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
@@ -19307,7 +19326,6 @@ static void CpuMixVideo(CpuDecoder * decoder, int level)
     glActiveTexture(GL_TEXTURE0);
 
     Debug(4,"video/cpu: yy video surface %d displayed\n", current);
-    (void)level;
 }
 
 ///
@@ -19320,8 +19338,16 @@ static void CpuMixVideo(CpuDecoder * decoder, int level)
 ///
 static void CpuBlackSurface(CpuDecoder * decoder)
 {
+    int y;
+    y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
+    if (y < 0)
+        y = 0;
+
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(decoder->OutputX, y, decoder->OutputWidth, decoder->OutputHeight);
     glClear(GL_COLOR_BUFFER_BIT);
-    (void)decoder;
+    glDisable(GL_SCISSOR_TEST);
+
     return;
 }
 
@@ -19379,12 +19405,10 @@ static void CpuDisplayFrame(void)
 
     if (GlxEnabled) {
 	glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
-	glClear(GL_COLOR_BUFFER_BIT);
     }
 #ifdef USE_EGL
     if (EglEnabled) {
 	eglMakeCurrent(EglDisplay, EglSurface, EglSurface, EglThreadContext);
-	glClear(GL_COLOR_BUFFER_BIT);
     }
 #endif
     // check if surface was displayed for more than 1 frame
