@@ -14412,6 +14412,7 @@ static void CuvidMixVideo(CuvidDecoder * decoder, int level)
     int y;
     float xcropf, ycropf;
     GLint texLoc;
+    static GLuint still_texture[2]; //for still picture
 
 #ifdef USE_AUTOCROP
     // FIXME: can move to render frame
@@ -14423,10 +14424,17 @@ static void CuvidMixVideo(CuvidDecoder * decoder, int level)
 
     current = decoder->SurfacesRb[decoder->SurfaceRead];
 
+    //copy for still picture
+    if (decoder->gl_textures[current][0] && decoder->gl_textures[current][1] && level == 0) {
+        still_texture[0] = decoder->gl_textures[current][0];
+        still_texture[1] = decoder->gl_textures[current][1];
+    }
     if (level == 0)
         glClear(GL_COLOR_BUFFER_BIT);
 
-    if (!decoder->gl_textures[current][0] || !decoder->gl_textures[current][1]) return;
+    if ((!still_texture[0] || !still_texture[1]) && level == 0) return;
+    if ((!decoder->gl_textures[current][0] || !decoder->gl_textures[current][1]) && level != 0) return;
+
     // Render Progressive frame and simple interlaced
     y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
     if (y < 0)
@@ -14444,15 +14452,25 @@ static void CuvidMixVideo(CuvidDecoder * decoder, int level)
     glUniform1i(texLoc, 1);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[current][0]);
+    if (level == 0)
+        glBindTexture(GL_TEXTURE_2D,still_texture[0]);
+    else
+        glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[current][0]);
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[current][1]);
-
+    if (level == 0)
+        glBindTexture(GL_TEXTURE_2D,still_texture[1]);
+    else
+        glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[current][1]);
     render_pass_quad(0, xcropf, ycropf);
 
     glUseProgram(0);
     glActiveTexture(GL_TEXTURE0);
 
+    //clean if not still picture
+    if (!decoder->TrickSpeed && level == 0) {
+        still_texture[0] = 0;
+        still_texture[1] = 0;
+    }
     Debug(4,"video/cuvid: yy video surface %d displayed\n", current);
 }
 
@@ -16996,6 +17014,7 @@ static void NVdecMixVideo(NVdecDecoder * decoder, int level)
     int y;
     float xcropf, ycropf;
     GLint texLoc;
+    static GLuint still_texture[2]; //for still picture
 
 #ifdef USE_AUTOCROP
     // FIXME: can move to render frame
@@ -17007,10 +17026,17 @@ static void NVdecMixVideo(NVdecDecoder * decoder, int level)
 
     current = decoder->SurfacesRb[decoder->SurfaceRead];
 
+    //copy for still picture
+    if (decoder->gl_textures[current][0] && decoder->gl_textures[current][1] && level == 0) {
+        still_texture[0] = decoder->gl_textures[current][0];
+        still_texture[1] = decoder->gl_textures[current][1];
+    }
     if (level == 0)
         glClear(GL_COLOR_BUFFER_BIT);
 
-    if (!decoder->gl_textures[current][0] || !decoder->gl_textures[current][1]) return;
+    if ((!still_texture[0] || !still_texture[1]) && level == 0) return;
+    if ((!decoder->gl_textures[current][0] || !decoder->gl_textures[current][1]) && level != 0) return;
+
     // Render Progressive frame and simple interlaced
     y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
     if (y < 0)
@@ -17028,15 +17054,25 @@ static void NVdecMixVideo(NVdecDecoder * decoder, int level)
     glUniform1i(texLoc, 1);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[current][0]);
+    if (level == 0)
+        glBindTexture(GL_TEXTURE_2D,still_texture[0]);
+    else
+        glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[current][0]);
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[current][1]);
-
+    if (level == 0)
+        glBindTexture(GL_TEXTURE_2D,still_texture[1]);
+    else
+        glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[current][1]);
     render_pass_quad(0, xcropf, ycropf);
 
     glUseProgram(0);
     glActiveTexture(GL_TEXTURE0);
 
+    //clean if not still picture
+    if (!decoder->TrickSpeed && level == 0) {
+        still_texture[0] = 0;
+        still_texture[1] = 0;
+    }
     Debug(4,"video/nvdec: yy video surface %d displayed\n", current);
 }
 
@@ -19284,6 +19320,7 @@ static void CpuMixVideo(CpuDecoder * decoder, int level)
     int y;
     float xcropf, ycropf;
     GLint texLoc;
+    static GLuint still_texture[2]; //for still picture
 
 #ifdef USE_AUTOCROP
     // FIXME: can move to render frame
@@ -19295,10 +19332,17 @@ static void CpuMixVideo(CpuDecoder * decoder, int level)
 
     current = decoder->SurfacesRb[decoder->SurfaceRead];
 
+    //copy for still picture
+    if (decoder->gl_textures[current][0] && decoder->gl_textures[current][1] && level == 0) {
+        still_texture[0] = decoder->gl_textures[current][0];
+        still_texture[1] = decoder->gl_textures[current][1];
+    }
     if (level == 0)
         glClear(GL_COLOR_BUFFER_BIT);
 
-    if (!decoder->gl_textures[current][0] || !decoder->gl_textures[current][1]) return;
+    if ((!still_texture[0] || !still_texture[1]) && level == 0) return;
+    if ((!decoder->gl_textures[current][0] || !decoder->gl_textures[current][1]) && level != 0) return;
+
     // Render Progressive frame and simple interlaced
     y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
     if (y < 0)
@@ -19316,15 +19360,25 @@ static void CpuMixVideo(CpuDecoder * decoder, int level)
     glUniform1i(texLoc, 1);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[current][0]);
+    if (level == 0)
+        glBindTexture(GL_TEXTURE_2D,still_texture[0]);
+    else
+        glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[current][0]);
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[current][1]);
-
+    if (level == 0)
+        glBindTexture(GL_TEXTURE_2D,still_texture[1]);
+    else
+        glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[current][1]);
     render_pass_quad(0, xcropf, ycropf);
 
     glUseProgram(0);
     glActiveTexture(GL_TEXTURE0);
 
+    //clean if not still picture
+    if (!decoder->TrickSpeed && level == 0) {
+        still_texture[0] = 0;
+        still_texture[1] = 0;
+    }
     Debug(4,"video/cpu: yy video surface %d displayed\n", current);
 }
 
