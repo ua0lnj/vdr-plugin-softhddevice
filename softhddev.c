@@ -3149,10 +3149,12 @@ void StillPicture(const uint8_t * data, int size)
     VideoResetPacket(MyVideoStream);
     old_video_hardware_decoder = VideoHardwareDecoder;
     // enable/disable hardware decoder for still picture
-    if (VideoHardwareDecoder != ConfigStillDecoder) {
+    if (VideoHardwareDecoder != ConfigStillDecoder && !VideoIsDriverCpu()) {
 	VideoHardwareDecoder = ConfigStillDecoder;
-	VideoNextPacket(MyVideoStream, AV_CODEC_ID_NONE);	// close last stream
     }
+
+    VideoNextPacket(MyVideoStream, AV_CODEC_ID_NONE);	// close last stream
+
     if (MyVideoStream->CodecID == AV_CODEC_ID_NONE) {
 	// FIXME: should detect codec, see PlayVideo
 	Error(_("[softhddev] no codec known for still picture\n"));
@@ -3163,8 +3165,8 @@ void StillPicture(const uint8_t * data, int size)
 #ifdef STILL_DEBUG
     fprintf(stderr, "still-picture\n");
 #endif
-    for (i = 0; i < (MyVideoStream->CodecID == AV_CODEC_ID_HEVC ? 10 : 8);
-	++i) {
+
+    for (i = 0; i < (VideoIsDriverCuvid() ? 12 : 4); ++i) {
 	const uint8_t *split;
 	int n;
 
@@ -3201,7 +3203,6 @@ void StillPicture(const uint8_t * data, int size)
 		split += 6 + len;
 		n -= 6 + len;
 	    } while (n > 6);
-
 	    VideoNextPacket(MyVideoStream, MyVideoStream->CodecID);	// terminate last packet
 	} else {			// ES packet
             Debug(3, "[softhddev]%s: receive ES\n", __FUNCTION__);
