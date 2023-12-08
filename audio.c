@@ -2126,6 +2126,7 @@ static void *AudioPlayHandlerThread(void *dummy)
 		Debug(3, "audio: play thread stopped\n");
 		return PTHREAD_CANCELED;
 	    }
+	    usleep(1000); //prevent high cpu load
 	    // look if there is a flush command in the queue
 	    flush = 0;
 	    filled = atomic_read(&AudioRingFilled);
