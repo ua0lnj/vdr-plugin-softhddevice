@@ -7528,7 +7528,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
     video_clock = VaapiGetClock(decoder);
     audio_clock = AudioGetClock();
 
-    if (!decoder->SyncOnAudio) {
+    if (!decoder->SyncOnAudio || !SoftIsPlayingVideo) {
         audio_clock = AV_NOPTS_VALUE;
         // FIXME: 60Hz Mode
         goto skip_sync;
@@ -11966,7 +11966,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
     video_clock = VdpauGetClock(decoder);
     audio_clock = AudioGetClock();
 
-    if (!decoder->SyncOnAudio) {
+    if (!decoder->SyncOnAudio  || !SoftIsPlayingVideo) {
 	audio_clock = AV_NOPTS_VALUE;
 	// FIXME: 60Hz Mode
 	goto skip_sync;
@@ -14794,7 +14794,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
     video_clock = CuvidGetClock(decoder);
     audio_clock = AudioGetClock();
 
-    if (!decoder->SyncOnAudio) {
+    if (!decoder->SyncOnAudio  || !SoftIsPlayingVideo) {
 	audio_clock = AV_NOPTS_VALUE;
 	// FIXME: 60Hz Mode
 	goto skip_sync;
@@ -17396,7 +17396,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
     video_clock = NVdecGetClock(decoder);
     audio_clock = AudioGetClock();
 
-    if (!decoder->SyncOnAudio) {
+    if (!decoder->SyncOnAudio  || !SoftIsPlayingVideo) {
 	audio_clock = AV_NOPTS_VALUE;
 	// FIXME: 60Hz Mode
 	goto skip_sync;
@@ -19701,7 +19701,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
     video_clock = CpuGetClock(decoder);
     audio_clock = AudioGetClock();
 
-    if (!decoder->SyncOnAudio) {
+    if (!decoder->SyncOnAudio  || !SoftIsPlayingVideo) {
 	audio_clock = AV_NOPTS_VALUE;
 	// FIXME: 60Hz Mode
 	goto skip_sync;
