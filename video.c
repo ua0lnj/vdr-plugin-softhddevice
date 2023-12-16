@@ -14484,16 +14484,21 @@ static void CuvidMixVideo(CuvidDecoder * decoder, int level)
 ///
 static void CuvidBlackSurface(CuvidDecoder * decoder)
 {
-    int y;
-    y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
-    if (y < 0)
-        y = 0;
+    //for main video clean all, for pip clean video area only
+    if(!((char*)decoder->Stream)[0])      //isPipStream == 0 main video
+        glClear(GL_COLOR_BUFFER_BIT);
+    else
+    {
+        int y;
+        y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
+        if (y < 0)
+            y = 0;
 
-    glEnable(GL_SCISSOR_TEST);
-    glScissor(decoder->OutputX, y, decoder->OutputWidth, decoder->OutputHeight);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glDisable(GL_SCISSOR_TEST);
-
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(decoder->OutputX, y, decoder->OutputWidth, decoder->OutputHeight);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glDisable(GL_SCISSOR_TEST);
+    }
     return;
 }
 
@@ -17086,16 +17091,21 @@ static void NVdecMixVideo(NVdecDecoder * decoder, int level)
 ///
 static void NVdecBlackSurface(NVdecDecoder * decoder)
 {
-    int y;
-    y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
-    if (y < 0)
-        y = 0;
+    //for main video clean all, for pip clean video area only
+    if(!((char*)decoder->Stream)[0])      //isPipStream == 0 main video
+        glClear(GL_COLOR_BUFFER_BIT);
+    else
+    {
+        int y;
+        y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
+        if (y < 0)
+            y = 0;
 
-    glEnable(GL_SCISSOR_TEST);
-    glScissor(decoder->OutputX, y, decoder->OutputWidth, decoder->OutputHeight);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glDisable(GL_SCISSOR_TEST);
-
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(decoder->OutputX, y, decoder->OutputWidth, decoder->OutputHeight);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glDisable(GL_SCISSOR_TEST);
+    }
     return;
 }
 
@@ -19392,16 +19402,21 @@ static void CpuMixVideo(CpuDecoder * decoder, int level)
 ///
 static void CpuBlackSurface(CpuDecoder * decoder)
 {
-    int y;
-    y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
-    if (y < 0)
-        y = 0;
+    //for main video clean all, for pip clean video area only
+    if(!((char*)decoder->Stream)[0])      //isPipStream == 0 main video
+        glClear(GL_COLOR_BUFFER_BIT);
+    else
+    {
+        int y;
+        y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
+        if (y < 0)
+            y = 0;
 
-    glEnable(GL_SCISSOR_TEST);
-    glScissor(decoder->OutputX, y, decoder->OutputWidth, decoder->OutputHeight);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glDisable(GL_SCISSOR_TEST);
-
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(decoder->OutputX, y, decoder->OutputWidth, decoder->OutputHeight);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glDisable(GL_SCISSOR_TEST);
+    }
     return;
 }
 
