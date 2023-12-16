@@ -3166,7 +3166,7 @@ void StillPicture(const uint8_t * data, int size)
     fprintf(stderr, "still-picture\n");
 #endif
 
-    for (i = 0; i < (VideoIsDriverCuvid() ? 12 : 4); ++i) {
+    for (i = 0; i < (VideoIsDriverCuvid() ? 12 : 6); ++i) {
 	const uint8_t *split;
 	int n;
 
