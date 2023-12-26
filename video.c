@@ -7277,6 +7277,13 @@ static void VaapiDisplayFrame(void)
 		}
 #endif
 	    }
+	    //start audio if no video in stream
+	    if (i == 0 && decoder->PTS == AV_NOPTS_VALUE
+		&& decoder->StartCounter > VideoSoftStartFrames && VideoSoftStartSync > 1) {
+		AudioRunning = 1;
+		AudioStarted = 1;
+		pthread_cond_signal(&AudioStartCond);
+	    }
 	    if (VideoShowBlackPicture)
 		continue;
 #ifdef USE_SCREENSAVER
@@ -11777,6 +11784,13 @@ skip_query:
 		}
 #endif
 	    }
+	    //start audio if no video in stream
+	    if (i == 0 && decoder->PTS == AV_NOPTS_VALUE
+		&& decoder->StartCounter > VideoSoftStartFrames && VideoSoftStartSync > 1) {
+		AudioRunning = 1;
+		AudioStarted = 1;
+		pthread_cond_signal(&AudioStartCond);
+	    }
 	    if (VideoShowBlackPicture)
 		continue;
 #ifdef USE_SCREENSAVER
@@ -14615,6 +14629,13 @@ static void CuvidDisplayFrame(void)
 		}
 #endif
 	    }
+	    //start audio if no video in stream
+	    if (i == 0 && decoder->PTS == AV_NOPTS_VALUE
+		&& decoder->StartCounter > VideoSoftStartFrames && VideoSoftStartSync > 1) {
+		AudioRunning = 1;
+		AudioStarted = 1;
+		pthread_cond_signal(&AudioStartCond);
+	    }
 	    if (VideoShowBlackPicture)
 		continue;
 #ifdef USE_SCREENSAVER
@@ -17222,6 +17243,13 @@ static void NVdecDisplayFrame(void)
 		}
 #endif
 	    }
+	    //start audio if no video in stream
+	    if (i == 0 && decoder->PTS == AV_NOPTS_VALUE && !AudioRunning
+		&& decoder->StartCounter > VideoSoftStartFrames && VideoSoftStartSync > 1) {
+		AudioRunning = 1;
+		AudioStarted = 1;
+		pthread_cond_signal(&AudioStartCond);
+	    }
 	    if (VideoShowBlackPicture)
 		continue;
 #ifdef USE_SCREENSAVER
@@ -17406,7 +17434,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
     video_clock = NVdecGetClock(decoder);
     audio_clock = AudioGetClock();
 
-    if (!decoder->SyncOnAudio  || !SoftIsPlayingVideo) {
+    if (!decoder->SyncOnAudio || !SoftIsPlayingVideo) {
 	audio_clock = AV_NOPTS_VALUE;
 	// FIXME: 60Hz Mode
 	goto skip_sync;
@@ -19532,6 +19560,13 @@ static void CpuDisplayFrame(void)
 		    X11SuspendScreenSaver(Connection, 1);
 		}
 #endif
+	    }
+	    //start audio if no video in stream
+	    if (i == 0 && decoder->PTS == AV_NOPTS_VALUE
+		&& decoder->StartCounter > VideoSoftStartFrames && VideoSoftStartSync > 1) {
+		AudioRunning = 1;
+		AudioStarted = 1;
+		pthread_cond_signal(&AudioStartCond);
 	    }
 	    if (VideoShowBlackPicture)
 		continue;
