@@ -7542,7 +7542,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
     }
 
     EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold_SD : VideoStartThreshold_HD) * (VideoSoftStartSync == 3)); // accurate switch
-    if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
+    if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > VideoSoftStartFrames * 2) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
     }
@@ -7551,6 +7551,12 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	AudioStarted = 1;
 	AudioRunning = 1;
 	pthread_cond_signal(&AudioStartCond);
+    }
+    if (!IsReplay() && !AudioRunning && video_clock != (int64_t) AV_NOPTS_VALUE && decoder->StartCounter > VideoSoftStartFrames * 2) {
+        Debug(3, "video: force start audio with huge a/v difference\n");
+        AudioStarted = 1;
+        AudioRunning = 1;
+        pthread_cond_signal(&AudioStartCond);
     }
 
     // 60Hz: repeat every 5th field
@@ -7614,6 +7620,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 12;
 	//diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
+	if (!IsReplay() && ABS(diff/90) > 1000000) goto skip_sync; //static image??? radio plugin
 #ifdef DEBUG
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
 	    Debug(3, "video/vaapi: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, atomic_read(&decoder->SurfacesFilled));
@@ -11987,7 +11994,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
     }
 
     EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold_SD : VideoStartThreshold_HD) * (VideoSoftStartSync == 3)); // accurate switch
-    if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
+    if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > VideoSoftStartFrames * 2) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
     }
@@ -11996,6 +12003,12 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	AudioStarted = 1;
 	AudioRunning = 1;
 	pthread_cond_signal(&AudioStartCond);
+    }
+    if (!IsReplay() && !AudioRunning && video_clock != (int64_t) AV_NOPTS_VALUE && decoder->StartCounter > VideoSoftStartFrames * 2) {
+        Debug(3, "video: force start audio with huge a/v difference\n");
+        AudioStarted = 1;
+        AudioRunning = 1;
+        pthread_cond_signal(&AudioStartCond);
     }
 
     // 60Hz: repeat every 5th field
@@ -12059,6 +12072,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 32;
 	//diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
+	if (!IsReplay() && ABS(diff/90) > 1000000) goto skip_sync; //static image??? radio plugin
 #ifdef DEBUG
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
 	    Debug(3, "video/vdpau: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, atomic_read(&decoder->SurfacesFilled));
@@ -14827,7 +14841,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
     }
 
     EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold_SD : VideoStartThreshold_HD) * (VideoSoftStartSync == 3)); // accurate switch
-    if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
+    if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > VideoSoftStartFrames * 2) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
     }
@@ -14836,6 +14850,12 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	AudioStarted = 1;
 	AudioRunning = 1;
 	pthread_cond_signal(&AudioStartCond);
+    }
+    if (!IsReplay() && !AudioRunning && video_clock != (int64_t) AV_NOPTS_VALUE && decoder->StartCounter > VideoSoftStartFrames * 2) {
+        Debug(3, "video: force start audio with huge a/v difference\n");
+        AudioStarted = 1;
+        AudioRunning = 1;
+        pthread_cond_signal(&AudioStartCond);
     }
 
     // 60Hz: repeat every 5th field
@@ -14899,6 +14919,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 32;
 	//diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
+	if (!IsReplay() && ABS(diff/90) > 1000000) goto skip_sync; //static image??? radio plugin
 #ifdef DEBUG
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
 	    Debug(3, "video/cuvid: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, atomic_read(&decoder->SurfacesFilled));
@@ -17441,12 +17462,18 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
     }
 
     EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold_SD : VideoStartThreshold_HD) * (VideoSoftStartSync == 3)); // accurate switch
-    if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
+    if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > VideoSoftStartFrames * 2) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
     }
     if (EnoughVideo && EnoughAudio && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE) {
         Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
+        AudioStarted = 1;
+        AudioRunning = 1;
+        pthread_cond_signal(&AudioStartCond);
+    }
+    if (!IsReplay() && !AudioRunning && video_clock != (int64_t) AV_NOPTS_VALUE && decoder->StartCounter > VideoSoftStartFrames * 2) {
+        Debug(3, "video: force start audio with huge a/v difference\n");
         AudioStarted = 1;
         AudioRunning = 1;
         pthread_cond_signal(&AudioStartCond);
@@ -17513,6 +17540,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 32;
 	//diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
+	if (!IsReplay() && ABS(diff/90) > 1000000) goto skip_sync; //static image??? radio plugin
 #ifdef DEBUG
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
 	    Debug(3, "video/nvdec: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, atomic_read(&decoder->SurfacesFilled));
@@ -19758,12 +19786,18 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
     }
 
     EnoughVideo = (VideoGetBuffers(decoder->Stream) >= (VideoResolution == VideoResolution576i ? VideoStartThreshold_SD : VideoStartThreshold_HD) * (VideoSoftStartSync == 3)); // accurate switch
-    if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > 200) {
+    if (!EnoughVideo && EnoughAudio && !AudioRunning && decoder->StartCounter > VideoSoftStartFrames * 2) {
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
     }
     if (EnoughVideo && EnoughAudio && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE) {
         Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
+        AudioStarted = 1;
+        AudioRunning = 1;
+        pthread_cond_signal(&AudioStartCond);
+    }
+    if (!IsReplay() && !AudioRunning && video_clock != (int64_t) AV_NOPTS_VALUE && decoder->StartCounter > VideoSoftStartFrames * 2) {
+        Debug(3, "video: force start audio with huge a/v difference\n");
         AudioStarted = 1;
         AudioRunning = 1;
         pthread_cond_signal(&AudioStartCond);
@@ -19830,6 +19864,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 32;
 	//diff = (decoder->LastAVDiff + diff) / 2;
 	decoder->LastAVDiff = diff;
+	if (!IsReplay() && ABS(diff/90) > 1000000) goto skip_sync; //static image??? radio plugin
 #ifdef DEBUG
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
 	    Debug(3, "video/cpu: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, atomic_read(&decoder->SurfacesFilled));
