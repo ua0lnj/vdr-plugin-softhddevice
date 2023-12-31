@@ -364,6 +364,9 @@ typedef struct _video_config_values_
 #define MAX_PIXMAP_SIZE_VAAPI	8192
 #define MAX_PIXMAP_SIZE_VDPAU	8192
 
+// Return the absolute value of an integer.
+#define ABS(i)	((i) >= 0 ? (i) : (-(i)))
+
 //----------------------------------------------------------------------------
 //	Variables
 //----------------------------------------------------------------------------
@@ -6099,9 +6102,6 @@ static void FilterLineSpatial(uint8_t * dst, const uint8_t * cur, int width,
 }
 
 #else
-
-    /// Return the absolute value of an integer.
-#define ABS(i)	((i) >= 0 ? (i) : (-(i)))
 
 ///
 ///	ELA Edge-based Line Averaging
