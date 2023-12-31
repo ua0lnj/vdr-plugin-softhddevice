@@ -14452,16 +14452,19 @@ static void CuvidMixVideo(CuvidDecoder * decoder, int level)
 
     current = decoder->SurfacesRb[decoder->SurfaceRead];
 
-    //copy for still picture
-    if (decoder->gl_textures[current][0] && decoder->gl_textures[current][1] && level == 0) {
-        still_texture[0] = decoder->gl_textures[current][0];
-        still_texture[1] = decoder->gl_textures[current][1];
-    }
     if (level == 0)
         glClear(GL_COLOR_BUFFER_BIT);
 
-    if ((!still_texture[0] || !still_texture[1]) && level == 0) return;
-    if ((!decoder->gl_textures[current][0] || !decoder->gl_textures[current][1]) && level != 0) return;
+    if (current < 0) {
+        if (level > 0) return;
+        else if (!still_texture[0] || !still_texture[1]) return;
+    } else {
+        if (level == 0) {
+            //copy for still picture
+            still_texture[0] = decoder->gl_textures[current][0];
+            still_texture[1] = decoder->gl_textures[current][1];
+        }
+    }
 
     // Render Progressive frame and simple interlaced
     y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
@@ -17073,16 +17076,19 @@ static void NVdecMixVideo(NVdecDecoder * decoder, int level)
 
     current = decoder->SurfacesRb[decoder->SurfaceRead];
 
-    //copy for still picture
-    if (decoder->gl_textures[current][0] && decoder->gl_textures[current][1] && level == 0) {
-        still_texture[0] = decoder->gl_textures[current][0];
-        still_texture[1] = decoder->gl_textures[current][1];
-    }
     if (level == 0)
         glClear(GL_COLOR_BUFFER_BIT);
 
-    if ((!still_texture[0] || !still_texture[1]) && level == 0) return;
-    if ((!decoder->gl_textures[current][0] || !decoder->gl_textures[current][1]) && level != 0) return;
+    if (current < 0) {
+        if (level > 0) return;
+        else if (!still_texture[0] || !still_texture[1]) return;
+    } else {
+        if (level == 0) {
+            //copy for still picture
+            still_texture[0] = decoder->gl_textures[current][0];
+            still_texture[1] = decoder->gl_textures[current][1];
+        }
+    }
 
     // Render Progressive frame and simple interlaced
     y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
@@ -19398,16 +19404,19 @@ static void CpuMixVideo(CpuDecoder * decoder, int level)
 
     current = decoder->SurfacesRb[decoder->SurfaceRead];
 
-    //copy for still picture
-    if (decoder->gl_textures[current][0] && decoder->gl_textures[current][1] && level == 0) {
-        still_texture[0] = decoder->gl_textures[current][0];
-        still_texture[1] = decoder->gl_textures[current][1];
-    }
     if (level == 0)
         glClear(GL_COLOR_BUFFER_BIT);
 
-    if ((!still_texture[0] || !still_texture[1]) && level == 0) return;
-    if ((!decoder->gl_textures[current][0] || !decoder->gl_textures[current][1]) && level != 0) return;
+    if (current < 0) {
+        if (level > 0) return;
+        else if (!still_texture[0] || !still_texture[1]) return;
+    } else {
+        if (level == 0) {
+            //copy for still picture
+            still_texture[0] = decoder->gl_textures[current][0];
+            still_texture[1] = decoder->gl_textures[current][1];
+        }
+    }
 
     // Render Progressive frame and simple interlaced
     y = VideoWindowHeight - decoder->OutputY - decoder->OutputHeight;
@@ -19440,11 +19449,6 @@ static void CpuMixVideo(CpuDecoder * decoder, int level)
     glUseProgram(0);
     glActiveTexture(GL_TEXTURE0);
 
-    //clean if not still picture
-    if (!decoder->TrickSpeed && level == 0) {
-        still_texture[0] = 0;
-        still_texture[1] = 0;
-    }
     Debug(4,"video/cpu: yy video surface %d displayed\n", current);
 }
 
