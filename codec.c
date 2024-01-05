@@ -432,12 +432,18 @@ int CodecVideoInitFilter(VideoDecoder * decoder, const char *filter_descr)
         ret = AVERROR(ENOMEM);
         goto end;
     }
-
+#if LIBAVFILTER_VERSION_INT < AV_VERSION_INT(9,16,100)
     snprintf(args, sizeof(args), "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
         decoder->VideoCtx->width, decoder->VideoCtx->height, decoder->VideoCtx->pix_fmt,
         decoder->VideoCtx->pkt_timebase.num, decoder->VideoCtx->pkt_timebase.den,
         decoder->VideoCtx->sample_aspect_ratio.num, decoder->VideoCtx->sample_aspect_ratio.den);
-
+#else
+    snprintf(args, sizeof(args), "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d:colorspace=%d:range=%d",
+        decoder->VideoCtx->width, decoder->VideoCtx->height, decoder->VideoCtx->pix_fmt,
+        decoder->VideoCtx->pkt_timebase.num, decoder->VideoCtx->pkt_timebase.den,
+        decoder->VideoCtx->sample_aspect_ratio.num, decoder->VideoCtx->sample_aspect_ratio.den,
+        decoder->VideoCtx->colorspace,decoder->VideoCtx->color_range);
+#endif
     Debug(3,"codec: filter init args: %s\n", args);
 
     ret = avfilter_graph_create_filter(&decoder->buffersrc_ctx, buffersrc, "in",
