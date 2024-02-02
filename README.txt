@@ -443,9 +443,16 @@ Optional:
 	    libs gl glu glew freetype2
 
 Note:
+	Xorg X11
 	For old Intel video use va-api and va-api-glx.
 	For newest Intel video use va-api-egl.
 	For old Nvidia video use vdpau and vdpau-glx.
 	For old hybrid video use vdpau-glx or va-api and va-api-glx.
 	For newest Nvidia video use cuvid and cuvid-egl or nvdec and nvdec-egl.
+	For all system with openGL you can use cpu-glx or cpu-egl.
+
+	Wayland Xwayland (tested with Fedora 39)
+	For Intel video use va-api-glx.
+	For old Nvidia video use vdpau and vdpau-glx.
+	For newest Nvidia video use cuvid or nvdec.
 	For all system with openGL you can use cpu-glx or cpu-egl.
