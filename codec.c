@@ -64,6 +64,7 @@
 // support old ffmpeg versions <1.0
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(55,18,102)
 #define AVCodecID CodecID
+#define AV_CODEC_ID_MP2 CODEC_ID_MP2
 #define AV_CODEC_ID_AC3 CODEC_ID_AC3
 #define AV_CODEC_ID_EAC3 CODEC_ID_EAC3
 #define AV_CODEC_ID_DTS CODEC_ID_DTS
@@ -1940,14 +1941,14 @@ void CodecAudioEnqueue(AudioDecoder * audio_decoder, int16_t * data, int count)
 	n *= 2;
 
 	n *= audio_decoder->HwChannels;
-	if (!(audio_decoder->Passthrough & CodecPCM)) {
+	if (!(audio_decoder->Passthrough & CodecPCM && audio_decoder->AudioCtx->codec_id < AV_CODEC_ID_MP2)) {
 	    CodecReorderAudioFrame(buf, n, audio_decoder->HwChannels);
 	}
 	AudioEnqueue(buf, n);
 	return;
     }
 #endif
-    if (!(audio_decoder->Passthrough & CodecPCM)) {
+    if (!(audio_decoder->Passthrough & CodecPCM && audio_decoder->AudioCtx->codec_id < AV_CODEC_ID_MP2)) {
 	CodecReorderAudioFrame(data, count, audio_decoder->HwChannels);
     }
     AudioEnqueue(data, count);
@@ -2475,7 +2476,7 @@ void CodecAudioDecode(AudioDecoder * audio_decoder, const AVPacket * avpkt)
                     sizeof(outbuf) / (2 * audio_decoder->HwChannels),
                     (const uint8_t **)frame->extended_data, frame->nb_samples);
                 if (ret > 0) {
-                    if (!(audio_decoder->Passthrough & CodecPCM)) {
+                    if (!(audio_decoder->Passthrough & CodecPCM && audio_decoder->AudioCtx->codec_id < AV_CODEC_ID_MP2)) {
                         CodecReorderAudioFrame((int16_t *) outbuf,
                             ret * 2 * audio_decoder->HwChannels,
                             audio_decoder->HwChannels);
@@ -2496,7 +2497,7 @@ void CodecAudioDecode(AudioDecoder * audio_decoder, const AVPacket * avpkt)
                     (uint8_t **) frame->extended_data, 0, frame->nb_samples);
                 // FIXME: set out_linesize, in_linesize correct
                 if (ret > 0) {
-                    if (!(audio_decoder->Passthrough & CodecPCM)) {
+                    if (!(audio_decoder->Passthrough & CodecPCM && audio_decoder->AudioCtx->codec_id < AV_CODEC_ID_MP2)) {
                     CodecReorderAudioFrame((int16_t *) outbuf,
                         ret * 2 * audio_decoder->HwChannels,
                         audio_decoder->HwChannels);
