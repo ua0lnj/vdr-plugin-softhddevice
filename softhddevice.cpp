@@ -68,7 +68,7 @@ extern "C"
     /// vdr-plugin version number.
     /// Makefile extracts the version number for generating the file name
     /// for the distribution archive.
-static const char *const VERSION = "2.0.9"
+static const char *const VERSION = "2.1.0"
 #ifdef GIT_REV
     "-GIT" GIT_REV
 #endif
@@ -1345,7 +1345,7 @@ void cMenuSetupSoft::Create(void)
 	    Add(new cMenuEditBoolItem(tr("\040\040DTS pass-through"),
 		&AudioPassthroughDTS, trVDR("no"), trVDR("yes")));
 	} else {
-	    Add(new cMenuEditBoolItem(tr("Enable (E-)AC-3, DTS (decoder) downmix"),
+	    Add(new cMenuEditBoolItem(tr("Enable multichannel downmix"),
 		&AudioDownmix, trVDR("no"), trVDR("yes")));
 	}
 	Add(new cMenuEditBoolItem(tr("Volume control"), &AudioSoftvol,

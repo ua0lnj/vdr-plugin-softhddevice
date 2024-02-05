@@ -1435,6 +1435,7 @@ static int CodecAudioUpdateHelper(AudioDecoder * audio_decoder,
     audio_decoder->Channels = audio_ctx->ch_layout.nb_channels;
     audio_decoder->HwChannels = audio_ctx->ch_layout.nb_channels;
 #endif
+    if (CodecDownmix) audio_decoder->HwChannels = 2;
     audio_decoder->Passthrough = CodecPassthrough;
 
     // SPDIF/HDMI pass-through
@@ -2284,6 +2285,11 @@ static void CodecAudioUpdateFormat(AudioDecoder * audio_decoder)
 #else
     AVCodecContext *audio_ctx;
 #endif
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59,24,100)
+    int64_t dmlayout = AV_CH_LAYOUT_STEREO;
+#else
+    AVChannelLayout dmlayout = AV_CHANNEL_LAYOUT_STEREO;
+#endif
 
     if (CodecAudioUpdateHelper(audio_decoder, &passthrough)) {
 	// FIXME: handle swresample format conversions.
@@ -2295,6 +2301,11 @@ static void CodecAudioUpdateFormat(AudioDecoder * audio_decoder)
 
     audio_ctx = audio_decoder->AudioCtx;
 
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59,24,100)
+    if (!CodecDownmix) dmlayout = audio_ctx->channel_layout;
+#else
+    if (!CodecDownmix) dmlayout = audio_ctx->ch_layout;
+#endif
 #ifdef DEBUG
     if (audio_ctx->sample_fmt == AV_SAMPLE_FMT_S16
 	&& audio_ctx->sample_rate == audio_decoder->HwSampleRate
@@ -2303,15 +2314,14 @@ static void CodecAudioUpdateFormat(AudioDecoder * audio_decoder)
 	fprintf(stderr, "no resample needed\n");
     }
 #endif
-
 #ifdef USE_SWRESAMPLE
 #if LIBSWRESAMPLE_VERSION_INT < AV_VERSION_INT(4,5,100)
     audio_decoder->Resample =
-	swr_alloc_set_opts(audio_decoder->Resample, audio_ctx->channel_layout,
+	swr_alloc_set_opts(audio_decoder->Resample, dmlayout,
 	AV_SAMPLE_FMT_S16, audio_decoder->HwSampleRate,
 	audio_ctx->channel_layout, audio_ctx->sample_fmt,
 #else
-	swr_alloc_set_opts2(&audio_decoder->Resample, &audio_ctx->ch_layout,
+	swr_alloc_set_opts2(&audio_decoder->Resample, &dmlayout,
 	AV_SAMPLE_FMT_S16, audio_decoder->HwSampleRate,
 	&audio_ctx->ch_layout, audio_ctx->sample_fmt,
 #endif
@@ -2331,12 +2341,12 @@ static void CodecAudioUpdateFormat(AudioDecoder * audio_decoder)
     av_opt_set_int(audio_decoder->Resample, "in_channel_layout",
 	audio_ctx->channel_layout, 0);
     av_opt_set_int(audio_decoder->Resample, "out_channel_layout",
-	audio_ctx->channel_layout, 0);
+	dmlayout, 0);
 #else
     av_opt_set_int(audio_decoder->Resample, "in_channel_layout",
 	audio_ctx->ch_layout, 0);
     av_opt_set_int(audio_decoder->Resample, "out_channel_layout",
-	audio_ctx->ch_layout, 0);
+	dmlayout, 0);
 #endif
     av_opt_set_int(audio_decoder->Resample, "in_sample_fmt",
 	audio_ctx->sample_fmt, 0);
