@@ -2177,6 +2177,10 @@ static void CodecAudioSetClock(AudioDecoder * audio_decoder, int64_t pts)
     }
     // collect over some time
     pts_diff = pts - audio_decoder->LastPTS;
+    if (pts_diff < 0) {
+	audio_decoder->LastDelay = 0;
+	return;
+    }
     if (pts_diff < 10 * 1000 * 90) {
 	return;
     }
