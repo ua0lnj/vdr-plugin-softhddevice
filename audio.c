@@ -2169,6 +2169,10 @@ static void *AudioPlayHandlerThread(void *dummy)
 		// underrun, and no new ring buffer, goto sleep.
 		if (!atomic_read(&AudioRingFilled)) {
 #ifdef USE_ALSA
+		    if (!AlsaPCMHandle) {
+			Error(_("audio: alsa not ready!!!\n"));
+			break;
+		    }
 		    if (AudioStarted && snd_pcm_state(AlsaPCMHandle) != SND_PCM_STATE_XRUN && !IsReplay()) { // try a little longer, sometimes this helps
 			continue;
 		    } else {
