@@ -1184,7 +1184,7 @@ void CodecAudioOpen(AudioDecoder * audio_decoder, int codec_id)
 	Fatal(_("codec: can't allocate audio codec context\n"));
     }
 
-    if (CodecDownmix) {
+    if (CodecDownmix && !CodecPassthrough) {
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(53,61,100)
 	audio_decoder->AudioCtx->request_channels = 2;
 #endif
@@ -1435,7 +1435,7 @@ static int CodecAudioUpdateHelper(AudioDecoder * audio_decoder,
     audio_decoder->Channels = audio_ctx->ch_layout.nb_channels;
     audio_decoder->HwChannels = audio_ctx->ch_layout.nb_channels;
 #endif
-    if (CodecDownmix) audio_decoder->HwChannels = 2;
+    if (CodecDownmix && !CodecPassthrough) audio_decoder->HwChannels = 2;
     audio_decoder->Passthrough = CodecPassthrough;
 
     // SPDIF/HDMI pass-through
@@ -2306,9 +2306,9 @@ static void CodecAudioUpdateFormat(AudioDecoder * audio_decoder)
     audio_ctx = audio_decoder->AudioCtx;
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59,24,100)
-    if (!CodecDownmix) dmlayout = audio_ctx->channel_layout;
+    if (!CodecDownmix || CodecPassthrough) dmlayout = audio_ctx->channel_layout;
 #else
-    if (!CodecDownmix) dmlayout = audio_ctx->ch_layout;
+    if (!CodecDownmix || CodecPassthrough) dmlayout = audio_ctx->ch_layout;
 #endif
 #ifdef DEBUG
     if (audio_ctx->sample_fmt == AV_SAMPLE_FMT_S16
