@@ -2341,17 +2341,10 @@ static void CodecAudioUpdateFormat(AudioDecoder * audio_decoder)
 	Error(_("codec/audio: can't setup resample\n"));
 	return;
     }
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(59,24,100)
-    av_opt_set_int(audio_decoder->Resample, "in_channel_layout",
-	audio_ctx->channel_layout, 0);
-    av_opt_set_int(audio_decoder->Resample, "out_channel_layout",
-	dmlayout, 0);
-#else
     av_opt_set_int(audio_decoder->Resample, "in_channel_layout",
 	audio_ctx->ch_layout, 0);
     av_opt_set_int(audio_decoder->Resample, "out_channel_layout",
 	dmlayout, 0);
-#endif
     av_opt_set_int(audio_decoder->Resample, "in_sample_fmt",
 	audio_ctx->sample_fmt, 0);
     av_opt_set_int(audio_decoder->Resample, "in_sample_rate",
