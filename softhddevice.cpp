@@ -2571,6 +2571,40 @@ static void HandleHotkey(int code)
 		    tr("auto-crop disabled and freezed"));
 	    }
 	    break;
+	case 26:			// suspend
+	    if (cSoftHdControl::Player) {	// already suspended
+		break;
+	    }
+	    if (SuspendMode != NOT_SUSPENDED) {
+		break;
+	    }
+	    cControl::Launch(new cSoftHdControl);
+	    cControl::Attach();
+#ifdef USE_OPENGLOSD
+	    dsyslog("[softhddev]stopping Ogl Thread SUSP");
+	    cSoftOsdProvider::StopOpenGlThread();
+#endif
+	    Suspend(ConfigSuspendClose, ConfigSuspendClose, ConfigSuspendX11);
+	    SuspendMode = SUSPEND_NORMAL;
+	    //system("systemctl stop X");
+	    break;
+	case 27:			// resume
+	    //system("systemctl start X");
+	    if (SuspendMode == NOT_SUSPENDED) {
+		break;
+	    }
+	    if (SuspendMode != SUSPEND_NORMAL) {
+		break;
+	    }
+	    if (ShutdownHandler.GetUserInactiveTime()) {
+		ShutdownHandler.SetUserInactiveTimeout();
+	    }
+	    if (cSoftHdControl::Player) {	// suspended
+		cControl::Shutdown();	// not need, if not suspended
+	    }
+	    Resume();
+	    SuspendMode = NOT_SUSPENDED;
+	    break;
 	case 30:			// change 4:3 -> window mode
 	case 31:
 	case 32:
