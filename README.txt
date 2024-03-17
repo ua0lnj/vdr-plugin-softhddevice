@@ -360,6 +360,8 @@ Keymacros:
 	@softhddevice Blue 2 3		disable auto-crop
 	@softhddevice Blue 2 4		enable auto-crop
 	@softhddevice Blue 2 5		toggle auto-crop
+	@softhddevice Blue 2 6		suspend
+	@softhddevice Blue 2 7		resume
 	@softhddevice Blue 3 0		stretch 4:3 to 16:9
 	@softhddevice Blue 3 1		letter box 4:3 in 16:9
 	@softhddevice Blue 3 2		center cut-out 4:3 to 16:9
