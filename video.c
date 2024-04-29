@@ -1980,11 +1980,13 @@ static void EglExit(void)
     if (eglGetCurrentContext()) {
         // if currently used, set to none
         eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+        EglCheck();
     }
 
     if (EglSharedContext) {
         eglDestroyContext(EglDisplay, EglSharedContext);
         EglCheck();
+        EglSharedContext = NULL;
     }
 
     if (EglContext) {
@@ -1993,11 +1995,16 @@ static void EglExit(void)
         EglContext = NULL;
     }
 
-    eglTerminate(EglDisplay);
+    if (EglSurface) {
+        eglDestroySurface(EglDisplay, EglSurface);
+        EglCheck();
+        EglSurface = NULL;
+    }
 
-    if (OsdGlTexture)
-        OsdGlTexture = 0;
-    EglThreadContext = NULL;
+    eglTerminate(EglDisplay);
+    EglDisplay = NULL;
+
+    OsdGlTexture = 0;
 }
 
 #endif
@@ -3563,7 +3570,7 @@ static void VaapiExit(void)
     lastWindowWidth = 0;
     lastWindowHeight = 0;
 
-    if (!VaDisplay) {
+    if (VaDisplay) {
 	vaTerminate(VaDisplay);
 	VaDisplay = NULL;
     }
