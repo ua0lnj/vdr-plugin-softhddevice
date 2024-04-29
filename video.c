@@ -1983,6 +1983,12 @@ static void EglExit(void)
         EglCheck();
     }
 
+    if (EglThreadContext) {
+        eglDestroyContext(EglDisplay, EglThreadContext);
+        EglCheck();
+        EglThreadContext = NULL;
+    }
+
     if (EglSharedContext) {
         eglDestroyContext(EglDisplay, EglSharedContext);
         EglCheck();
