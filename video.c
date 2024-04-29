@@ -3517,6 +3517,7 @@ static int VaapiGlxInit(const char *display_name)
     }
     if (!GlxEnabled) {
 	Error(_("video/glx: glx error\n"));
+	return 0;
     }
 
     return VaapiInit(display_name);
@@ -3544,6 +3545,7 @@ static int VaapiEglInit(const char *display_name)
     }
     if (!EglEnabled) {
 	Error(_("video/egl: eglx error\n"));
+	return 0;
     }
 
     return VaapiInit(display_name);
