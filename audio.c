@@ -2426,6 +2426,13 @@ void AudioEnqueue(const void *samples, int count)
 	if (remain <= AUDIO_MIN_BUFFER_FREE) {
 	    Debug(3, "audio: force start\n");
 	}
+	// forced start if no video module
+	if (!strcasecmp(VideoGetDriverName(), "noop")) {
+	    Debug (3,"audio: start with noop video module\n");
+	    AudioRunning=1;
+	    AudioStarted=1;
+	    pthread_cond_signal(&AudioStartCond);
+	}
 	if ((AudioStartThreshold * 4 < n && VideoSoftStartSync < 2) || remain <= AUDIO_MIN_BUFFER_FREE ||  // early audio
 	    ((AudioVideoIsReady || !SoftIsPlayingVideo) &&
 	    AudioStartThreshold < n && (!AudioSkip || VideoSoftStartSync < 2))) { // enough audio, early audio
