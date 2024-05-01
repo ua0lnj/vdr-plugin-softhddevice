@@ -15846,16 +15846,22 @@ static void NVdecMixerSetup(NVdecDecoder * decoder)
                 Debug(3, "video/nvdec: set weave");
             } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceBob) {
                 Debug(3, "video/nvdec: set yadif");
-                if (decoder->video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO)
-                    CodecVideoInitFilter(ist, "yadif_cuda=1:-1:0");
-                else
-                    CodecVideoInitFilter(ist, "yadif_cuda=1:-1:1");
+                if (decoder->video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO) {
+                    if (CodecVideoInitFilter(ist, "yadif_cuda=1:-1:0") < 0) //hardware
+                        CodecVideoInitFilter(ist, "hwdownload,format=nv12,yadif=1:-1:0,format=nv12,hwupload_cuda"); //software
+                } else {
+                    if (CodecVideoInitFilter(ist, "yadif_cuda=1:-1:1") < 0) //hardware
+                        CodecVideoInitFilter(ist, "hwdownload,format=nv12,yadif=1:-1:1,format=nv12,hwupload_cuda"); //software
+                }
             } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceTemporal) {
                 Debug(3, "video/nvdec: set bwdif");
-                if (decoder->video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO)
-                    CodecVideoInitFilter(ist, "bwdif_cuda=1:-1:0");
-                else
-                    CodecVideoInitFilter(ist, "bwdif_cuda=1:-1:1");
+                if (decoder->video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO) {
+                    if (CodecVideoInitFilter(ist, "bwdif_cuda=1:-1:0") < 0) //hardware
+                        CodecVideoInitFilter(ist, "hwdownload,format=nv12,bwdif=1:-1:0,format=nv12,hwupload_cuda"); //software
+               } else {
+                    if (CodecVideoInitFilter(ist, "bwdif_cuda=1:-1:1") < 0) //hardware
+                        CodecVideoInitFilter(ist, "hwdownload,format=nv12,bwdif=1:-1:1,format=nv12,hwupload_cuda"); //software
+               }
             }
         } else { //software
             if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceWeave) {

@@ -445,7 +445,7 @@ int CodecVideoInitFilter(VideoDecoder * decoder, const char *filter_descr)
         decoder->VideoCtx->sample_aspect_ratio.num, decoder->VideoCtx->sample_aspect_ratio.den,
         decoder->VideoCtx->colorspace,decoder->VideoCtx->color_range);
 #endif
-    Debug(3,"codec: filter init args: %s\n", args);
+    Debug(3,"codec: filter %s init args: %s\n", filter_descr, args);
 
     ret = avfilter_graph_create_filter(&decoder->buffersrc_ctx, buffersrc, "in",
                                        args, NULL, decoder->filter_graph);
