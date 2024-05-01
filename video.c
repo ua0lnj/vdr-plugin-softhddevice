@@ -13329,6 +13329,7 @@ static void CuvidMixerSetup(CuvidDecoder * decoder)
 #ifdef USE_AVFILTER
             if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceWeave) {
                 Debug(3, "video/cuvid: set weave");
+                CodecVideoInitFilter(ist, NULL); //disable filter
             } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceBob) {
                 Debug(3, "video/cuvid: set yadif");
                 if (decoder->video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO)
@@ -15844,6 +15845,7 @@ static void NVdecMixerSetup(NVdecDecoder * decoder)
         if (ist->hwaccel_pix_fmt == AV_PIX_FMT_CUDA) {
             if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceWeave) {
                 Debug(3, "video/nvdec: set weave");
+                CodecVideoInitFilter(ist, NULL); //disable filter
             } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceBob) {
                 Debug(3, "video/nvdec: set yadif");
                 if (decoder->video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO) {
@@ -18420,6 +18422,7 @@ static void CpuMixerSetup(CpuDecoder * decoder)
 
         if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceWeave) {
             Debug(3, "video/cpudec: set weave");
+                CodecVideoInitFilter(ist, NULL); //disable filter
         } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceBob) {
             Debug(3, "video/cpudec: set yadif");
             if (decoder->video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO)

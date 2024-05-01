@@ -423,6 +423,12 @@ int CodecVideoInitFilter(VideoDecoder * decoder, const char *filter_descr)
     AVFilterInOut *inputs  = avfilter_inout_alloc();
     enum AVPixelFormat pix_fmts[] = { decoder->VideoCtx->pix_fmt, AV_PIX_FMT_NONE };
 
+    if (!filter_descr) {
+        Error(_("codec: filter not described, filter disabled\n"));
+        ret = -1;
+        goto end;
+    }
+
     // free filter if hardware decoder failed
     if (decoder->filter_graph) {
             avfilter_graph_free(&decoder->filter_graph);
