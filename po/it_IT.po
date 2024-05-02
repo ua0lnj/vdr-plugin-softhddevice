@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: VDR \n"
 "Report-Msgid-Bugs-To: <see README>\n"
-"POT-Creation-Date: 2023-10-20 20:47+1000\n"
+"POT-Creation-Date: 2024-02-05 20:28+1000\n"
 "PO-Revision-Date: \n"
 "Last-Translator: fiveten_59\n"
 "Language-Team: fiveten_59\n"
@@ -224,6 +224,9 @@ msgstr ""
 
 #, c-format
 msgid "audio: can't set channels %d sample-rate %dHz\n"
+msgstr ""
+
+msgid "audio: audio started and underrun, increase AudioBufferTime?!\n"
 msgstr ""
 
 msgid "audio: can't cancel play thread\n"
@@ -477,13 +480,16 @@ msgstr ""
 msgid "custom"
 msgstr ""
 
-msgid "fast"
+msgid "early audio"
 msgstr ""
 
-msgid "accurate"
+msgid "early audio + soft sync"
 msgstr ""
 
-msgid "soft"
+msgid "early sync + fast switch"
+msgstr ""
+
+msgid "early sync + accurate switch"
 msgstr ""
 
 msgid "None"
@@ -664,8 +670,8 @@ msgstr ""
 msgid "  DTS pass-through"
 msgstr ""
 
-msgid "Enable (E-)AC-3, DTS (decoder) downmix"
-msgstr ""
+msgid "Enable multichannel downmix"
+msgstr "Abilita Downmix multicanale"
 
 msgid "Volume control"
 msgstr "Controllo volume"

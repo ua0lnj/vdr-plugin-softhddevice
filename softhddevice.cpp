@@ -68,7 +68,7 @@ extern "C"
     /// vdr-plugin version number.
     /// Makefile extracts the version number for generating the file name
     /// for the distribution archive.
-static const char *const VERSION = "2.0.9"
+static const char *const VERSION = "2.2.0"
 #ifdef GIT_REV
     "-GIT" GIT_REV
 #endif
@@ -1345,7 +1345,7 @@ void cMenuSetupSoft::Create(void)
 	    Add(new cMenuEditBoolItem(tr("\040\040DTS pass-through"),
 		&AudioPassthroughDTS, trVDR("no"), trVDR("yes")));
 	} else {
-	    Add(new cMenuEditBoolItem(tr("Enable (E-)AC-3, DTS (decoder) downmix"),
+	    Add(new cMenuEditBoolItem(tr("Enable multichannel downmix"),
 		&AudioDownmix, trVDR("no"), trVDR("yes")));
 	}
 	Add(new cMenuEditBoolItem(tr("Volume control"), &AudioSoftvol,
@@ -2570,6 +2570,40 @@ static void HandleHotkey(int code)
 		Skins.QueueMessage(mtInfo,
 		    tr("auto-crop disabled and freezed"));
 	    }
+	    break;
+	case 26:			// suspend
+	    if (cSoftHdControl::Player) {	// already suspended
+		break;
+	    }
+	    if (SuspendMode != NOT_SUSPENDED) {
+		break;
+	    }
+	    cControl::Launch(new cSoftHdControl);
+	    cControl::Attach();
+#ifdef USE_OPENGLOSD
+	    dsyslog("[softhddev]stopping Ogl Thread SUSP");
+	    cSoftOsdProvider::StopOpenGlThread();
+#endif
+	    Suspend(ConfigSuspendClose, ConfigSuspendClose, ConfigSuspendX11);
+	    SuspendMode = SUSPEND_NORMAL;
+	    //system("systemctl stop X");
+	    break;
+	case 27:			// resume
+	    //system("systemctl start X");
+	    if (SuspendMode == NOT_SUSPENDED) {
+		break;
+	    }
+	    if (SuspendMode != SUSPEND_NORMAL) {
+		break;
+	    }
+	    if (ShutdownHandler.GetUserInactiveTime()) {
+		ShutdownHandler.SetUserInactiveTimeout();
+	    }
+	    if (cSoftHdControl::Player) {	// suspended
+		cControl::Shutdown();	// not need, if not suspended
+	    }
+	    Resume();
+	    SuspendMode = NOT_SUSPENDED;
 	    break;
 	case 30:			// change 4:3 -> window mode
 	case 31:
@@ -4033,18 +4067,30 @@ static const char *SVDRPHelpText[] = {
 	"    11: enable audio pass-through\n"
 	"    12: toggle audio pass-through\n"
 	"    13: decrease audio delay by 10ms\n"
-	"    14: increase audio delay by 10ms\n" "    15: toggle ac3 mixdown\n"
+	"    14: increase audio delay by 10ms\n"
+	"    15: toggle ac3 mixdown\n"
 	"    20: disable fullscreen\n\040   21: enable fullscreen\n"
 	"    22: toggle fullscreen\n"
 	"    23: disable auto-crop\n\040   24: enable auto-crop\n"
 	"    25: toggle auto-crop\n"
+	"    26: suspend\n"
+	"    27: resume\n"
 	"    30: stretch 4:3 to display\n\040	31: pillar box 4:3 in display\n"
 	"    32: center cut-out 4:3 to display\n"
 	"    39: rotate 4:3 to display zoom mode\n"
 	"    40: stretch other aspect ratios to display\n"
 	"    41: letter box other aspect ratios in display\n"
 	"    42: center cut-out other aspect ratios to display\n"
-	"    49: rotate other aspect ratios to display zoom mode\n",
+	"    49: rotate other aspect ratios to display zoom mode\n"
+#ifdef USE_PIP
+	"   102: toggle Pip\n"
+	"   104: Pip next available channel +\n"
+	"   105: Pip next available channel -\n"
+	"   106: Swap Pip channels\n"
+	"   107: Swap Pip position\n"
+	"   108: Close Pip\n"
+#endif
+	,
     "STAT\n" "\040   Display SuspendMode of the plugin.\n\n"
 	"    reply code is 910 + SuspendMode\n"
 	"    SUSPEND_EXTERNAL == -1  (909)\n"

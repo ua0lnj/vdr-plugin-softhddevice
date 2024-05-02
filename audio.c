@@ -2169,6 +2169,10 @@ static void *AudioPlayHandlerThread(void *dummy)
 		// underrun, and no new ring buffer, goto sleep.
 		if (!atomic_read(&AudioRingFilled)) {
 #ifdef USE_ALSA
+		    if (!AlsaPCMHandle) {
+			Error(_("audio: alsa not ready!!!\n"));
+			break;
+		    }
 		    if (AudioStarted && snd_pcm_state(AlsaPCMHandle) != SND_PCM_STATE_XRUN && !IsReplay()) { // try a little longer, sometimes this helps
 			continue;
 		    } else {
@@ -2421,6 +2425,13 @@ void AudioEnqueue(const void *samples, int count)
 	remain = RingBufferFreeBytes(AudioRing[AudioRingRead].RingBuffer);
 	if (remain <= AUDIO_MIN_BUFFER_FREE) {
 	    Debug(3, "audio: force start\n");
+	}
+	// forced start if no video module
+	if (!strcasecmp(VideoGetDriverName(), "noop")) {
+	    Debug (3,"audio: start with noop video module\n");
+	    AudioRunning=1;
+	    AudioStarted=1;
+	    pthread_cond_signal(&AudioStartCond);
 	}
 	if ((AudioStartThreshold * 4 < n && VideoSoftStartSync < 2) || remain <= AUDIO_MIN_BUFFER_FREE ||  // early audio
 	    ((AudioVideoIsReady || !SoftIsPlayingVideo) &&

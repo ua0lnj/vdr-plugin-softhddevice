@@ -1980,11 +1980,19 @@ static void EglExit(void)
     if (eglGetCurrentContext()) {
         // if currently used, set to none
         eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+        EglCheck();
+    }
+
+    if (EglThreadContext) {
+        eglDestroyContext(EglDisplay, EglThreadContext);
+        EglCheck();
+        EglThreadContext = NULL;
     }
 
     if (EglSharedContext) {
         eglDestroyContext(EglDisplay, EglSharedContext);
         EglCheck();
+        EglSharedContext = NULL;
     }
 
     if (EglContext) {
@@ -1993,11 +2001,16 @@ static void EglExit(void)
         EglContext = NULL;
     }
 
-    eglTerminate(EglDisplay);
+    if (EglSurface) {
+        eglDestroySurface(EglDisplay, EglSurface);
+        EglCheck();
+        EglSurface = NULL;
+    }
 
-    if (OsdGlTexture)
-        OsdGlTexture = 0;
-    EglThreadContext = NULL;
+    eglTerminate(EglDisplay);
+    EglDisplay = NULL;
+
+    OsdGlTexture = 0;
 }
 
 #endif
@@ -3504,6 +3517,7 @@ static int VaapiGlxInit(const char *display_name)
     }
     if (!GlxEnabled) {
 	Error(_("video/glx: glx error\n"));
+	return 0;
     }
 
     return VaapiInit(display_name);
@@ -3531,6 +3545,7 @@ static int VaapiEglInit(const char *display_name)
     }
     if (!EglEnabled) {
 	Error(_("video/egl: eglx error\n"));
+	return 0;
     }
 
     return VaapiInit(display_name);
@@ -3563,7 +3578,7 @@ static void VaapiExit(void)
     lastWindowWidth = 0;
     lastWindowHeight = 0;
 
-    if (!VaDisplay) {
+    if (VaDisplay) {
 	vaTerminate(VaDisplay);
 	VaDisplay = NULL;
     }
@@ -13314,6 +13329,7 @@ static void CuvidMixerSetup(CuvidDecoder * decoder)
 #ifdef USE_AVFILTER
             if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceWeave) {
                 Debug(3, "video/cuvid: set weave");
+                CodecVideoInitFilter(ist, NULL); //disable filter
             } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceBob) {
                 Debug(3, "video/cuvid: set yadif");
                 if (decoder->video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO)
@@ -15829,18 +15845,25 @@ static void NVdecMixerSetup(NVdecDecoder * decoder)
         if (ist->hwaccel_pix_fmt == AV_PIX_FMT_CUDA) {
             if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceWeave) {
                 Debug(3, "video/nvdec: set weave");
+                CodecVideoInitFilter(ist, NULL); //disable filter
             } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceBob) {
                 Debug(3, "video/nvdec: set yadif");
-                if (decoder->video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO)
-                    CodecVideoInitFilter(ist, "yadif_cuda=1:-1:0");
-                else
-                    CodecVideoInitFilter(ist, "yadif_cuda=1:-1:1");
+                if (decoder->video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO) {
+                    if (CodecVideoInitFilter(ist, "yadif_cuda=1:-1:0") < 0) //hardware
+                        CodecVideoInitFilter(ist, "hwdownload,format=nv12,yadif=1:-1:0,format=nv12,hwupload_cuda"); //software
+                } else {
+                    if (CodecVideoInitFilter(ist, "yadif_cuda=1:-1:1") < 0) //hardware
+                        CodecVideoInitFilter(ist, "hwdownload,format=nv12,yadif=1:-1:1,format=nv12,hwupload_cuda"); //software
+                }
             } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceTemporal) {
                 Debug(3, "video/nvdec: set bwdif");
-                if (decoder->video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO)
-                    CodecVideoInitFilter(ist, "bwdif_cuda=1:-1:0");
-                else
-                    CodecVideoInitFilter(ist, "bwdif_cuda=1:-1:1");
+                if (decoder->video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO) {
+                    if (CodecVideoInitFilter(ist, "bwdif_cuda=1:-1:0") < 0) //hardware
+                        CodecVideoInitFilter(ist, "hwdownload,format=nv12,bwdif=1:-1:0,format=nv12,hwupload_cuda"); //software
+               } else {
+                    if (CodecVideoInitFilter(ist, "bwdif_cuda=1:-1:1") < 0) //hardware
+                        CodecVideoInitFilter(ist, "hwdownload,format=nv12,bwdif=1:-1:1,format=nv12,hwupload_cuda"); //software
+               }
             }
         } else { //software
             if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceWeave) {
@@ -18399,6 +18422,7 @@ static void CpuMixerSetup(CpuDecoder * decoder)
 
         if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceWeave) {
             Debug(3, "video/cpudec: set weave");
+                CodecVideoInitFilter(ist, NULL); //disable filter
         } else if (VideoDeinterlace[decoder->Resolution] == VideoDeinterlaceBob) {
             Debug(3, "video/cpudec: set yadif");
             if (decoder->video_ctx->codec_id == AV_CODEC_ID_MPEG2VIDEO)

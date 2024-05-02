@@ -360,6 +360,8 @@ Keymacros:
 	@softhddevice Blue 2 3		disable auto-crop
 	@softhddevice Blue 2 4		enable auto-crop
 	@softhddevice Blue 2 5		toggle auto-crop
+	@softhddevice Blue 2 6		suspend
+	@softhddevice Blue 2 7		resume
 	@softhddevice Blue 3 0		stretch 4:3 to 16:9
 	@softhddevice Blue 3 1		letter box 4:3 in 16:9
 	@softhddevice Blue 3 2		center cut-out 4:3 to 16:9
@@ -443,9 +445,16 @@ Optional:
 	    libs gl glu glew freetype2
 
 Note:
+	Xorg X11
 	For old Intel video use va-api and va-api-glx.
 	For newest Intel video use va-api-egl.
 	For old Nvidia video use vdpau and vdpau-glx.
 	For old hybrid video use vdpau-glx or va-api and va-api-glx.
 	For newest Nvidia video use cuvid and cuvid-egl or nvdec and nvdec-egl.
+	For all system with openGL you can use cpu-glx or cpu-egl.
+
+	Wayland Xwayland (tested with Fedora 39)
+	For Intel video use va-api-glx.
+	For old Nvidia video use vdpau and vdpau-glx.
+	For newest Nvidia video use cuvid or nvdec.
 	For all system with openGL you can use cpu-glx or cpu-egl.
