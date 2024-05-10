@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: VDR \n"
 "Report-Msgid-Bugs-To: <see README>\n"
-"POT-Creation-Date: 2024-02-05 20:28+1000\n"
+"POT-Creation-Date: 2024-05-11 00:38+1000\n"
 "PO-Revision-Date: 2020-07-04 00:33+1000\n"
 "Last-Translator: ua0lnj\n"
 "Language-Team: ua0lnj\n"
@@ -231,6 +231,9 @@ msgstr ""
 msgid "audio: can't set channels %d sample-rate %dHz\n"
 msgstr ""
 
+msgid "audio: alsa not ready!!!\n"
+msgstr ""
+
 msgid "audio: audio started and underrun, increase AudioBufferTime?!\n"
 msgstr ""
 
@@ -260,6 +263,9 @@ msgid "codec: buggy libav, use ffmpeg\n"
 msgstr ""
 
 msgid "codec: can't allocate vodeo decoder\n"
+msgstr ""
+
+msgid "codec: filter not described, filter disabled\n"
 msgstr ""
 
 #, c-format
@@ -512,6 +518,15 @@ msgstr "Отцепить SoftHdDevice"
 msgid "Ignore"
 msgstr "Игнорировать"
 
+msgid "Never"
+msgstr "Никогда"
+
+msgid "At Black Screen"
+msgstr "При чёрном экране"
+
+msgid "Always"
+msgstr "Всегда"
+
 msgid "General"
 msgstr "Основное"
 
@@ -557,8 +572,8 @@ msgstr "Видео"
 msgid "Disable Screensaver"
 msgstr "Выкл. хранитель экрана"
 
-msgid "Enable Screensaver(DPMS) at black screen"
-msgstr "Вкл. хранитель экрана (DPMS) при тёмном экране"
+msgid "Enable Power management (DPMS)"
+msgstr "Вкл. Управление питанием (DPMS)"
 
 msgid "Video background color (RGB)"
 msgstr "Цвет заднего фона видео (RGB)"
@@ -1790,12 +1805,3 @@ msgstr ""
 
 msgid "video: error closing display\n"
 msgstr ""
-
-#~ msgid "fast"
-#~ msgstr "быстро"
-
-#~ msgid "accurate"
-#~ msgstr "точно"
-
-#~ msgid "soft"
-#~ msgstr "мягко"

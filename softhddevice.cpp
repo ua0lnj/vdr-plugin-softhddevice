@@ -68,7 +68,7 @@ extern "C"
     /// vdr-plugin version number.
     /// Makefile extracts the version number for generating the file name
     /// for the distribution archive.
-static const char *const VERSION = "2.2.0"
+static const char *const VERSION = "2.3.0"
 #ifdef GIT_REV
     "-GIT" GIT_REV
 #endif
@@ -191,8 +191,8 @@ static int ConfigPipAltVideoHeight = 50;	///< config pip alt. video height in %
 #endif
 
 #ifdef USE_SCREENSAVER
-static char ConfigEnableDPMSatBlackScreen;	///< Enable DPMS(Screensaver) while displaying black screen(radio)
-static char ConfigDisableScreensaver;		///< Disable Screensaver
+static char ConfigEnableDPMS;		///< Enable DPMS(Screensaver)
+static char ConfigDisableScreensaver;	///< Disable Screensaver
 #endif
 
 #ifdef USE_OPENGLOSD
@@ -1063,7 +1063,7 @@ class cMenuSetupSoft:public cMenuSetupPage
 #endif
 
 #ifdef USE_SCREENSAVER
-    int EnableDPMSatBlackScreen;
+    int EnableDPMS;
     int DisableScreensaver;
 #endif
 
@@ -1143,6 +1143,9 @@ void cMenuSetupSoft::Create(void)
     static const char *const closing[] = {
 	tr("Shutdown VDR"), tr("Suspend SoftHdDevice"),tr("Detach SoftHdDevice"), tr("Ignore"),
     };
+    static const char *const enable_dpms[] = {
+	tr("Never"), tr("At Black Screen"), tr("Always"),
+    };
     int current;
     int i;
     const char* *scaling;
@@ -1218,10 +1221,10 @@ void cMenuSetupSoft::Create(void)
 	Add(new
 	    cMenuEditBoolItem(tr("Disable Screensaver"),
 		&DisableScreensaver, trVDR("no"), trVDR("yes")));
-	if (!DisableScreensaver)
+	if (DisableScreensaver)
 	    Add(new
-		cMenuEditBoolItem(tr("Enable Screensaver(DPMS) at black screen"),
-		    &EnableDPMSatBlackScreen, trVDR("no"), trVDR("yes")));
+		cMenuEditStraItem(tr("Enable Power management (DPMS)"),
+		    &EnableDPMS, 3, enable_dpms));
 #endif
 	Add(new cMenuEditStraItem(trVDR("4:3 video display format"),
 		&Video4to3DisplayFormat, 3, video_display_formats_4_3));
@@ -1629,7 +1632,7 @@ cMenuSetupSoft::cMenuSetupSoft(void)
 #endif
 
 #ifdef USE_SCREENSAVER
-    EnableDPMSatBlackScreen = ConfigEnableDPMSatBlackScreen;
+    EnableDPMS = ConfigEnableDPMS;
     DisableScreensaver = ConfigDisableScreensaver;
 #endif
 #ifdef USE_OPENGLOSD
@@ -1862,9 +1865,9 @@ void cMenuSetupSoft::Store(void)
     SetupStore("DisableScreensaver", ConfigDisableScreensaver =
 	DisableScreensaver);
     SetDisableScreenSaver(ConfigDisableScreensaver);
-    SetupStore("EnableDPMSatBlackScreen", ConfigEnableDPMSatBlackScreen =
-	EnableDPMSatBlackScreen);
-    SetDPMSatBlackScreen(ConfigEnableDPMSatBlackScreen);
+    SetupStore("EnableDPMS", ConfigEnableDPMS =
+	EnableDPMS);
+    SetDPMS(ConfigEnableDPMS);
 #endif
 #ifdef USE_OPENGLOSD
     SetupStore("MaxSizeGPUImageCache", ConfigMaxSizeGPUImageCache =
@@ -3934,9 +3937,9 @@ bool cPluginSoftHdDevice::SetupParse(const char *name, const char *value)
 	SetDisableScreenSaver(ConfigDisableScreensaver);
 	return true;
     }
-    if (!strcasecmp(name, "EnableDPMSatBlackScreen")) {
-	ConfigEnableDPMSatBlackScreen = atoi(value);
-	SetDPMSatBlackScreen(ConfigEnableDPMSatBlackScreen);
+    if (!strcasecmp(name, "EnableDPMS")) {
+	ConfigEnableDPMS = atoi(value);
+	SetDPMS(ConfigEnableDPMS);
 	return true;
     }
 #endif

@@ -631,7 +631,7 @@ static int64_t VideoDeltaPTS;		///< FIXME: fix pts
 
 #ifdef USE_SCREENSAVER
 static char DPMSDisabled;		///< flag we have disabled dpms
-static char EnableDPMSatBlackScreen;	///< flag we should enable dpms at black screen
+static char EnableDPMS;			///< flag we should enable dpms
 static char DisableScreensaver;		///< flag we disable screensaver
 #endif
 
@@ -7254,6 +7254,11 @@ static void VaapiDisplayFrame(void)
 	    xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
 	    timeSS = nowtime.tv_sec;
 	}
+	if (EnableDPMS == 2 && DPMSDisabled) {	// always enable
+	    Debug(3, "DPMS enabled");
+	    X11DPMSReenable(Connection);
+	    X11SuspendScreenSaver(Connection, 0);
+	}
     }
 #endif
     // look if any stream have a new surface available
@@ -7285,10 +7290,10 @@ static void VaapiDisplayFrame(void)
 #endif
 		VaapiMessage(4, "video/vaapi: black surface displayed\n");
 #ifdef USE_SCREENSAVER
-		if (EnableDPMSatBlackScreen && DPMSDisabled) {
+		if (DisableScreensaver && EnableDPMS == 1 && DPMSDisabled) {
 		    Debug(3, "Black surface, DPMS enabled");
 		    X11DPMSReenable(Connection);
-		    X11SuspendScreenSaver(Connection, 1);
+		    X11SuspendScreenSaver(Connection, 0);
 		}
 #endif
 	    }
@@ -7302,10 +7307,10 @@ static void VaapiDisplayFrame(void)
 	    if (VideoShowBlackPicture)
 		continue;
 #ifdef USE_SCREENSAVER
-	} else if (!DPMSDisabled) {	// always disable
+	} else if (EnableDPMS < 2 && !DPMSDisabled) {	// always disable
 	    Debug(3, "DPMS disabled");
 	    X11DPMSDisable(Connection);
-	    X11SuspendScreenSaver(Connection, 0);
+	    X11SuspendScreenSaver(Connection, 1);
 #endif
 	}
 
@@ -11774,6 +11779,11 @@ skip_query:
 	    xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
 	    timeSS = first_time / 1000000000;
 	}
+	if (EnableDPMS == 2 && DPMSDisabled) {	// always enable
+	    Debug(3, "DPMS enabled");
+	    X11DPMSReenable(Connection);
+	    X11SuspendScreenSaver(Connection, 0);
+	}
     }
 #endif
     //
@@ -11799,10 +11809,10 @@ skip_query:
 		VdpauBlackSurface(decoder);
 		VdpauMessage(4, "video/vdpau: black surface displayed\n");
 #ifdef USE_SCREENSAVER
-		if (EnableDPMSatBlackScreen && DPMSDisabled) {
+		if (DisableScreensaver && EnableDPMS == 1 && DPMSDisabled) {
 		    VdpauMessage(3, "Black surface, DPMS enabled\n");
 		    X11DPMSReenable(Connection);
-		    X11SuspendScreenSaver(Connection, 1);
+		    X11SuspendScreenSaver(Connection, 0);
 		}
 #endif
 	    }
@@ -11816,10 +11826,10 @@ skip_query:
 	    if (VideoShowBlackPicture)
 		continue;
 #ifdef USE_SCREENSAVER
-	} else if (!DPMSDisabled) {	// always disable
+	} else if (EnableDPMS < 2 && !DPMSDisabled) {	// always disable
 	    VdpauMessage(3, "DPMS disabled\n");
 	    X11DPMSDisable(Connection);
-	    X11SuspendScreenSaver(Connection, 0);
+	    X11SuspendScreenSaver(Connection, 1);
 #endif
 	}
 	VdpauMixVideo(decoder, i);
@@ -14633,6 +14643,11 @@ static void CuvidDisplayFrame(void)
 	    xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
 	    timeSS = first_time / 1000000;
 	}
+	if (EnableDPMS == 2 && DPMSDisabled) {	// always enable
+	    Debug(3, "DPMS enabled");
+	    X11DPMSReenable(Connection);
+	    X11SuspendScreenSaver(Connection, 0);
+	}
     }
 #endif
     //
@@ -14655,10 +14670,10 @@ static void CuvidDisplayFrame(void)
 		CuvidBlackSurface(decoder);
 		CuvidMessage(4, "video/cuvid: black surface displayed\n");
 #ifdef USE_SCREENSAVER
-		if (EnableDPMSatBlackScreen && DPMSDisabled) {
-		    CuvidMessage(4, "Black surface, DPMS enabled\n");
+		if (DisableScreensaver && EnableDPMS == 1 && DPMSDisabled) {
+		    CuvidMessage(3, "Black surface, DPMS enabled\n");
 		    X11DPMSReenable(Connection);
-		    X11SuspendScreenSaver(Connection, 1);
+		    X11SuspendScreenSaver(Connection, 0);
 		}
 #endif
 	    }
@@ -14672,10 +14687,10 @@ static void CuvidDisplayFrame(void)
 	    if (VideoShowBlackPicture)
 		continue;
 #ifdef USE_SCREENSAVER
-	} else if (!DPMSDisabled) {	// always disable
-	    CuvidMessage(4, "DPMS disabled\n");
+	} else if (EnableDPMS < 2 && !DPMSDisabled) {	// always disable
+	    CuvidMessage(3, "DPMS disabled\n");
 	    X11DPMSDisable(Connection);
-	    X11SuspendScreenSaver(Connection, 0);
+	    X11SuspendScreenSaver(Connection, 1);
 #endif
 	}
 
@@ -17264,6 +17279,11 @@ static void NVdecDisplayFrame(void)
 	    xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
 	    timeSS = first_time / 1000000;
 	}
+	if (EnableDPMS == 2 && DPMSDisabled) {	// always enable
+	    Debug(3, "DPMS enabled");
+	    X11DPMSReenable(Connection);
+	    X11SuspendScreenSaver(Connection, 0);
+	}
     }
 #endif
     //
@@ -17286,10 +17306,10 @@ static void NVdecDisplayFrame(void)
 		NVdecBlackSurface(decoder);
 		NVdecMessage(4, "video/nvdec: black surface displayed\n");
 #ifdef USE_SCREENSAVER
-		if (EnableDPMSatBlackScreen && DPMSDisabled) {
-		    NVdecMessage(4, "Black surface, DPMS enabled\n");
+		if (DisableScreensaver && EnableDPMS == 1 && DPMSDisabled) {
+		    NVdecMessage(3, "Black surface, DPMS enabled\n");
 		    X11DPMSReenable(Connection);
-		    X11SuspendScreenSaver(Connection, 1);
+		    X11SuspendScreenSaver(Connection, 0);
 		}
 #endif
 	    }
@@ -17303,10 +17323,10 @@ static void NVdecDisplayFrame(void)
 	    if (VideoShowBlackPicture)
 		continue;
 #ifdef USE_SCREENSAVER
-	} else if (!DPMSDisabled) {	// always disable
-	    NVdecMessage(4, "DPMS disabled\n");
+	} else if (EnableDPMS < 2 && !DPMSDisabled) {	// always disable
+	    NVdecMessage(3, "DPMS disabled\n");
 	    X11DPMSDisable(Connection);
-	    X11SuspendScreenSaver(Connection, 0);
+	    X11SuspendScreenSaver(Connection, 1);
 #endif
 	}
 
@@ -19588,6 +19608,11 @@ static void CpuDisplayFrame(void)
 	    xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
 	    timeSS = first_time / 1000000;
 	}
+	if (EnableDPMS == 2 && DPMSDisabled) {	// always enable
+	    Debug(3, "DPMS enabled");
+	    X11DPMSReenable(Connection);
+	    X11SuspendScreenSaver(Connection, 0);
+	}
     }
 #endif
     //
@@ -19608,12 +19633,12 @@ static void CpuDisplayFrame(void)
 	    if ((VideoShowBlackPicture && !decoder->TrickSpeed)
 		|| (VideoShowBlackPicture && decoder->Closing < -300)) {
 		CpuBlackSurface(decoder);
-		CpuMessage(4, "video/cpu: black surface displayed\n");
+		CpuMessage(3, "video/cpu: black surface displayed\n");
 #ifdef USE_SCREENSAVER
-		if (EnableDPMSatBlackScreen && DPMSDisabled) {
+		if (DisableScreensaver && EnableDPMS == 1 && DPMSDisabled) {
 		    CpuMessage(4, "Black surface, DPMS enabled\n");
 		    X11DPMSReenable(Connection);
-		    X11SuspendScreenSaver(Connection, 1);
+		    X11SuspendScreenSaver(Connection, 0);
 		}
 #endif
 	    }
@@ -19627,10 +19652,10 @@ static void CpuDisplayFrame(void)
 	    if (VideoShowBlackPicture)
 		continue;
 #ifdef USE_SCREENSAVER
-	} else if (!DPMSDisabled) {	// always disable
-	    CpuMessage(4, "DPMS disabled\n");
+	} else if (EnableDPMS < 2 && !DPMSDisabled) {	// always disable
+	    CpuMessage(3, "DPMS disabled\n");
 	    X11DPMSDisable(Connection);
-	    X11SuspendScreenSaver(Connection, 0);
+	    X11SuspendScreenSaver(Connection, 1);
 #endif
 	}
 
@@ -23911,14 +23936,14 @@ void VideoSetAutoCrop(int interval, int delay, int tolerance)
 }
 
 ///
-///	Set EnableDPMSatBlackScreen
+///	Set EnableDPMS
 ///
 ///	Currently this only choose the driver.
 ///
-void SetDPMSatBlackScreen(int enable)
+void SetDPMS(int enable)
 {
 #ifdef USE_SCREENSAVER
-    EnableDPMSatBlackScreen = enable;
+    EnableDPMS = enable;
 #endif
 }
 
