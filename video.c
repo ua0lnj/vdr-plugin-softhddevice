@@ -7250,7 +7250,7 @@ static void VaapiDisplayFrame(void)
     //get up screensaver every 20 sec
     if (DisableScreensaver) {
 	clock_gettime(CLOCK_MONOTONIC, &nowtime);
-	if (nowtime.tv_sec - timeSS > 20) {
+	if (DPMSDisabled && (nowtime.tv_sec - timeSS > 20)) {
 	    xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
 	    timeSS = nowtime.tv_sec;
 	}
@@ -7307,7 +7307,7 @@ static void VaapiDisplayFrame(void)
 	    if (VideoShowBlackPicture)
 		continue;
 #ifdef USE_SCREENSAVER
-	} else if (EnableDPMS < 2 && !DPMSDisabled) {	// always disable
+	} else if (DisableScreensaver && EnableDPMS < 2 && !DPMSDisabled) {	// always disable
 	    Debug(3, "DPMS disabled");
 	    X11DPMSDisable(Connection);
 	    X11SuspendScreenSaver(Connection, 1);
@@ -11775,7 +11775,7 @@ skip_query:
 #ifdef USE_SCREENSAVER
     //get up screensaver every 20 sec
     if (DisableScreensaver) {
-	if (first_time / 1000000000  - timeSS > 20) {
+	if (DPMSDisabled && (first_time / 1000000000  - timeSS > 20)) {
 	    xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
 	    timeSS = first_time / 1000000000;
 	}
@@ -11826,7 +11826,7 @@ skip_query:
 	    if (VideoShowBlackPicture)
 		continue;
 #ifdef USE_SCREENSAVER
-	} else if (EnableDPMS < 2 && !DPMSDisabled) {	// always disable
+	} else if (DisableScreensaver && EnableDPMS < 2 && !DPMSDisabled) {	// always disable
 	    VdpauMessage(3, "DPMS disabled\n");
 	    X11DPMSDisable(Connection);
 	    X11SuspendScreenSaver(Connection, 1);
@@ -14639,7 +14639,7 @@ static void CuvidDisplayFrame(void)
 #ifdef USE_SCREENSAVER
     //get up screensaver every 20 sec
     if (DisableScreensaver) {
-	if (first_time / 1000000 - timeSS > 20) {
+	if (DPMSDisabled && (first_time / 1000000 - timeSS > 20)) {
 	    xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
 	    timeSS = first_time / 1000000;
 	}
@@ -14687,7 +14687,7 @@ static void CuvidDisplayFrame(void)
 	    if (VideoShowBlackPicture)
 		continue;
 #ifdef USE_SCREENSAVER
-	} else if (EnableDPMS < 2 && !DPMSDisabled) {	// always disable
+	} else if (DisableScreensaver && EnableDPMS < 2 && !DPMSDisabled) {	// always disable
 	    CuvidMessage(3, "DPMS disabled\n");
 	    X11DPMSDisable(Connection);
 	    X11SuspendScreenSaver(Connection, 1);
@@ -17275,7 +17275,7 @@ static void NVdecDisplayFrame(void)
 #ifdef USE_SCREENSAVER
     //get up screensaver every 20 sec
     if (DisableScreensaver) {
-	if (first_time / 1000000 - timeSS > 20) {
+	if (DPMSDisabled && (first_time / 1000000 - timeSS > 20)) {
 	    xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
 	    timeSS = first_time / 1000000;
 	}
@@ -17323,7 +17323,7 @@ static void NVdecDisplayFrame(void)
 	    if (VideoShowBlackPicture)
 		continue;
 #ifdef USE_SCREENSAVER
-	} else if (EnableDPMS < 2 && !DPMSDisabled) {	// always disable
+	} else if (DisableScreensaver && EnableDPMS < 2 && !DPMSDisabled) {	// always disable
 	    NVdecMessage(3, "DPMS disabled\n");
 	    X11DPMSDisable(Connection);
 	    X11SuspendScreenSaver(Connection, 1);
@@ -19604,7 +19604,7 @@ static void CpuDisplayFrame(void)
 #ifdef USE_SCREENSAVER
     //get up screensaver every 20 sec
     if (DisableScreensaver) {
-	if (first_time / 1000000 - timeSS > 20) {
+	if (DPMSDisabled && (first_time / 1000000 - timeSS > 20)) {
 	    xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
 	    timeSS = first_time / 1000000;
 	}
@@ -19652,7 +19652,7 @@ static void CpuDisplayFrame(void)
 	    if (VideoShowBlackPicture)
 		continue;
 #ifdef USE_SCREENSAVER
-	} else if (EnableDPMS < 2 && !DPMSDisabled) {	// always disable
+	} else if (DisableScreensaver && EnableDPMS < 2 && !DPMSDisabled) {	// always disable
 	    CpuMessage(3, "DPMS disabled\n");
 	    X11DPMSDisable(Connection);
 	    X11SuspendScreenSaver(Connection, 1);
@@ -24114,9 +24114,10 @@ void VideoInit(const char *display_name)
 	VideoHardwareDecoder = HWOff;
     }
     // disable x11 screensaver
-    X11SuspendScreenSaver(Connection, 1);
-    X11DPMSDisable(Connection);
-
+    if (DisableScreensaver) {
+	X11SuspendScreenSaver(Connection, 1);
+	X11DPMSDisable(Connection);
+    }
     //xcb_prefetch_maximum_request_length(Connection);
     xcb_flush(Connection);
 
