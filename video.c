@@ -658,6 +658,7 @@ static void X11SuspendScreenSaver(xcb_connection_t *, int);
 static int X11HaveDPMS(xcb_connection_t *);
 static void X11DPMSReenable(xcb_connection_t *);
 static void X11DPMSDisable(xcb_connection_t *);
+static int X11DPMSGetStatus(xcb_connection_t *);
 #endif
 
 ///
@@ -7358,6 +7359,9 @@ static void VaapiDisplayFrame(void)
 	    } else
 #endif
 	    {
+#ifdef USE_SCREENSAVER
+        if (X11DPMSGetStatus(Connection))
+#endif
 		VaapiPutSurfaceX11(decoder, surface, decoder->Interlaced,
 		    decoder->Deinterlaced, decoder->TopFieldFirst, decoder->SurfaceField);
 	    }
@@ -7413,8 +7417,12 @@ static void VaapiDisplayFrame(void)
 	    GlxRenderTexture(OsdGlTextures[OsdIndex], 0, 0, VideoWindowWidth, VideoWindowHeight);
 	    // FIXME: toggle osd
 	}
-
-	glXSwapBuffers(XlibDisplay, VideoWindow);
+#ifdef USE_SCREENSAVER
+        if (X11DPMSGetStatus(Connection))
+#endif
+	{
+	    glXSwapBuffers(XlibDisplay, VideoWindow);
+	}
 	glXMakeCurrent(XlibDisplay, None, NULL);
 	GlxCheck();
     }
@@ -7438,8 +7446,12 @@ static void VaapiDisplayFrame(void)
 	    EglRenderTexture(OsdGlTextures[OsdIndex], 0, 0, VideoWindowWidth, VideoWindowHeight);
 	    // FIXME: toggle osd
 	}
-
-	eglSwapBuffers(EglDisplay, EglSurface);
+#ifdef USE_SCREENSAVER
+        if (X11DPMSGetStatus(Connection))
+#endif
+	{
+	    eglSwapBuffers(EglDisplay, EglSurface);
+	}
 	EglCheck();
 	eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 	EglCheck();
@@ -11722,6 +11734,9 @@ static void VdpauDisplayFrame(void)
 	goto skip_query;
     }
 #endif
+#ifdef USE_SCREENSAVER
+    if (!X11DPMSGetStatus(Connection)) goto skip_query;
+#endif
     //
     //	check how many surfaces are queued
     //
@@ -11855,9 +11870,12 @@ skip_query:
 	    GlxRenderTexture(OsdGlTextures[OsdIndex], 0, 0, VideoWindowWidth, VideoWindowHeight);
 	    // FIXME: toggle osd
 	}
-
-	glXSwapBuffers(XlibDisplay, VideoWindow);
-
+#ifdef USE_SCREENSAVER
+        if (X11DPMSGetStatus(Connection))
+#endif
+	{
+	    glXSwapBuffers(XlibDisplay, VideoWindow);
+	}
 	glXMakeCurrent(XlibDisplay, None, NULL);
 	GlxCheck();
 	goto skip_queue;
@@ -11874,7 +11892,9 @@ skip_query:
 	//
 	//	place surface in presentation queue
 	//
-
+#ifdef USE_SCREENSAVER
+        if (!X11DPMSGetStatus(Connection)) goto skip_queue;
+#endif
 	status =
 	    VdpauPresentationQueueDisplay(VdpauQueue,
 	    VdpauSurfacesRb[VdpauSurfaceIndex], 0, 0, 0);
@@ -14714,8 +14734,12 @@ static void CuvidDisplayFrame(void)
 #endif
                 GlxRenderTexture(OsdGlTextures[OsdIndex], 0,0, VideoWindowWidth, VideoWindowHeight);
         }
-
-        glXSwapBuffers(XlibDisplay, VideoWindow);
+#ifdef USE_SCREENSAVER
+        if (X11DPMSGetStatus(Connection))
+#endif
+        {
+            glXSwapBuffers(XlibDisplay, VideoWindow);
+        }
         glXMakeCurrent(XlibDisplay, None, NULL);
     }
 #ifdef USE_EGL
@@ -14733,8 +14757,12 @@ static void CuvidDisplayFrame(void)
 #endif
 	    EglRenderTexture(OsdGlTextures[OsdIndex], 0, 0, VideoWindowWidth, VideoWindowHeight);
 	}
-
-	eglSwapBuffers(EglDisplay, EglSurface);
+#ifdef USE_SCREENSAVER
+        if (X11DPMSGetStatus(Connection))
+#endif
+	{
+	    eglSwapBuffers(EglDisplay, EglSurface);
+	}
 	eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 	EglCheck();
     }
@@ -17350,8 +17378,13 @@ static void NVdecDisplayFrame(void)
 #endif
                 GlxRenderTexture(OsdGlTextures[OsdIndex], 0,0, VideoWindowWidth, VideoWindowHeight);
         }
-
-        glXSwapBuffers(XlibDisplay, VideoWindow);
+        //do not swap if monitor is poweroff
+#ifdef USE_SCREENSAVER
+        if (X11DPMSGetStatus(Connection))
+#endif
+        {
+            glXSwapBuffers(XlibDisplay, VideoWindow);
+        }
         glXMakeCurrent(XlibDisplay, None, NULL);
     }
 #ifdef USE_EGL
@@ -17370,7 +17403,13 @@ static void NVdecDisplayFrame(void)
 	    EglRenderTexture(OsdGlTextures[OsdIndex], 0, 0, VideoWindowWidth, VideoWindowHeight);
 	}
 
-	eglSwapBuffers(EglDisplay, EglSurface);
+        //do not swap if monitor is poweroff
+#ifdef USE_SCREENSAVER
+        if (X11DPMSGetStatus(Connection))
+#endif
+        {
+	    eglSwapBuffers(EglDisplay, EglSurface);
+	}
 	eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 	EglCheck();
     }
@@ -19679,8 +19718,12 @@ static void CpuDisplayFrame(void)
 #endif
                 GlxRenderTexture(OsdGlTextures[OsdIndex], 0,0, VideoWindowWidth, VideoWindowHeight);
         }
-
-        glXSwapBuffers(XlibDisplay, VideoWindow);
+#ifdef USE_SCREENSAVER
+        if (X11DPMSGetStatus(Connection))
+#endif
+        {
+            glXSwapBuffers(XlibDisplay, VideoWindow);
+        }
         glXMakeCurrent(XlibDisplay, None, NULL);
     }
 #ifdef USE_EGL
@@ -19698,8 +19741,12 @@ static void CpuDisplayFrame(void)
 #endif
 	    EglRenderTexture(OsdGlTextures[OsdIndex], 0, 0, VideoWindowWidth, VideoWindowHeight);
 	}
-
-	eglSwapBuffers(EglDisplay, EglSurface);
+#ifdef USE_SCREENSAVER
+        if (X11DPMSGetStatus(Connection))
+#endif
+	{
+	    eglSwapBuffers(EglDisplay, EglSurface);
+	}
 	eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 	EglCheck();
     }
@@ -21887,6 +21934,27 @@ static void X11DPMSReenable(xcb_connection_t * connection)
     }
 }
 
+static int X11DPMSGetStatus(xcb_connection_t * connection)
+{
+    int mode = 1;
+    if (!DPMSDisabled && X11HaveDPMS(connection)) {
+	xcb_dpms_info_cookie_t cookie;
+	xcb_dpms_info_reply_t *reply;
+
+	cookie = xcb_dpms_info_unchecked(connection);
+	reply = xcb_dpms_info_reply(connection, cookie, NULL);
+	if (reply) {
+	    if (reply->state) {
+		//Debug(3, "video: dpms status %d\n", reply->power_level);
+		if (reply->power_level != XCB_DPMS_DPMS_MODE_ON)
+		    mode = 0;
+	    }
+	    free(reply);
+	}
+    }
+    return mode;
+}
+
 #else
 
     /// dummy function: Suspend X11 screen saver.
@@ -21895,7 +21963,8 @@ static void X11DPMSReenable(xcb_connection_t * connection)
 #define X11DPMSDisable(connection)
     /// dummy function: Reenable X11 DPMS.
 #define X11DPMSReenable(connection)
-
+    /// dummy function: Get X11 DPMS status.
+#define X11DPMSGetStatus(connection)
 #endif
 
 //----------------------------------------------------------------------------
