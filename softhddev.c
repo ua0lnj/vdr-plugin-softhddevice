@@ -3973,6 +3973,11 @@ void PipStart(int x, int y, int width, int height, int pip_x, int pip_y,
 	return;
     }
 
+    if (PipVideoStream->Close && PipVideoStream->HwDecoder) {
+	VideoStreamClose(PipVideoStream, 1);
+	PipVideoStream->Close = 0;
+    }
+
     if (!PipVideoStream->Decoder) {
 	VideoStreamOpen(PipVideoStream);
     }

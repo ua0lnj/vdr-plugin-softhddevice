@@ -1975,7 +1975,7 @@ cSoftHdControl::~cSoftHdControl()
 
 extern "C" void DelPip(void);		///< remove PIP
 static int PipAltPosition;		///< flag alternative position
-
+extern "C" void SwapPipChannels(void);
 //////////////////////////////////////////////////////////////////////////////
 //	cReceiver
 //////////////////////////////////////////////////////////////////////////////
@@ -2307,7 +2307,7 @@ static void PipNextAvailableChannel(int direction)
 /**
 **	Swap PIP channels.
 */
-static void SwapPipChannels(void)
+extern "C" void SwapPipChannels(void)
 {
     const cChannel *channel;
 
