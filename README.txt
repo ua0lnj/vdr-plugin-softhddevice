@@ -37,6 +37,7 @@ Only 8-bit output now.
     o Letterbox, Stretch and Center cut-out video display modes
     o atmo light support with plugin http://github.com/durchflieger/DFAtmo
     o PIP (Picture-in-Picture) (VDPAU / CUVID / NVDEC / VA-API-GLX/EGL / CPU-GLX/EGL)
+    o ScreenSaver/DPMS control
 
 To compile you must have the 'requires' installed.
 
@@ -80,6 +81,9 @@ Setup:	environment
 ------
 	For GLX and VA-API (va-api-glx) need:
 	export allow_rgb10_configs=false
+
+	For libva >= 2.20.0 and va-api and va-api-glx use:
+	export LIBVA_DRI3_DISABLE=1
 
 	Following is supported:
 
@@ -453,8 +457,8 @@ Note:
 	For newest Nvidia video use cuvid and cuvid-egl or nvdec and nvdec-egl.
 	For all system with openGL you can use cpu-glx or cpu-egl.
 
-	Wayland Xwayland (tested with Fedora 39)
-	For Intel video use va-api-glx.
+	Wayland Xwayland (tested with Fedora 40)
+	For Intel video use va-api-egl.
 	For old Nvidia video use vdpau and vdpau-glx.
 	For newest Nvidia video use cuvid or nvdec.
 	For all system with openGL you can use cpu-glx or cpu-egl.

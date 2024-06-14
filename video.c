@@ -631,7 +631,7 @@ static int64_t VideoDeltaPTS;		///< FIXME: fix pts
 
 #ifdef USE_SCREENSAVER
 static char DPMSDisabled;		///< flag we have disabled dpms
-static char EnableDPMSatBlackScreen;	///< flag we should enable dpms at black screen
+static char EnableDPMS;			///< flag we should enable dpms
 static char DisableScreensaver;		///< flag we disable screensaver
 #endif
 
@@ -658,6 +658,7 @@ static void X11SuspendScreenSaver(xcb_connection_t *, int);
 static int X11HaveDPMS(xcb_connection_t *);
 static void X11DPMSReenable(xcb_connection_t *);
 static void X11DPMSDisable(xcb_connection_t *);
+static int X11DPMSGetStatus(xcb_connection_t *);
 #endif
 
 ///
@@ -7250,9 +7251,14 @@ static void VaapiDisplayFrame(void)
     //get up screensaver every 20 sec
     if (DisableScreensaver) {
 	clock_gettime(CLOCK_MONOTONIC, &nowtime);
-	if (nowtime.tv_sec - timeSS > 20) {
+	if (DPMSDisabled && (nowtime.tv_sec - timeSS > 20)) {
 	    xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
 	    timeSS = nowtime.tv_sec;
+	}
+	if (EnableDPMS == 2 && DPMSDisabled) {	// always enable
+	    Debug(3, "DPMS enabled");
+	    X11DPMSReenable(Connection);
+	    X11SuspendScreenSaver(Connection, 0);
 	}
     }
 #endif
@@ -7285,10 +7291,10 @@ static void VaapiDisplayFrame(void)
 #endif
 		VaapiMessage(4, "video/vaapi: black surface displayed\n");
 #ifdef USE_SCREENSAVER
-		if (EnableDPMSatBlackScreen && DPMSDisabled) {
+		if (DisableScreensaver && EnableDPMS == 1 && DPMSDisabled) {
 		    Debug(3, "Black surface, DPMS enabled");
 		    X11DPMSReenable(Connection);
-		    X11SuspendScreenSaver(Connection, 1);
+		    X11SuspendScreenSaver(Connection, 0);
 		}
 #endif
 	    }
@@ -7302,10 +7308,10 @@ static void VaapiDisplayFrame(void)
 	    if (VideoShowBlackPicture)
 		continue;
 #ifdef USE_SCREENSAVER
-	} else if (!DPMSDisabled) {	// always disable
+	} else if (DisableScreensaver && EnableDPMS < 2 && !DPMSDisabled) {	// always disable
 	    Debug(3, "DPMS disabled");
 	    X11DPMSDisable(Connection);
-	    X11SuspendScreenSaver(Connection, 0);
+	    X11SuspendScreenSaver(Connection, 1);
 #endif
 	}
 
@@ -7353,6 +7359,9 @@ static void VaapiDisplayFrame(void)
 	    } else
 #endif
 	    {
+#ifdef USE_SCREENSAVER
+        if (X11DPMSGetStatus(Connection))
+#endif
 		VaapiPutSurfaceX11(decoder, surface, decoder->Interlaced,
 		    decoder->Deinterlaced, decoder->TopFieldFirst, decoder->SurfaceField);
 	    }
@@ -7408,8 +7417,12 @@ static void VaapiDisplayFrame(void)
 	    GlxRenderTexture(OsdGlTextures[OsdIndex], 0, 0, VideoWindowWidth, VideoWindowHeight);
 	    // FIXME: toggle osd
 	}
-
-	glXSwapBuffers(XlibDisplay, VideoWindow);
+#ifdef USE_SCREENSAVER
+        if (X11DPMSGetStatus(Connection))
+#endif
+	{
+	    glXSwapBuffers(XlibDisplay, VideoWindow);
+	}
 	glXMakeCurrent(XlibDisplay, None, NULL);
 	GlxCheck();
     }
@@ -7433,8 +7446,12 @@ static void VaapiDisplayFrame(void)
 	    EglRenderTexture(OsdGlTextures[OsdIndex], 0, 0, VideoWindowWidth, VideoWindowHeight);
 	    // FIXME: toggle osd
 	}
-
-	eglSwapBuffers(EglDisplay, EglSurface);
+#ifdef USE_SCREENSAVER
+        if (X11DPMSGetStatus(Connection))
+#endif
+	{
+	    eglSwapBuffers(EglDisplay, EglSurface);
+	}
 	EglCheck();
 	eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 	EglCheck();
@@ -11717,6 +11734,9 @@ static void VdpauDisplayFrame(void)
 	goto skip_query;
     }
 #endif
+#ifdef USE_SCREENSAVER
+    if (!X11DPMSGetStatus(Connection)) goto skip_query;
+#endif
     //
     //	check how many surfaces are queued
     //
@@ -11770,9 +11790,14 @@ skip_query:
 #ifdef USE_SCREENSAVER
     //get up screensaver every 20 sec
     if (DisableScreensaver) {
-	if (first_time / 1000000000  - timeSS > 20) {
+	if (DPMSDisabled && (first_time / 1000000000  - timeSS > 20)) {
 	    xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
 	    timeSS = first_time / 1000000000;
+	}
+	if (EnableDPMS == 2 && DPMSDisabled) {	// always enable
+	    Debug(3, "DPMS enabled");
+	    X11DPMSReenable(Connection);
+	    X11SuspendScreenSaver(Connection, 0);
 	}
     }
 #endif
@@ -11799,10 +11824,10 @@ skip_query:
 		VdpauBlackSurface(decoder);
 		VdpauMessage(4, "video/vdpau: black surface displayed\n");
 #ifdef USE_SCREENSAVER
-		if (EnableDPMSatBlackScreen && DPMSDisabled) {
+		if (DisableScreensaver && EnableDPMS == 1 && DPMSDisabled) {
 		    VdpauMessage(3, "Black surface, DPMS enabled\n");
 		    X11DPMSReenable(Connection);
-		    X11SuspendScreenSaver(Connection, 1);
+		    X11SuspendScreenSaver(Connection, 0);
 		}
 #endif
 	    }
@@ -11816,10 +11841,10 @@ skip_query:
 	    if (VideoShowBlackPicture)
 		continue;
 #ifdef USE_SCREENSAVER
-	} else if (!DPMSDisabled) {	// always disable
+	} else if (DisableScreensaver && EnableDPMS < 2 && !DPMSDisabled) {	// always disable
 	    VdpauMessage(3, "DPMS disabled\n");
 	    X11DPMSDisable(Connection);
-	    X11SuspendScreenSaver(Connection, 0);
+	    X11SuspendScreenSaver(Connection, 1);
 #endif
 	}
 	VdpauMixVideo(decoder, i);
@@ -11845,9 +11870,12 @@ skip_query:
 	    GlxRenderTexture(OsdGlTextures[OsdIndex], 0, 0, VideoWindowWidth, VideoWindowHeight);
 	    // FIXME: toggle osd
 	}
-
-	glXSwapBuffers(XlibDisplay, VideoWindow);
-
+#ifdef USE_SCREENSAVER
+        if (X11DPMSGetStatus(Connection))
+#endif
+	{
+	    glXSwapBuffers(XlibDisplay, VideoWindow);
+	}
 	glXMakeCurrent(XlibDisplay, None, NULL);
 	GlxCheck();
 	goto skip_queue;
@@ -11864,7 +11892,9 @@ skip_query:
 	//
 	//	place surface in presentation queue
 	//
-
+#ifdef USE_SCREENSAVER
+        if (!X11DPMSGetStatus(Connection)) goto skip_queue;
+#endif
 	status =
 	    VdpauPresentationQueueDisplay(VdpauQueue,
 	    VdpauSurfacesRb[VdpauSurfaceIndex], 0, 0, 0);
@@ -14629,9 +14659,14 @@ static void CuvidDisplayFrame(void)
 #ifdef USE_SCREENSAVER
     //get up screensaver every 20 sec
     if (DisableScreensaver) {
-	if (first_time / 1000000 - timeSS > 20) {
+	if (DPMSDisabled && (first_time / 1000000 - timeSS > 20)) {
 	    xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
 	    timeSS = first_time / 1000000;
+	}
+	if (EnableDPMS == 2 && DPMSDisabled) {	// always enable
+	    Debug(3, "DPMS enabled");
+	    X11DPMSReenable(Connection);
+	    X11SuspendScreenSaver(Connection, 0);
 	}
     }
 #endif
@@ -14655,10 +14690,10 @@ static void CuvidDisplayFrame(void)
 		CuvidBlackSurface(decoder);
 		CuvidMessage(4, "video/cuvid: black surface displayed\n");
 #ifdef USE_SCREENSAVER
-		if (EnableDPMSatBlackScreen && DPMSDisabled) {
-		    CuvidMessage(4, "Black surface, DPMS enabled\n");
+		if (DisableScreensaver && EnableDPMS == 1 && DPMSDisabled) {
+		    CuvidMessage(3, "Black surface, DPMS enabled\n");
 		    X11DPMSReenable(Connection);
-		    X11SuspendScreenSaver(Connection, 1);
+		    X11SuspendScreenSaver(Connection, 0);
 		}
 #endif
 	    }
@@ -14672,10 +14707,10 @@ static void CuvidDisplayFrame(void)
 	    if (VideoShowBlackPicture)
 		continue;
 #ifdef USE_SCREENSAVER
-	} else if (!DPMSDisabled) {	// always disable
-	    CuvidMessage(4, "DPMS disabled\n");
+	} else if (DisableScreensaver && EnableDPMS < 2 && !DPMSDisabled) {	// always disable
+	    CuvidMessage(3, "DPMS disabled\n");
 	    X11DPMSDisable(Connection);
-	    X11SuspendScreenSaver(Connection, 0);
+	    X11SuspendScreenSaver(Connection, 1);
 #endif
 	}
 
@@ -14699,8 +14734,12 @@ static void CuvidDisplayFrame(void)
 #endif
                 GlxRenderTexture(OsdGlTextures[OsdIndex], 0,0, VideoWindowWidth, VideoWindowHeight);
         }
-
-        glXSwapBuffers(XlibDisplay, VideoWindow);
+#ifdef USE_SCREENSAVER
+        if (X11DPMSGetStatus(Connection))
+#endif
+        {
+            glXSwapBuffers(XlibDisplay, VideoWindow);
+        }
         glXMakeCurrent(XlibDisplay, None, NULL);
     }
 #ifdef USE_EGL
@@ -14718,8 +14757,12 @@ static void CuvidDisplayFrame(void)
 #endif
 	    EglRenderTexture(OsdGlTextures[OsdIndex], 0, 0, VideoWindowWidth, VideoWindowHeight);
 	}
-
-	eglSwapBuffers(EglDisplay, EglSurface);
+#ifdef USE_SCREENSAVER
+        if (X11DPMSGetStatus(Connection))
+#endif
+	{
+	    eglSwapBuffers(EglDisplay, EglSurface);
+	}
 	eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 	EglCheck();
     }
@@ -17260,9 +17303,14 @@ static void NVdecDisplayFrame(void)
 #ifdef USE_SCREENSAVER
     //get up screensaver every 20 sec
     if (DisableScreensaver) {
-	if (first_time / 1000000 - timeSS > 20) {
+	if (DPMSDisabled && (first_time / 1000000 - timeSS > 20)) {
 	    xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
 	    timeSS = first_time / 1000000;
+	}
+	if (EnableDPMS == 2 && DPMSDisabled) {	// always enable
+	    Debug(3, "DPMS enabled");
+	    X11DPMSReenable(Connection);
+	    X11SuspendScreenSaver(Connection, 0);
 	}
     }
 #endif
@@ -17286,10 +17334,10 @@ static void NVdecDisplayFrame(void)
 		NVdecBlackSurface(decoder);
 		NVdecMessage(4, "video/nvdec: black surface displayed\n");
 #ifdef USE_SCREENSAVER
-		if (EnableDPMSatBlackScreen && DPMSDisabled) {
-		    NVdecMessage(4, "Black surface, DPMS enabled\n");
+		if (DisableScreensaver && EnableDPMS == 1 && DPMSDisabled) {
+		    NVdecMessage(3, "Black surface, DPMS enabled\n");
 		    X11DPMSReenable(Connection);
-		    X11SuspendScreenSaver(Connection, 1);
+		    X11SuspendScreenSaver(Connection, 0);
 		}
 #endif
 	    }
@@ -17303,10 +17351,10 @@ static void NVdecDisplayFrame(void)
 	    if (VideoShowBlackPicture)
 		continue;
 #ifdef USE_SCREENSAVER
-	} else if (!DPMSDisabled) {	// always disable
-	    NVdecMessage(4, "DPMS disabled\n");
+	} else if (DisableScreensaver && EnableDPMS < 2 && !DPMSDisabled) {	// always disable
+	    NVdecMessage(3, "DPMS disabled\n");
 	    X11DPMSDisable(Connection);
-	    X11SuspendScreenSaver(Connection, 0);
+	    X11SuspendScreenSaver(Connection, 1);
 #endif
 	}
 
@@ -17330,8 +17378,13 @@ static void NVdecDisplayFrame(void)
 #endif
                 GlxRenderTexture(OsdGlTextures[OsdIndex], 0,0, VideoWindowWidth, VideoWindowHeight);
         }
-
-        glXSwapBuffers(XlibDisplay, VideoWindow);
+        //do not swap if monitor is poweroff
+#ifdef USE_SCREENSAVER
+        if (X11DPMSGetStatus(Connection))
+#endif
+        {
+            glXSwapBuffers(XlibDisplay, VideoWindow);
+        }
         glXMakeCurrent(XlibDisplay, None, NULL);
     }
 #ifdef USE_EGL
@@ -17350,7 +17403,13 @@ static void NVdecDisplayFrame(void)
 	    EglRenderTexture(OsdGlTextures[OsdIndex], 0, 0, VideoWindowWidth, VideoWindowHeight);
 	}
 
-	eglSwapBuffers(EglDisplay, EglSurface);
+        //do not swap if monitor is poweroff
+#ifdef USE_SCREENSAVER
+        if (X11DPMSGetStatus(Connection))
+#endif
+        {
+	    eglSwapBuffers(EglDisplay, EglSurface);
+	}
 	eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 	EglCheck();
     }
@@ -19584,9 +19643,14 @@ static void CpuDisplayFrame(void)
 #ifdef USE_SCREENSAVER
     //get up screensaver every 20 sec
     if (DisableScreensaver) {
-	if (first_time / 1000000 - timeSS > 20) {
+	if (DPMSDisabled && (first_time / 1000000 - timeSS > 20)) {
 	    xcb_force_screen_saver(Connection,XCB_SCREEN_SAVER_RESET);
 	    timeSS = first_time / 1000000;
+	}
+	if (EnableDPMS == 2 && DPMSDisabled) {	// always enable
+	    Debug(3, "DPMS enabled");
+	    X11DPMSReenable(Connection);
+	    X11SuspendScreenSaver(Connection, 0);
 	}
     }
 #endif
@@ -19608,12 +19672,12 @@ static void CpuDisplayFrame(void)
 	    if ((VideoShowBlackPicture && !decoder->TrickSpeed)
 		|| (VideoShowBlackPicture && decoder->Closing < -300)) {
 		CpuBlackSurface(decoder);
-		CpuMessage(4, "video/cpu: black surface displayed\n");
+		CpuMessage(3, "video/cpu: black surface displayed\n");
 #ifdef USE_SCREENSAVER
-		if (EnableDPMSatBlackScreen && DPMSDisabled) {
+		if (DisableScreensaver && EnableDPMS == 1 && DPMSDisabled) {
 		    CpuMessage(4, "Black surface, DPMS enabled\n");
 		    X11DPMSReenable(Connection);
-		    X11SuspendScreenSaver(Connection, 1);
+		    X11SuspendScreenSaver(Connection, 0);
 		}
 #endif
 	    }
@@ -19627,10 +19691,10 @@ static void CpuDisplayFrame(void)
 	    if (VideoShowBlackPicture)
 		continue;
 #ifdef USE_SCREENSAVER
-	} else if (!DPMSDisabled) {	// always disable
-	    CpuMessage(4, "DPMS disabled\n");
+	} else if (DisableScreensaver && EnableDPMS < 2 && !DPMSDisabled) {	// always disable
+	    CpuMessage(3, "DPMS disabled\n");
 	    X11DPMSDisable(Connection);
-	    X11SuspendScreenSaver(Connection, 0);
+	    X11SuspendScreenSaver(Connection, 1);
 #endif
 	}
 
@@ -19654,8 +19718,12 @@ static void CpuDisplayFrame(void)
 #endif
                 GlxRenderTexture(OsdGlTextures[OsdIndex], 0,0, VideoWindowWidth, VideoWindowHeight);
         }
-
-        glXSwapBuffers(XlibDisplay, VideoWindow);
+#ifdef USE_SCREENSAVER
+        if (X11DPMSGetStatus(Connection))
+#endif
+        {
+            glXSwapBuffers(XlibDisplay, VideoWindow);
+        }
         glXMakeCurrent(XlibDisplay, None, NULL);
     }
 #ifdef USE_EGL
@@ -19673,8 +19741,12 @@ static void CpuDisplayFrame(void)
 #endif
 	    EglRenderTexture(OsdGlTextures[OsdIndex], 0, 0, VideoWindowWidth, VideoWindowHeight);
 	}
-
-	eglSwapBuffers(EglDisplay, EglSurface);
+#ifdef USE_SCREENSAVER
+        if (X11DPMSGetStatus(Connection))
+#endif
+	{
+	    eglSwapBuffers(EglDisplay, EglSurface);
+	}
 	eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 	EglCheck();
     }
@@ -21862,6 +21934,27 @@ static void X11DPMSReenable(xcb_connection_t * connection)
     }
 }
 
+static int X11DPMSGetStatus(xcb_connection_t * connection)
+{
+    int mode = 1;
+    if (!DPMSDisabled && X11HaveDPMS(connection)) {
+	xcb_dpms_info_cookie_t cookie;
+	xcb_dpms_info_reply_t *reply;
+
+	cookie = xcb_dpms_info_unchecked(connection);
+	reply = xcb_dpms_info_reply(connection, cookie, NULL);
+	if (reply) {
+	    if (reply->state) {
+		//Debug(3, "video: dpms status %d\n", reply->power_level);
+		if (reply->power_level != XCB_DPMS_DPMS_MODE_ON)
+		    mode = 0;
+	    }
+	    free(reply);
+	}
+    }
+    return mode;
+}
+
 #else
 
     /// dummy function: Suspend X11 screen saver.
@@ -21870,7 +21963,8 @@ static void X11DPMSReenable(xcb_connection_t * connection)
 #define X11DPMSDisable(connection)
     /// dummy function: Reenable X11 DPMS.
 #define X11DPMSReenable(connection)
-
+    /// dummy function: Get X11 DPMS status.
+#define X11DPMSGetStatus(connection)
 #endif
 
 //----------------------------------------------------------------------------
@@ -23911,14 +24005,14 @@ void VideoSetAutoCrop(int interval, int delay, int tolerance)
 }
 
 ///
-///	Set EnableDPMSatBlackScreen
+///	Set EnableDPMS
 ///
 ///	Currently this only choose the driver.
 ///
-void SetDPMSatBlackScreen(int enable)
+void SetDPMS(int enable)
 {
 #ifdef USE_SCREENSAVER
-    EnableDPMSatBlackScreen = enable;
+    EnableDPMS = enable;
 #endif
 }
 
@@ -24089,9 +24183,10 @@ void VideoInit(const char *display_name)
 	VideoHardwareDecoder = HWOff;
     }
     // disable x11 screensaver
-    X11SuspendScreenSaver(Connection, 1);
-    X11DPMSDisable(Connection);
-
+    if (DisableScreensaver) {
+	X11SuspendScreenSaver(Connection, 1);
+	X11DPMSDisable(Connection);
+    }
     //xcb_prefetch_maximum_request_length(Connection);
     xcb_flush(Connection);
 

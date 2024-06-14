@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: VDR \n"
 "Report-Msgid-Bugs-To: <see README>\n"
-"POT-Creation-Date: 2024-02-05 20:28+1000\n"
+"POT-Creation-Date: 2024-05-11 00:38+1000\n"
 "PO-Revision-Date: blabla\n"
 "Last-Translator: blabla\n"
 "Language-Team: blabla\n"
@@ -231,6 +231,9 @@ msgstr ""
 msgid "audio: can't set channels %d sample-rate %dHz\n"
 msgstr ""
 
+msgid "audio: alsa not ready!!!\n"
+msgstr ""
+
 msgid "audio: audio started and underrun, increase AudioBufferTime?!\n"
 msgstr ""
 
@@ -260,6 +263,9 @@ msgid "codec: buggy libav, use ffmpeg\n"
 msgstr ""
 
 msgid "codec: can't allocate vodeo decoder\n"
+msgstr ""
+
+msgid "codec: filter not described, filter disabled\n"
 msgstr ""
 
 #, c-format
@@ -512,6 +518,15 @@ msgstr "SoftHdDevice trennen"
 msgid "Ignore"
 msgstr "Ignorieren"
 
+msgid "Never"
+msgstr "Niemals"
+
+msgid "At Black Screen"
+msgstr "Bei Schwarzem Bildschirm"
+
+msgid "Always"
+msgstr "Stets"
+
 msgid "General"
 msgstr "Allgemeines"
 
@@ -557,8 +572,8 @@ msgstr "Video"
 msgid "Disable Screensaver"
 msgstr "Bildschirmschoner abschalten"
 
-msgid "Enable Screensaver(DPMS) at black screen"
-msgstr "Bildschirmschoner(DPMS) bei schwarzen Bild  aktivieren"
+msgid "Enable Power management (DPMS)"
+msgstr "Aktivieren Sie die Energieverwaltung (DPMS)"
 
 msgid "Video background color (RGB)"
 msgstr "Video Hintergrundfrabe (RGB)"
@@ -1790,12 +1805,3 @@ msgstr ""
 
 msgid "video: error closing display\n"
 msgstr ""
-
-#~ msgid "fast"
-#~ msgstr "Schnell"
-
-#~ msgid "accurate"
-#~ msgstr "Exact"
-
-#~ msgid "soft"
-#~ msgstr "Sanft"

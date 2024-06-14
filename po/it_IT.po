@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: VDR \n"
 "Report-Msgid-Bugs-To: <see README>\n"
-"POT-Creation-Date: 2024-02-05 20:28+1000\n"
+"POT-Creation-Date: 2024-05-11 00:38+1000\n"
 "PO-Revision-Date: \n"
 "Last-Translator: fiveten_59\n"
 "Language-Team: fiveten_59\n"
@@ -226,6 +226,9 @@ msgstr ""
 msgid "audio: can't set channels %d sample-rate %dHz\n"
 msgstr ""
 
+msgid "audio: alsa not ready!!!\n"
+msgstr ""
+
 msgid "audio: audio started and underrun, increase AudioBufferTime?!\n"
 msgstr ""
 
@@ -255,6 +258,9 @@ msgid "codec: buggy libav, use ffmpeg\n"
 msgstr ""
 
 msgid "codec: can't allocate vodeo decoder\n"
+msgstr ""
+
+msgid "codec: filter not described, filter disabled\n"
 msgstr ""
 
 #, c-format
@@ -507,6 +513,15 @@ msgstr ""
 msgid "Ignore"
 msgstr ""
 
+msgid "Never"
+msgstr ""
+
+msgid "At Black Screen"
+msgstr ""
+
+msgid "Always"
+msgstr ""
+
 msgid "General"
 msgstr "Generale"
 
@@ -552,8 +567,8 @@ msgstr "Video"
 msgid "Disable Screensaver"
 msgstr ""
 
-msgid "Enable Screensaver(DPMS) at black screen"
-msgstr "Abilita screensaver (DMPS) a schermo nero"
+msgid "Enable Power management (DPMS)"
+msgstr ""
 
 msgid "Video background color (RGB)"
 msgstr "Colore di sfondo del video (RGB)"
@@ -1785,3 +1800,6 @@ msgstr ""
 
 msgid "video: error closing display\n"
 msgstr ""
+
+#~ msgid "Enable Screensaver(DPMS) at black screen"
+#~ msgstr "Abilita screensaver (DMPS) a schermo nero"
