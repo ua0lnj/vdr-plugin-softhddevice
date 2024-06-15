@@ -21382,6 +21382,13 @@ void VideoDelHwDecoder(VideoHwDecoder * hw_decoder)
 	VideoUsedModule->DelHwDecoder(hw_decoder);
 	//VideoThreadUnlock();
     }
+#ifdef USE_PIP
+    // reset pip window
+    VideoPipWindowX = 0;
+    VideoPipWindowY = 0;
+    VideoPipWindowWidth = 0;
+    VideoPipWindowHeight = 0;
+#endif
 }
 
 ///
