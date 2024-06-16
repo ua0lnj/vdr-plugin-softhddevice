@@ -650,6 +650,7 @@ static int VideoStartThreshold_SD = 16;
 static int VideoStartThreshold_HD = 38;
 void AudioDelayms(int);
 extern volatile char SoftIsPlayingVideo;        ///< stream contains video data
+extern volatile char ShownMenu;			///< shown osd menu
 //----------------------------------------------------------------------------
 //	Common Functions
 //----------------------------------------------------------------------------
@@ -21042,10 +21043,16 @@ static void VideoEvent(void)
 		FeedKeyPress("XKeySym", "Menu", 0, 0, NULL);
 	    }
 	    if (event.xbutton.button == 4) {
-		FeedKeyPress("XKeySym", "Volume+", 0, 0, NULL);
+		if (ShownMenu)
+		    FeedKeyPress("XKeySym", "Up", 0, 0, NULL);
+		else
+		    FeedKeyPress("XKeySym", "Volume+", 0, 0, NULL);
 	    }
 	    if (event.xbutton.button == 5) {
-		FeedKeyPress("XKeySym", "Volume-", 0, 0, NULL);
+		if (ShownMenu)
+		    FeedKeyPress("XKeySym", "Down", 0, 0, NULL);
+		else
+		    FeedKeyPress("XKeySym", "Volume-", 0, 0, NULL);
 	    }
 	    break;
 	case ButtonRelease:

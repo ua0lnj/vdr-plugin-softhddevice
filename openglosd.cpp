@@ -13,6 +13,8 @@ extern "C"
 #include "video.h"
 }
 
+extern volatile char ShownMenu;
+
 /****************************************************************************************
 * Helpers
 ****************************************************************************************/
@@ -2151,6 +2153,7 @@ cOglOsd::~cOglOsd() {
     OsdClose();
     SetActive(false);
     oglThread->DoCmd(new cOglCmdDeleteFb(bFb));
+    ShownMenu = 0;
 }
 
 eOsdError cOglOsd::SetAreas(const tArea *Areas, int NumAreas) {
