@@ -21040,7 +21040,10 @@ static void VideoEvent(void)
 		FeedKeyPress("XKeySym", "Ok", 0, 0, NULL);
 	    }
 	    else if (event.xbutton.button == 3) {
-		FeedKeyPress("XKeySym", "Menu", 0, 0, NULL);
+		if (ShownMenu)
+		    FeedKeyPress("XKeySym", "Back", 0, 0, NULL);
+		else
+		    FeedKeyPress("XKeySym", "Menu", 0, 0, NULL);
 	    }
 	    if (event.xbutton.button == 4) {
 		if (ShownMenu)
