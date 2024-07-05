@@ -898,11 +898,11 @@ int CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
                         //VDPAU interlaced frames not clean after the codec flush, drop it before 2 key frames
 #if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
                         int interlaced = video_ctx->framerate.num > 0 ? (video_ctx->framerate.num / video_ctx->framerate.den <= 30) : frame->interlaced_frame;
-                        if (got_frame && frame->key_frame && interlaced) decoder->FirstKeyFrame++;
+                        if (got_frame && frame->pict_type == 1 && interlaced) decoder->FirstKeyFrame++;
                         if (got_frame && interlaced && decoder->FirstKeyFrame < 3) got_frame = 0;
 #else
                         int interlaced = video_ctx->framerate.num > 0 ? (video_ctx->framerate.num / video_ctx->framerate.den <= 30) : frame->flags & AV_FRAME_FLAG_INTERLACED;
-                        if (got_frame && frame->flags & AV_FRAME_FLAG_KEY && interlaced) decoder->FirstKeyFrame++;
+                        if (got_frame && frame->pict_type == 1 && interlaced) decoder->FirstKeyFrame++;
                         if (got_frame && interlaced && decoder->FirstKeyFrame < 3) got_frame = 0;
 #endif
 #endif
