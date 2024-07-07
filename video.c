@@ -7688,7 +7688,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
 	    if (PlayRingbuffer == 0) {
-		err = CuvidMessage(3, "resume playing samples from ringbuffer\n");
+		err = VaapiMessage(3, "resume playing samples from ringbuffer\n");
 		PlayRingbuffer = 1;
 	    }
 	    goto out;
@@ -7702,7 +7702,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 		err = VaapiMessage(3, "video: speed up audio, delay audio\n");
 		AudioDelayms(-diff / 90 + 55);
 	    } else {
-		err = CuvidMessage(3, "stop playing samples from ringbuffer\n");
+		err = VaapiMessage(3, "stop playing samples from ringbuffer\n");
 		PlayRingbuffer = 0;
 	    }
 	}
@@ -17715,7 +17715,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
 	    if (PlayRingbuffer == 0) {
-		err = CuvidMessage(3, "resume playing samples from ringbuffer\n");
+		err = NVdecMessage(3, "resume playing samples from ringbuffer\n");
 		PlayRingbuffer = 1;
 	    }
 	    goto out;
@@ -17729,7 +17729,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 		err = NVdecMessage(3, "video: speed up audio, delay audio\n");
 		AudioDelayms(-diff / 90 + 55);
 	    } else {
-		err = CuvidMessage(3, "stop playing samples from ringbuffer\n");
+		err = NVdecMessage(3, "stop playing samples from ringbuffer\n");
 		PlayRingbuffer = 0;
 	    }
 	}
@@ -20068,7 +20068,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
 	    if (PlayRingbuffer == 0) {
-		err = CuvidMessage(3, "resume playing samples from ringbuffer\n");
+		err = CpuMessage(3, "resume playing samples from ringbuffer\n");
 		PlayRingbuffer = 1;
 	    }
 	    goto out;
@@ -20082,7 +20082,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 		err = CpuMessage(3, "video: speed up audio, delay audio\n");
 		AudioDelayms(-diff / 90 + 55);
 	    } else {
-		err = CuvidMessage(3, "stop playing samples from ringbuffer\n");
+		err = CpuMessage(3, "stop playing samples from ringbuffer\n");
 		PlayRingbuffer = 0;
 	    }
 	}
