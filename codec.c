@@ -945,10 +945,10 @@ int CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
                                 }
                                 decoder->Filt_Frame->pts /=2;
 #if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
-                                interlaced = decoder->Filt_Frame->interlaced_frame;
+                                interlaced = frame->interlaced_frame;
                                 decoder->Filt_Frame->interlaced_frame = 0;
 #else
-                                interlaced = decoder->Filt_Frame->flags & AV_FRAME_FLAG_INTERLACED;
+                                interlaced = frame->flags & AV_FRAME_FLAG_INTERLACED;
                                 decoder->Filt_Frame->flags &= ~AV_FRAME_FLAG_INTERLACED;
 #endif
                                 decoder->Filt_Frame->sample_aspect_ratio = frame->sample_aspect_ratio;
