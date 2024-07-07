@@ -143,6 +143,7 @@ volatile char AudioStarted;		///< audio started
 static volatile char AudioPaused;	///< audio paused
 static volatile char AudioVideoIsReady;	///< video ready start early
 static int AudioSkip;			///< skip audio to sync to video
+extern volatile char PlayRingbuffer;
 
 static const int AudioBytesProSample = 2;	///< number of bytes per sample
 
@@ -789,6 +790,7 @@ static int AlsaRatio;			///< internal -> mixer ratio * 1000
 static int AlsaPlayRingbuffer(void)
 {
     int first, retry_count;
+    if (!PlayRingbuffer) return 0;
 
     first = 1;
     retry_count = 0;
@@ -1293,7 +1295,7 @@ static int AlsaSetup(int *freq, int *channels, int passthrough)
     }
 
     // this is disabled, no advantages!
-    if (0) {				// no underruns allowed, play silence
+    if (1) {				// no underruns allowed, play silence
 	snd_pcm_sw_params_t *sw_params;
 	snd_pcm_uframes_t boundary;
 
@@ -1309,9 +1311,9 @@ static int AlsaSetup(int *freq, int *channels, int passthrough)
 	}
 	Debug(4, "audio/alsa: boundary %lu frames\n", boundary);
 	if ((err =
-		snd_pcm_sw_params_set_stop_threshold(AlsaPCMHandle, sw_params,
-		    boundary)) < 0) {
-	    Error(_("audio: snd_pcm_sw_params_set_silence_size failed: %s\n"),
+		snd_pcm_sw_params_set_silence_threshold(AlsaPCMHandle, sw_params,
+		    0)) < 0) {
+	    Error(_("audio: snd_pcm_sw_params_set_silence_threshold failed: %s\n"),
 		snd_strerror(err));
 	}
 	if ((err =
@@ -1494,6 +1496,7 @@ static int OssPlayRingbuffer(void)
 {
     int first;
 
+    if (!PlayRingbuffer) return 0;
     first = 1;
     for (;;) {
 	audio_buf_info bi;
@@ -2173,7 +2176,7 @@ static void *AudioPlayHandlerThread(void *dummy)
 			Error(_("audio: alsa not ready!!!\n"));
 			break;
 		    }
-		    if (AudioStarted && snd_pcm_state(AlsaPCMHandle) != SND_PCM_STATE_XRUN && !IsReplay()) { // try a little longer, sometimes this helps
+		    if ((AudioStarted && snd_pcm_state(AlsaPCMHandle) != SND_PCM_STATE_XRUN && !IsReplay()) || (VideoSoftStartSync == 4 && AudioStarted)) { // try a little longer, sometimes this helps
 			continue;
 		    } else {
 			if (AudioStarted && snd_pcm_state(AlsaPCMHandle) == SND_PCM_STATE_XRUN && !IsReplay()) {
