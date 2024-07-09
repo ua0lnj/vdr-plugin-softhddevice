@@ -239,7 +239,7 @@ Setup: /etc/vdr/setup.conf
 	1 early audio + fast SD + soft start of audio/video sync (was enable soft start)
 	2 early audio/video sync + fast switch
 	3 early audio/video sync + accurate swicth
-	4 early audio/video sync + insert silence
+	4 early audio/video sync + insert silence (only for alsa)
 
 	softhddevice.BlackPicture = 0
 	0 disable black picture during channel switch
