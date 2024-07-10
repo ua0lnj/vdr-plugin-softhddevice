@@ -1237,6 +1237,8 @@ static int AlsaSetup(int *freq, int *channels, int passthrough)
     snd_pcm_uframes_t period_size;
     int err;
     int delay;
+    snd_pcm_sw_params_t *sw_params;
+    snd_pcm_uframes_t boundary;
 
     if (!AlsaPCMHandle) {		// alsa not running yet
 	// FIXME: if open fails for fe. pass-through, we never recover
@@ -1294,38 +1296,30 @@ static int AlsaSetup(int *freq, int *channels, int passthrough)
 	break;
     }
 
-    // this is disabled, no advantages!
-    if (1) {				// no underruns allowed, play silence
-	snd_pcm_sw_params_t *sw_params;
-	snd_pcm_uframes_t boundary;
-
-	snd_pcm_sw_params_alloca(&sw_params);
-	err = snd_pcm_sw_params_current(AlsaPCMHandle, sw_params);
-	if (err < 0) {
-	    Error(_("audio: snd_pcm_sw_params_current failed: %s\n"),
-		snd_strerror(err));
-	}
-	if ((err = snd_pcm_sw_params_get_boundary(sw_params, &boundary)) < 0) {
-	    Error(_("audio: snd_pcm_sw_params_get_boundary failed: %s\n"),
-		snd_strerror(err));
-	}
-	Debug(4, "audio/alsa: boundary %lu frames\n", boundary);
-	if ((err =
-		snd_pcm_sw_params_set_silence_threshold(AlsaPCMHandle, sw_params,
-		    0)) < 0) {
-	    Error(_("audio: snd_pcm_sw_params_set_silence_threshold failed: %s\n"),
-		snd_strerror(err));
-	}
-	if ((err =
-		snd_pcm_sw_params_set_silence_size(AlsaPCMHandle, sw_params,
-		    boundary)) < 0) {
-	    Error(_("audio: snd_pcm_sw_params_set_silence_size failed: %s\n"),
-		snd_strerror(err));
-	}
-	if ((err = snd_pcm_sw_params(AlsaPCMHandle, sw_params)) < 0) {
-	    Error(_("audio: snd_pcm_sw_params failed: %s\n"),
-		snd_strerror(err));
-	}
+    //  play silence, if underrun happens
+    snd_pcm_sw_params_alloca(&sw_params);
+    err = snd_pcm_sw_params_current(AlsaPCMHandle, sw_params);
+    if (err < 0) {
+	Error(_("audio: snd_pcm_sw_params_current failed: %s\n"),
+	    snd_strerror(err));
+    }
+    if ((err = snd_pcm_sw_params_get_boundary(sw_params, &boundary)) < 0) {
+	Error(_("audio: snd_pcm_sw_params_get_boundary failed: %s\n"),
+	    snd_strerror(err));
+    }
+    Debug(4, "audio/alsa: boundary %lu frames\n", boundary);
+    if ((err = snd_pcm_sw_params_set_silence_threshold(AlsaPCMHandle, sw_params,
+	    0)) < 0) {
+	Error(_("audio: snd_pcm_sw_params_set_silence_threshold failed: %s\n"),
+	    snd_strerror(err));
+    }
+    if ((err = snd_pcm_sw_params_set_silence_size(AlsaPCMHandle, sw_params,
+	    boundary)) < 0) {
+	Error(_("audio: snd_pcm_sw_params_set_silence_size failed: %s\n"),
+	    snd_strerror(err));
+    }
+    if ((err = snd_pcm_sw_params(AlsaPCMHandle, sw_params)) < 0) {
+	Error(_("audio: snd_pcm_sw_params failed: %s\n"),snd_strerror(err));
     }
     // update buffer
 
@@ -1496,7 +1490,6 @@ static int OssPlayRingbuffer(void)
 {
     int first;
 
-    if (!PlayRingbuffer) return 0;
     first = 1;
     for (;;) {
 	audio_buf_info bi;
@@ -2176,7 +2169,8 @@ static void *AudioPlayHandlerThread(void *dummy)
 			Error(_("audio: alsa not ready!!!\n"));
 			break;
 		    }
-		    if ((AudioStarted && snd_pcm_state(AlsaPCMHandle) != SND_PCM_STATE_XRUN && !IsReplay()) || (VideoSoftStartSync == 4 && AudioStarted)) { // try a little longer, sometimes this helps
+		    // if no underrun, try a little longer, sometimes this helps. in case of 'early sync + insert silence' always continue.
+		    if (AudioStarted && !IsReplay() && (snd_pcm_state(AlsaPCMHandle) != SND_PCM_STATE_XRUN || VideoSoftStartSync == 4)) {
 			continue;
 		    } else {
 			if (AudioStarted && snd_pcm_state(AlsaPCMHandle) == SND_PCM_STATE_XRUN && !IsReplay()) {
