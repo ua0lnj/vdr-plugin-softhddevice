@@ -68,7 +68,7 @@ extern "C"
     /// vdr-plugin version number.
     /// Makefile extracts the version number for generating the file name
     /// for the distribution archive.
-static const char *const VERSION = "2.3.4"
+static const char *const VERSION = "2.3.5"
 #ifdef GIT_REV
     "-GIT" GIT_REV
 #endif
@@ -1242,7 +1242,7 @@ void cMenuSetupSoft::Create(void)
 	Add(new cMenuEditBoolItem(tr("60hz display mode"), &_60HzMode,
 		trVDR("no"), trVDR("yes")));
 	Add(new cMenuEditStraItem(tr("A/V sync start"),
-		 &SoftStartSync, sizeof(video_sync_mode), video_sync_mode));
+		 &SoftStartSync, 5, video_sync_mode));
 	Add(new cMenuEditBoolItem(tr("Black during channel switch"),
 		&BlackPicture, trVDR("no"), trVDR("yes")));
 	Add(new cMenuEditBoolItem(tr("Clear decoder on channel switch"),
