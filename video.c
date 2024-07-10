@@ -749,6 +749,7 @@ static void VideoSetPts(int64_t * pts_p, int interlaced,
 	    }
 	} else {			// first new clock value
 	    EnoughVideo = 0;
+	    PlayRingbuffer = 1;
 	    AudioVideoReady(pts);
 	}
 	if (*pts_p != pts && lastpts != pts) {
@@ -7687,10 +7688,14 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    err = VaapiMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
-	    if (PlayRingbuffer == 0) {
-		err = VaapiMessage(3, "resume playing samples from ringbuffer\n");
-		PlayRingbuffer = 1;
+#ifdef USE_ALSA
+	    if (VideoSoftStartSync == 4) {
+		if (PlayRingbuffer == 0) {
+		    err = VaapiMessage(3, "resume playing samples from ringbuffer\n");
+		    PlayRingbuffer = 1;
+		}
 	    }
+#endif
 	    goto out;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) > 2) { // double advance possible?
 	    err = VaapiMessage(3, "video: speed up video, droping frame\n");
@@ -7702,8 +7707,12 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 		err = VaapiMessage(3, "video: speed up audio, delay audio\n");
 		AudioDelayms(-diff / 90 + 55);
 	    } else {
-		err = VaapiMessage(3, "stop playing samples from ringbuffer\n");
-		PlayRingbuffer = 0;
+#ifdef USE_ALSA
+		if (PlayRingbuffer == 1) {
+		    err = VaapiMessage(3, "stop playing samples from ringbuffer\n");
+		    PlayRingbuffer = 0;
+		}
+#endif
 	    }
 	}
 #if defined(DEBUG) || defined(AV_INFO)
@@ -12169,10 +12178,14 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    err = VdpauMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
-	    if (PlayRingbuffer == 0) {
-		err = VdpauMessage(3, "resume playing samples from ringbuffer\n");
-		PlayRingbuffer = 1;
+#ifdef USE_ALSA
+	    if (VideoSoftStartSync == 4) {
+		if (PlayRingbuffer == 0) {
+		    err = VdpauMessage(3, "resume playing samples from ringbuffer\n");
+		    PlayRingbuffer = 1;
+		}
 	    }
+#endif
 	    goto out;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) > 1 + decoder->Interlaced) { // double advance possible?
 	    err = VdpauMessage(3, "video: speed up video, droping frame\n");
@@ -12184,8 +12197,12 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 		err = VdpauMessage(3, "video: speed up audio, delay audio\n");
 		AudioDelayms(-diff / 90 + 55);
 	    } else {
-		err = VdpauMessage(3, "stop playing samples from ringbuffer\n");
-		PlayRingbuffer = 0;
+#ifdef USE_ALSA
+		if (PlayRingbuffer == 1) {
+		    err = VdpauMessage(3, "stop playing samples from ringbuffer\n");
+		    PlayRingbuffer = 0;
+		}
+#endif
 	    }
 	}
 #if defined(DEBUG) || defined(AV_INFO)
@@ -15050,10 +15067,14 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    err = CuvidMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
-	    if (PlayRingbuffer == 0) {
-		err = CuvidMessage(3, "resume playing samples from ringbuffer\n");
-		PlayRingbuffer = 1;
+#ifdef USE_ALSA
+	    if (VideoSoftStartSync == 4) {
+		if (PlayRingbuffer == 0) {
+		    err = CuvidMessage(3, "resume playing samples from ringbuffer\n");
+		    PlayRingbuffer = 1;
+		}
 	    }
+#endif
 	    goto out;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) > 1 + decoder->Interlaced) { // double advance possible?
 	    err = CuvidMessage(3, "video: speed up video, droping frame\n");
@@ -15065,8 +15086,12 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 		err = CuvidMessage(3, "video: speed up audio, delay audio\n");
 		AudioDelayms(-diff / 90 + 55);
 	    } else {
-		err = CuvidMessage(3, "stop playing samples from ringbuffer\n");
-		PlayRingbuffer = 0;
+#ifdef USE_ALSA
+		if (PlayRingbuffer == 1) {
+		    err = CuvidMessage(3, "stop playing samples from ringbuffer\n");
+		    PlayRingbuffer = 0;
+		}
+#endif
 	    }
 	}
 #if defined(DEBUG) || defined(AV_INFO)
@@ -17714,10 +17739,14 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	    err = NVdecMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
-	    if (PlayRingbuffer == 0) {
-		err = NVdecMessage(3, "resume playing samples from ringbuffer\n");
-		PlayRingbuffer = 1;
+#ifdef USE_ALSA
+	    if (VideoSoftStartSync == 4) {
+		if (PlayRingbuffer == 0) {
+		    err = NVdecMessage(3, "resume playing samples from ringbuffer\n");
+		    PlayRingbuffer = 1;
+		}
 	    }
+#endif
 	    goto out;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) > 1 + decoder->Interlaced) { // double advance possible?
 	    err = NVdecMessage(3, "video: speed up video, droping frame\n");
@@ -17729,8 +17758,12 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 		err = NVdecMessage(3, "video: speed up audio, delay audio\n");
 		AudioDelayms(-diff / 90 + 55);
 	    } else {
-		err = NVdecMessage(3, "stop playing samples from ringbuffer\n");
-		PlayRingbuffer = 0;
+#ifdef USE_ALSA
+		if (PlayRingbuffer == 1) {
+		    err = NVdecMessage(3, "stop playing samples from ringbuffer\n");
+		    PlayRingbuffer = 0;
+		}
+#endif
 	    }
 	}
 #if defined(DEBUG) || defined(AV_INFO)
@@ -20067,10 +20100,14 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	    err = CpuMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
-	    if (PlayRingbuffer == 0) {
-		err = CpuMessage(3, "resume playing samples from ringbuffer\n");
-		PlayRingbuffer = 1;
+#ifdef USE_ALSA
+	    if (VideoSoftStartSync == 4) {
+		if (PlayRingbuffer == 0) {
+		    err = CpuMessage(3, "resume playing samples from ringbuffer\n");
+		    PlayRingbuffer = 1;
+		}
 	    }
+#endif
 	    goto out;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) > 1 + decoder->Interlaced) { // double advance possible?
 	    err = CpuMessage(3, "video: speed up video, droping frame\n");
@@ -20082,8 +20119,12 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 		err = CpuMessage(3, "video: speed up audio, delay audio\n");
 		AudioDelayms(-diff / 90 + 55);
 	    } else {
-		err = CpuMessage(3, "stop playing samples from ringbuffer\n");
-		PlayRingbuffer = 0;
+#ifdef USE_ALSA
+		if (PlayRingbuffer == 1) {
+		    err = CpuMessage(3, "stop playing samples from ringbuffer\n");
+		    PlayRingbuffer = 0;
+		}
+#endif
 	    }
 	}
 #if defined(DEBUG) || defined(AV_INFO)
