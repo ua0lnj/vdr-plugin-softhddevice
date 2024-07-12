@@ -7675,11 +7675,9 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
 #ifdef USE_ALSA
-	    if (VideoSoftStartSync == 4) {
-		if (PlayRingbuffer == 0) {
-		    err = VaapiMessage(3, "resume playing samples from ringbuffer\n");
-		    PlayRingbuffer = 1;
-		}
+	    if (PlayRingbuffer == 0) {
+		err = VaapiMessage(3, "resume playing samples from ringbuffer\n");
+		PlayRingbuffer = 1;
 	    }
 #endif
 	    goto out;
@@ -7689,17 +7687,15 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    VaapiAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 2;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 2 && !IsReplay()) { // if double advance video not possible, delay audio
-	    if (VideoSoftStartSync != 4) {
-		err = VaapiMessage(3, "video: speed up audio, delay audio\n");
-		AudioDelayms(-diff / 90 + 55);
-	    } else {
 #ifdef USE_ALSA
-		if (PlayRingbuffer == 1) {
-		    err = VaapiMessage(3, "stop playing samples from ringbuffer\n");
-		    PlayRingbuffer = 0;
-		}
-#endif
+	    if (PlayRingbuffer == 1) {
+		err = VaapiMessage(3, "stop playing samples from ringbuffer\n");
+		PlayRingbuffer = 0;
 	    }
+#else
+	    err = VaapiMessage(3, "video: slow down audio\n");
+	    AudioDelayms(-diff / 90 + 55);
+#endif
 	}
 #if defined(DEBUG) || defined(AV_INFO)
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
@@ -12157,11 +12153,9 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
 #ifdef USE_ALSA
-	    if (VideoSoftStartSync == 4) {
-		if (PlayRingbuffer == 0) {
-		    err = VdpauMessage(3, "resume playing samples from ringbuffer\n");
-		    PlayRingbuffer = 1;
-		}
+	    if (PlayRingbuffer == 0) {
+		err = VdpauMessage(3, "resume playing samples from ringbuffer\n");
+		PlayRingbuffer = 1;
 	    }
 #endif
 	    goto out;
@@ -12171,17 +12165,15 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    VdpauAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 2;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { //if double advance video not possible, delay audio
-	    if (VideoSoftStartSync != 4) {
-		err = VdpauMessage(3, "video: speed up audio, delay audio\n");
-		AudioDelayms(-diff / 90 + 55);
-	    } else {
 #ifdef USE_ALSA
-		if (PlayRingbuffer == 1) {
-		    err = VdpauMessage(3, "stop playing samples from ringbuffer\n");
-		    PlayRingbuffer = 0;
-		}
-#endif
+	    if (PlayRingbuffer == 1) {
+		err = VdpauMessage(3, "stop playing samples from ringbuffer\n");
+		PlayRingbuffer = 0;
 	    }
+#else
+	    err = VdpauMessage(3, "video: slow down audio\n");
+	    AudioDelayms(-diff / 90 + 55);
+#endif
 	}
 #if defined(DEBUG) || defined(AV_INFO)
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
@@ -15038,11 +15030,9 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
 #ifdef USE_ALSA
-	    if (VideoSoftStartSync == 4) {
-		if (PlayRingbuffer == 0) {
-		    err = CuvidMessage(3, "resume playing samples from ringbuffer\n");
-		    PlayRingbuffer = 1;
-		}
+	    if (PlayRingbuffer == 0) {
+		err = CuvidMessage(3, "resume playing samples from ringbuffer\n");
+		PlayRingbuffer = 1;
 	    }
 #endif
 	    goto out;
@@ -15052,17 +15042,15 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    CuvidAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 2;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { //if double advance video not possible, delay audio
-	    if (VideoSoftStartSync != 4) {
-		err = CuvidMessage(3, "video: speed up audio, delay audio\n");
-		AudioDelayms(-diff / 90 + 55);
-	    } else {
 #ifdef USE_ALSA
-		if (PlayRingbuffer == 1) {
-		    err = CuvidMessage(3, "stop playing samples from ringbuffer\n");
-		    PlayRingbuffer = 0;
-		}
-#endif
+	    if (PlayRingbuffer == 1) {
+		err = CuvidMessage(3, "stop playing samples from ringbuffer\n");
+		PlayRingbuffer = 0;
 	    }
+#else
+	    err = CuvidMessage(3, "video: slow down audio\n");
+	    AudioDelayms(-diff / 90 + 55);
+#endif
 	}
 #if defined(DEBUG) || defined(AV_INFO)
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
@@ -17702,11 +17690,9 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
 #ifdef USE_ALSA
-	    if (VideoSoftStartSync == 4) {
-		if (PlayRingbuffer == 0) {
-		    err = NVdecMessage(3, "resume playing samples from ringbuffer\n");
-		    PlayRingbuffer = 1;
-		}
+	    if (PlayRingbuffer == 0) {
+		err = NVdecMessage(3, "resume playing samples from ringbuffer\n");
+		PlayRingbuffer = 1;
 	    }
 #endif
 	    goto out;
@@ -17716,17 +17702,15 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	    NVdecAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 2;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { // if double advance video not possible, delay audio
-	    if (VideoSoftStartSync != 4) {
-		err = NVdecMessage(3, "video: speed up audio, delay audio\n");
-		AudioDelayms(-diff / 90 + 55);
-	    } else {
 #ifdef USE_ALSA
-		if (PlayRingbuffer == 1) {
-		    err = NVdecMessage(3, "stop playing samples from ringbuffer\n");
-		    PlayRingbuffer = 0;
-		}
-#endif
+	    if (PlayRingbuffer == 1) {
+		err = NVdecMessage(3, "stop playing samples from ringbuffer\n");
+		PlayRingbuffer = 0;
 	    }
+#else
+	    err = NVdecMessage(3, "video: slow down audio\n");
+	    AudioDelayms(-diff / 90 + 55);
+#endif
 	}
 #if defined(DEBUG) || defined(AV_INFO)
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
@@ -20055,11 +20039,9 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
 #ifdef USE_ALSA
-	    if (VideoSoftStartSync == 4) {
-		if (PlayRingbuffer == 0) {
-		    err = CpuMessage(3, "resume playing samples from ringbuffer\n");
-		    PlayRingbuffer = 1;
-		}
+	    if (PlayRingbuffer == 0) {
+		err = CpuMessage(3, "resume playing samples from ringbuffer\n");
+		PlayRingbuffer = 1;
 	    }
 #endif
 	    goto out;
@@ -20069,17 +20051,15 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	    CpuAdvanceDecoderFrame(decoder);
 	    decoder->SyncCounter = 2;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { // if double advance video not possible, delay audio
-	    if (VideoSoftStartSync != 4) {
-		err = CpuMessage(3, "video: speed up audio, delay audio\n");
-		AudioDelayms(-diff / 90 + 55);
-	    } else {
 #ifdef USE_ALSA
-		if (PlayRingbuffer == 1) {
-		    err = CpuMessage(3, "stop playing samples from ringbuffer\n");
-		    PlayRingbuffer = 0;
-		}
-#endif
+	    if (PlayRingbuffer == 1) {
+		err = CpuMessage(3, "stop playing samples from ringbuffer\n");
+		PlayRingbuffer = 0;
 	    }
+#else
+	    err = CpuMessage(3, "video: slow down audio\n");
+	    AudioDelayms(-diff / 90 + 55);
+#endif
 	}
 #if defined(DEBUG) || defined(AV_INFO)
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
