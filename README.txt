@@ -196,7 +196,7 @@ Setup: /etc/vdr/setup.conf
 	reduce volume level (/1000) for stereo sources
 
 	softhddevice.AudioBufferTime = 0
-	0 = default (336 ms)
+	0 = default (128 ms)
 	1 - 1000 = size of the buffer in ms
 
 	softhddevice.AutoCrop.Interval = 0
@@ -239,7 +239,6 @@ Setup: /etc/vdr/setup.conf
 	1 early audio + fast SD + soft start of audio/video sync (was enable soft start)
 	2 early audio/video sync + fast switch
 	3 early audio/video sync + accurate swicth
-	4 early audio/video sync + insert silence (only for alsa)
 
 	softhddevice.BlackPicture = 0
 	0 disable black picture during channel switch
