@@ -1319,7 +1319,7 @@ static int AlsaSetup(int *freq, int *channels, int passthrough)
 	    snd_strerror(err));
     }
     if ((err = snd_pcm_sw_params(AlsaPCMHandle, sw_params)) < 0) {
-	Error(_("audio: snd_pcm_sw_params failed: %s\n"),snd_strerror(err));
+	Error(_("audio: snd_pcm_sw_params failed: %s\n"), snd_strerror(err));
     }
     // update buffer
 
@@ -2169,8 +2169,7 @@ static void *AudioPlayHandlerThread(void *dummy)
 			Error(_("audio: alsa not ready!!!\n"));
 			break;
 		    }
-		    // if no underrun, try a little longer, sometimes this helps. in case of 'early sync + insert silence' always continue.
-		    if (AudioStarted && !IsReplay() && (snd_pcm_state(AlsaPCMHandle) != SND_PCM_STATE_XRUN || VideoSoftStartSync == 4)) {
+		    if (AudioStarted && !IsReplay()) {
 			continue;
 		    } else {
 			if (AudioStarted && snd_pcm_state(AlsaPCMHandle) == SND_PCM_STATE_XRUN && !IsReplay()) {
