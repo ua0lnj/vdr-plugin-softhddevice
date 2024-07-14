@@ -2172,9 +2172,6 @@ static void *AudioPlayHandlerThread(void *dummy)
 		    if (AudioStarted && !IsReplay()) {
 			continue;
 		    } else {
-			if (AudioStarted && snd_pcm_state(AlsaPCMHandle) == SND_PCM_STATE_XRUN && !IsReplay()) {
-			    Warning(_("audio: audio started and underrun, increase AudioBufferTime?!\n"));
-			}
 			Debug(3, "audio: buffer empty or pcm not running, and no new ring buffer, goto sleep\n");
 			break;
 		    }
@@ -2514,7 +2511,7 @@ void AudioVideoReady(int64_t pts)
     if (!AudioRunning || IsReplay()) {
 	int skip;
 
-	skip = pts - audio_pts - VideoAudioDelay - (IsReplay() ? 0 : 15 * 20 *90 * (VideoSoftStartSync < 2) + AudioBufferTime * 90) + (VideoResolution == VideoResolution576i && !IsReplay() && VideoSoftStartSync > 1 ? 240 * 90 : 0); // early sync
+	skip = pts - audio_pts - VideoAudioDelay - !IsReplay() * ((15 * 20 * 90 + AudioBufferTime * 90) * (VideoSoftStartSync < 2) + (VideoResolution == VideoResolution576i && VideoSoftStartSync > 1) * 112 * 90); // early audio / early sync
 #ifdef DEBUG
 	fprintf(stderr, "%dms %dms %dms\n", (int)(pts - audio_pts) / 90,
 	    VideoAudioDelay / 90, skip / 90);
