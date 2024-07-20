@@ -7662,6 +7662,14 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = VaapiMessage(3, "video: audio/video difference too big\n");
 	}
+#ifdef USE_ALSA
+	if (diff > 32 * 90) {
+	    if (PlayRingbuffer == 0) {
+		err = VaapiMessage(3, "resume playing samples from ringbuffer\n");
+		PlayRingbuffer = 1;
+	    }
+	}
+#endif
 	if (diff > 100 * 90) {
 	    // FIXME: this quicker sync step, did not work with new code!
 	    err = VaapiMessage(3, "video: slow down video, duping frame\n");
@@ -7674,12 +7682,6 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    err = VaapiMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
-#ifdef USE_ALSA
-	    if (PlayRingbuffer == 0) {
-		err = VaapiMessage(3, "resume playing samples from ringbuffer\n");
-		PlayRingbuffer = 1;
-	    }
-#endif
 	    goto out;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) > 2) { // double advance possible?
 	    err = VaapiMessage(3, "video: speed up video, droping frame\n");
@@ -12140,6 +12142,14 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = VdpauMessage(3, "video: audio/video difference too big\n");
 	}
+#ifdef USE_ALSA
+	if (diff > 32 * 90) {
+	    if (PlayRingbuffer == 0) {
+		err = VdpauMessage(3, "resume playing samples from ringbuffer\n");
+		PlayRingbuffer = 1;
+	    }
+	}
+#endif
 	if (diff > 100 * 90) {
 	    // FIXME: this quicker sync step, did not work with new code!
 	    err = VdpauMessage(3, "video: slow down video, duping frame\n");
@@ -12152,12 +12162,6 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    err = VdpauMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
-#ifdef USE_ALSA
-	    if (PlayRingbuffer == 0) {
-		err = VdpauMessage(3, "resume playing samples from ringbuffer\n");
-		PlayRingbuffer = 1;
-	    }
-#endif
 	    goto out;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) > 1 + decoder->Interlaced) { // double advance possible?
 	    err = VdpauMessage(3, "video: speed up video, droping frame\n");
@@ -17679,6 +17683,14 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = NVdecMessage(3, "video: audio/video difference too big\n");
 	}
+#ifdef USE_ALSA
+	if (diff > 32 * 90) {
+	    if (PlayRingbuffer == 0) {
+		err = NVdecMessage(3, "resume playing samples from ringbuffer\n");
+		PlayRingbuffer = 1;
+	    }
+	}
+#endif
 	if (diff > 100 * 90) {
 	    // FIXME: this quicker sync step, did not work with new code!
 	    err = NVdecMessage(3, "video: slow down video, duping frame\n");
@@ -17691,12 +17703,6 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	    err = NVdecMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
-#ifdef USE_ALSA
-	    if (PlayRingbuffer == 0) {
-		err = NVdecMessage(3, "resume playing samples from ringbuffer\n");
-		PlayRingbuffer = 1;
-	    }
-#endif
 	    goto out;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) > 1 + decoder->Interlaced) { // double advance possible?
 	    err = NVdecMessage(3, "video: speed up video, droping frame\n");
@@ -20028,6 +20034,14 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = CpuMessage(3, "video: audio/video difference too big\n");
 	}
+#ifdef USE_ALSA
+	if (diff > 32 * 90) {
+	    if (PlayRingbuffer == 0) {
+		err = CpudecMessage(3, "resume playing samples from ringbuffer\n");
+		PlayRingbuffer = 1;
+	    }
+	}
+#endif
 	if (diff > 100 * 90) {
 	    // FIXME: this quicker sync step, did not work with new code!
 	    err = CpuMessage(3, "video: slow down video, duping frame\n");
@@ -20040,12 +20054,6 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	    err = CpuMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
-#ifdef USE_ALSA
-	    if (PlayRingbuffer == 0) {
-		err = CpuMessage(3, "resume playing samples from ringbuffer\n");
-		PlayRingbuffer = 1;
-	    }
-#endif
 	    goto out;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) > 1 + decoder->Interlaced) { // double advance possible?
 	    err = CpuMessage(3, "video: speed up video, droping frame\n");
