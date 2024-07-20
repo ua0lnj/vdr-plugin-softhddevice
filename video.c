@@ -20037,7 +20037,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 #ifdef USE_ALSA
 	if (diff > 32 * 90) {
 	    if (PlayRingbuffer == 0) {
-		err = CpudecMessage(3, "resume playing samples from ringbuffer\n");
+		err = CpuMessage(3, "resume playing samples from ringbuffer\n");
 		PlayRingbuffer = 1;
 	    }
 	}
