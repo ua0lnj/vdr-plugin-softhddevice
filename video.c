@@ -7067,16 +7067,29 @@ static void VaapiRenderFrame(VaapiDecoder * decoder,
 		        frame->linesize[0]);
 	        }
 	        // copy UV
-	        for (i = 0; i < height / 2; ++i) {
-		    for (x = 0; x < width / 2; ++x) {
-		        ((uint8_t *) va_image_data)[decoder->Image->offsets[1]
-			    + decoder->Image->pitches[1] * i + x * 2 + 0]
-			    = frame->data[1][i * frame->linesize[1] + x];
-		        ((uint8_t *) va_image_data)[decoder->Image->offsets[1]
-			    + decoder->Image->pitches[1] * i + x * 2 + 1]
-			    = frame->data[2][i * frame->linesize[2] + x];
+                if (decoder->PixFmt == AV_PIX_FMT_YUV422P) {
+		    for (i = 0; i < height / 2; ++i) {
+			for (x = 0; x < width / 2; ++x) {
+			    ((uint8_t *) va_image_data)[decoder->Image->offsets[1]
+				+ decoder->Image->pitches[1] * i + x * 2 + 0]
+				= frame->data[1][i * 2 * frame->linesize[1] + x];
+			    ((uint8_t *) va_image_data)[decoder->Image->offsets[1]
+				+ decoder->Image->pitches[1] * i + x * 2 + 1]
+				= frame->data[2][i * 2 * frame->linesize[2] + x];
+			}
 		    }
-	        }
+		} else { // YUV420P
+		    for (i = 0; i < height / 2; ++i) {
+			for (x = 0; x < width / 2; ++x) {
+			    ((uint8_t *) va_image_data)[decoder->Image->offsets[1]
+				+ decoder->Image->pitches[1] * i + x * 2 + 0]
+				= frame->data[1][i * frame->linesize[1] + x];
+			    ((uint8_t *) va_image_data)[decoder->Image->offsets[1]
+				+ decoder->Image->pitches[1] * i + x * 2 + 1]
+				= frame->data[2][i * frame->linesize[2] + x];
+			}
+		    }
+		}
             } else { //10bit
 	        // copy Y
 	        for (i = 0; i < height; ++i) {
@@ -9092,7 +9105,6 @@ static void VdpauMixerCreate(VdpauDecoder * decoder)
     VdpVideoMixerParameter paramaters[4];
     void const *value_ptrs[4];
     int parameter_n;
-    VdpChromaType chroma_type;
     int layers;
 
     //
@@ -9120,8 +9132,6 @@ static void VdpauMixerCreate(VdpauDecoder * decoder)
 	features[feature_n++] = i;
     }
 
-    decoder->ChromaType = chroma_type = VdpauChromaType;
-
     //
     //	Setup parameter/value tables
     //
@@ -9130,7 +9140,7 @@ static void VdpauMixerCreate(VdpauDecoder * decoder)
     paramaters[1] = VDP_VIDEO_MIXER_PARAMETER_VIDEO_SURFACE_HEIGHT;
     value_ptrs[1] = &decoder->InputHeight;
     paramaters[2] = VDP_VIDEO_MIXER_PARAMETER_CHROMA_TYPE;
-    value_ptrs[2] = &chroma_type;
+    value_ptrs[2] = &decoder->ChromaType;
     layers = 0;
     paramaters[3] = VDP_VIDEO_MIXER_PARAMETER_LAYERS;
     value_ptrs[3] = &layers;
@@ -9213,7 +9223,7 @@ static VdpauDecoder *VdpauNewHwDecoder(VideoStream * stream)
     decoder->OutputHeight = VideoWindowHeight;
 
     decoder->PixFmt = AV_PIX_FMT_NONE;
-
+    decoder->ChromaType = VDP_CHROMA_TYPE_420;
 #ifdef USE_AUTOCROP
     //decoder->AutoCropBuffer = NULL;	// done by calloc
     //decoder->AutoCropBufferSize = 0;
@@ -10473,7 +10483,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	ist->hwaccel_pix_fmt = AV_PIX_FMT_VDPAU;
 	ist->hwaccel_output_format = AV_PIX_FMT_VDPAU;
 
-	VdpauChromaType = VDP_CHROMA_TYPE_420;
+	decoder->ChromaType = VDP_CHROMA_TYPE_420;
 
 	video_ctx->draw_horiz_band = NULL;
 	video_ctx->slice_flags = 0;
@@ -11208,7 +11218,10 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 	    decoder->PixFmt = video_ctx->pix_fmt;
 	    decoder->InputWidth = video_ctx->width;
 	    decoder->InputHeight = video_ctx->height;
-
+	    if (video_ctx->pix_fmt == AV_PIX_FMT_YUV422P)
+		decoder->ChromaType = VDP_CHROMA_TYPE_444;
+	    else
+		 decoder->ChromaType = VDP_CHROMA_TYPE_420;
 	    VdpauCleanup(decoder);
 	    decoder->SurfacesNeeded = VIDEO_SURFACES_MAX + 2;
 
@@ -11265,9 +11278,36 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 #endif
 
 	surface = VdpauGetSurface0(decoder);
-	status =
-	    VdpauVideoSurfacePutBitsYCbCr(surface, VDP_YCBCR_FORMAT_YV12, data,
-	    pitches);
+	//convert 422 to 444
+	if (video_ctx->pix_fmt == AV_PIX_FMT_YUV422P) {
+	    uint8_t *u = (uint8_t*) malloc(frame->linesize[0] * decoder->InputHeight * sizeof(uint8_t));
+	    uint8_t *v = (uint8_t*) malloc(frame->linesize[0] * decoder->InputHeight * sizeof(uint8_t));
+	    if (!u || !v) Fatal(_("No memory for 422->444 conversion!\n"));
+
+	    for (int i = 0;i<(frame->linesize[1] * decoder->InputHeight);i++) {
+		memcpy(u+i*2, frame->data[2]+i,1);
+		memcpy(u+i*2+1, frame->data[2]+i,1);
+		memcpy(v+i*2, frame->data[1]+i,1);
+		memcpy(v+i*2+1, frame->data[1]+i,1);
+	    }
+	    data[0] = frame->data[0];
+	    data[1] = u;
+	    data[2] = v;
+	    pitches[0] = frame->linesize[0];
+	    pitches[1] = frame->linesize[0];
+	    pitches[2] = frame->linesize[0];
+
+	    status =
+		VdpauVideoSurfacePutBitsYCbCr(surface, VDP_YCBCR_FORMAT_Y_U_V_444, data,
+		pitches);
+
+	    free(u);
+	    free(v);
+	} else {
+	    status =
+		VdpauVideoSurfacePutBitsYCbCr(surface, VDP_YCBCR_FORMAT_YV12, data,
+		pitches);
+	}
 	if (status != VDP_STATUS_OK) {
 	    Error(_("YV12 video/vdpau: can't put video surface bits: %s\n"),
 		VdpauGetErrorString(status));
@@ -14369,9 +14409,9 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
         case AV_PIX_FMT_YUV420P:      // for softdecode
 //        case AV_PIX_FMT_YUVJ420P:     // some streams produce this
         case AV_PIX_FMT_YUV420P10LE:  // for softdecode of 10 Bit
-        break;
-//        case AV_PIX_FMT_YUV422P:
+        case AV_PIX_FMT_YUV422P:
 //        case AV_PIX_FMT_YUV444P:
+        break;
         default:
             Error(_("video/cuvid: pixel format %d not supported\n"),
             video_ctx->pix_fmt);
@@ -14426,12 +14466,21 @@ static void CuvidRenderFrame(CuvidDecoder * decoder,
                 Error(_("video/cuvid: out of memory\n"));
                 return;
             }
-            //TODO use shader or direct yuv render?
-            for (int i = 0; i < (frame->linesize[1] * decoder->InputHeight / 2); i++) {
-                memcpy(outUV + i * 2, frame->data[1] + i, 1); // For NV12, U first
-                memcpy(outUV + i * 2 + 1, frame->data[2] + i, 1); // For NV12, V second
-            }
+            if (decoder->PixFmt == AV_PIX_FMT_YUV422P) {
 
+                //TODO use shader or direct yuv render?
+                for (int i = 0; i < (frame->linesize[1] * decoder->InputHeight / 2); i++) {
+                    memcpy(outUV + i * 2, frame->data[1] + i + (i/ frame->linesize[1]) * frame->linesize[1], 1); // For NV12, U first
+                    memcpy(outUV + i * 2 + 1, frame->data[2] + i + (i / frame->linesize[1]) * frame->linesize[1], 1); // For NV12, V second
+                }
+            } else { //YUV420P
+
+                //TODO use shader or direct yuv render?
+                for (int i = 0; i < (frame->linesize[1] * decoder->InputHeight / 2); i++) {
+                    memcpy(outUV + i * 2, frame->data[1] + i, 1); // For NV12, U first
+                    memcpy(outUV + i * 2 + 1, frame->data[2] + i, 1); // For NV12, V second
+                }
+            }
             //Y
             glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[surface][0]);
             glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[0]);
@@ -17026,7 +17075,6 @@ static void NVdecRenderFrame(NVdecDecoder * decoder,
         case AV_PIX_FMT_YUV420P:      // for softdecode
 //        case AV_PIX_FMT_YUVJ420P:     // some streams produce this
         case AV_PIX_FMT_YUV420P10LE:  // for softdecode of HEVC 10 Bit
-        break;
         case AV_PIX_FMT_YUV422P:
 //        case AV_PIX_FMT_YUV444P:
         break;
@@ -17085,10 +17133,21 @@ static void NVdecRenderFrame(NVdecDecoder * decoder,
                 Error(_("video/ndec: out of memory\n"));
                 return;
             }
-            //TODO use shader or direct yuv render?
-            for (int i = 0; i < (frame->linesize[1] * decoder->InputHeight / 2); i++) {
-                memcpy(outUV + i * 2, frame->data[1] + i, 1); // For NV12, U first
-                memcpy(outUV + i * 2 + 1, frame->data[2] + i, 1); // For NV12, V second
+
+            if (decoder->PixFmt == AV_PIX_FMT_YUV422P) {
+
+                //TODO use shader or direct yuv render?
+                for (int i = 0; i < (frame->linesize[1] * decoder->InputHeight / 2); i++) {
+                    memcpy(outUV + i * 2, frame->data[1] + i + (i/ frame->linesize[1]) * frame->linesize[1], 1); // For NV12, U first
+                    memcpy(outUV + i * 2 + 1, frame->data[2] + i + (i / frame->linesize[1]) * frame->linesize[1], 1); // For NV12, V second
+                }
+            } else { //YUV420P
+
+                //TODO use shader or direct yuv render?
+                for (int i = 0; i < (frame->linesize[1] * decoder->InputHeight / 2); i++) {
+                    memcpy(outUV + i * 2, frame->data[1] + i, 1); // For NV12, U first
+                    memcpy(outUV + i * 2 + 1, frame->data[2] + i, 1); // For NV12, V second
+                }
             }
 
             //Y
@@ -19408,7 +19467,6 @@ static void CpuRenderFrame(CpuDecoder * decoder,
         case AV_PIX_FMT_YUV420P:      // for softdecode
 //        case AV_PIX_FMT_YUVJ420P:     // some streams produce this
         case AV_PIX_FMT_YUV420P10LE:  // for softdecode of HEVC 10 Bit
-        break;
         case AV_PIX_FMT_YUV422P:
 //        case AV_PIX_FMT_YUV444P:
         break;
@@ -19447,12 +19505,21 @@ static void CpuRenderFrame(CpuDecoder * decoder,
                 Error(_("video/cpu: out of memory\n"));
                 return;
             }
-            //TODO use shader or direct yuv render?
-            for (int i = 0; i < (frame->linesize[1] * decoder->InputHeight / 2); i++) {
-                memcpy(outUV + i * 2, frame->data[1] + i, 1); // For NV12, U first
-                memcpy(outUV + i * 2 + 1, frame->data[2] + i, 1); // For NV12, V second
-            }
+            if (decoder->PixFmt == AV_PIX_FMT_YUV422P) {
 
+                //TODO use shader or direct yuv render?
+                for (int i = 0; i < (frame->linesize[1] * decoder->InputHeight / 2); i++) {
+                    memcpy(outUV + i * 2, frame->data[1] + i + (i/ frame->linesize[1]) * frame->linesize[1], 1); // For NV12, U first
+                    memcpy(outUV + i * 2 + 1, frame->data[2] + i + (i / frame->linesize[1]) * frame->linesize[1], 1); // For NV12, V second
+                }
+            } else { //YUV420P
+
+                //TODO use shader or direct yuv render?
+                for (int i = 0; i < (frame->linesize[1] * decoder->InputHeight / 2); i++) {
+                    memcpy(outUV + i * 2, frame->data[1] + i, 1); // For NV12, U first
+                    memcpy(outUV + i * 2 + 1, frame->data[2] + i, 1); // For NV12, V second
+                }
+            }
             //Y
             glBindTexture(GL_TEXTURE_2D,decoder->gl_textures[surface][0]);
             glPixelStorei(GL_UNPACK_ROW_LENGTH, frame->linesize[0]);
