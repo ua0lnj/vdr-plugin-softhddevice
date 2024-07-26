@@ -11227,8 +11227,8 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
     } else {
 	void const *data[3];
 	uint32_t pitches[3];
-//	uint8_t  *data[4],*p;
-//	uint32_t pitches[4];
+	uint8_t *u = NULL;
+	uint8_t *v = NULL;
 
 	//
 	//	Check image, format, size
@@ -11240,10 +11240,6 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 	    decoder->PixFmt = video_ctx->pix_fmt;
 	    decoder->InputWidth = video_ctx->width;
 	    decoder->InputHeight = video_ctx->height;
-	    if (video_ctx->pix_fmt == AV_PIX_FMT_YUV422P)
-		decoder->ChromaType = VDP_CHROMA_TYPE_444;
-	    else
-		 decoder->ChromaType = VDP_CHROMA_TYPE_420;
 	    VdpauCleanup(decoder);
 	    decoder->SurfacesNeeded = VIDEO_SURFACES_MAX + 2;
 
@@ -11300,40 +11296,28 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 #endif
 
 	surface = VdpauGetSurface0(decoder);
-	//convert 422 to 444
+	//convert 422 to yv12
 	if (video_ctx->pix_fmt == AV_PIX_FMT_YUV422P) {
-	    uint8_t *u = (uint8_t*) malloc(frame->linesize[0] * decoder->InputHeight * sizeof(uint8_t));
-	    uint8_t *v = (uint8_t*) malloc(frame->linesize[0] * decoder->InputHeight * sizeof(uint8_t));
-	    if (!u || !v) Fatal(_("No memory for 422->444 conversion!\n"));
+	    u = (uint8_t*) malloc(frame->linesize[1] * decoder->InputHeight * sizeof(uint8_t));
+	    v = (uint8_t*) malloc(frame->linesize[2] * decoder->InputHeight * sizeof(uint8_t));
+	    if (!u || !v) Fatal(_("No memory for 422->yv12 conversion!\n"));
 
-	    for (int i = 0;i<(frame->linesize[1] * decoder->InputHeight);i++) {
-		memcpy(u+i*2, frame->data[2]+i,1);
-		memcpy(u+i*2+1, frame->data[2]+i,1);
-		memcpy(v+i*2, frame->data[1]+i,1);
-		memcpy(v+i*2+1, frame->data[1]+i,1);
+	    for (int i = 0; i < (frame->linesize[1] * decoder->InputHeight / 2); i++) {
+		memcpy(u + i, frame->data[2] + i + (i / frame->linesize[2]) * frame->linesize[2], 1);
+		memcpy(v + i, frame->data[1] + i + (i / frame->linesize[1]) * frame->linesize[1], 1);
 	    }
-	    data[0] = frame->data[0];
 	    data[1] = u;
 	    data[2] = v;
-	    pitches[0] = frame->linesize[0];
-	    pitches[1] = frame->linesize[0];
-	    pitches[2] = frame->linesize[0];
-
-	    status =
-		VdpauVideoSurfacePutBitsYCbCr(surface, VDP_YCBCR_FORMAT_Y_U_V_444, data,
-		pitches);
-
-	    free(u);
-	    free(v);
-	} else {
-	    status =
-		VdpauVideoSurfacePutBitsYCbCr(surface, VDP_YCBCR_FORMAT_YV12, data,
-		pitches);
 	}
+	status =
+	    VdpauVideoSurfacePutBitsYCbCr(surface, VDP_YCBCR_FORMAT_YV12, data, pitches);
+
 	if (status != VDP_STATUS_OK) {
 	    Error(_("YV12 video/vdpau: can't put video surface bits: %s\n"),
 		VdpauGetErrorString(status));
 	}
+	if (u) free(u);
+	if (v) free(v);
 
 	Debug(4, "video/vdpau: sw render hw surface %#08x\n", surface);
 
@@ -24400,11 +24384,13 @@ void VideoInit(const char *display_name)
     if (getenv("NO_HW")) {
 	VideoHardwareDecoder = HWOff;
     }
+#ifdef USE_SCREENSAVER
     // disable x11 screensaver
     if (DisableScreensaver) {
 	X11SuspendScreenSaver(Connection, 1);
 	X11DPMSDisable(Connection);
     }
+#endif
     //xcb_prefetch_maximum_request_length(Connection);
     xcb_flush(Connection);
 
