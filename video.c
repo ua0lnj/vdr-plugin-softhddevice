@@ -24310,11 +24310,13 @@ void VideoInit(const char *display_name)
     if (getenv("NO_HW")) {
 	VideoHardwareDecoder = HWOff;
     }
+#ifdef USE_SCREENSAVER
     // disable x11 screensaver
     if (DisableScreensaver) {
 	X11SuspendScreenSaver(Connection, 1);
 	X11DPMSDisable(Connection);
     }
+#endif
     //xcb_prefetch_maximum_request_length(Connection);
     xcb_flush(Connection);
 
