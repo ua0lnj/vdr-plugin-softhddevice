@@ -22044,8 +22044,8 @@ static void X11DPMSDisable(xcb_connection_t * connection)
 	    }
 	    free(reply);
 	}
-	DPMSDisabled = 1;
     }
+    DPMSDisabled = 1;
 }
 
 ///
@@ -22058,8 +22058,8 @@ static void X11DPMSReenable(xcb_connection_t * connection)
     if (DPMSDisabled && X11HaveDPMS(connection)) {
 	xcb_dpms_enable(connection);	// monitor powersave on
 	xcb_dpms_force_level(connection, XCB_DPMS_DPMS_MODE_ON);
-	DPMSDisabled = 0;
     }
+    DPMSDisabled = 0;
 }
 
 static int X11DPMSGetStatus(xcb_connection_t * connection)
