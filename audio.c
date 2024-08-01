@@ -2455,6 +2455,7 @@ void AudioVideoReady(int64_t pts)
     int first = 1;
     int loop_max = 800; // 8s
 
+    Debug(3, "audio: VideoSoftStartSync: %d\n", VideoSoftStartSync);
     if (pts == (int64_t) INT64_C(0x8000000000000000)) {
 	Debug(3, "audio: a/v start, no valid video\n");
 	return;
