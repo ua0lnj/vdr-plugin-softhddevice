@@ -13309,7 +13309,7 @@ static void CuvidDestroySurfaces(CuvidDecoder * decoder)
     if (EglEnabled) {
         if(EglThreadContext){
             eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EglThreadContext);
-            EglCheck();;
+            EglCheck();
         }
     }
 #endif
@@ -13976,7 +13976,7 @@ static uint8_t *CuvidGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int 
 	Debug(3, "video/cuvid: grab source rect %d,%d:%d,%d dest dim %dx%d\n",
 	source_rect.x0, source_rect.y0, source_rect.x1, source_rect.y1, width, height);
 
-	size = width * height * 4;;
+	size = width * height * 4;
 
 	base = malloc(size*sizeof(uint8_t));
 	if (!base) {
@@ -15754,7 +15754,7 @@ void NVdecCreateGlTexture(NVdecDecoder * decoder, unsigned int size_x, unsigned 
 #ifdef USE_EGL
     if (EglEnabled) {
         eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EglThreadContext);
-        EglCheck();;
+        EglCheck();
     }
 #endif
     // create texture planes
@@ -15891,7 +15891,7 @@ static void NVdecDestroySurfaces(NVdecDecoder * decoder)
     if (EglEnabled) {
         if(EglThreadContext){
             eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EglThreadContext);
-            EglCheck();;
+            EglCheck();
         }
     }
 #endif
@@ -16650,7 +16650,7 @@ static uint8_t *NVdecGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int 
 	Debug(3, "video/nvdec: grab source rect %d,%d:%d,%d dest dim %dx%d\n",
 	source_rect.x0, source_rect.y0, source_rect.x1, source_rect.y1, width, height);
 
-	size = width * height * 4;;
+	size = width * height * 4;
 
 	base = malloc(size*sizeof(uint8_t));
 	if (!base) {
@@ -18432,7 +18432,7 @@ void CpuCreateGlTexture(CpuDecoder * decoder, unsigned int size_x, unsigned int 
 #ifdef USE_EGL
     if (EglEnabled) {
         eglMakeCurrent(EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EglThreadContext);
-        EglCheck();;
+        EglCheck();
     }
 #endif
     // create texture planes
@@ -19050,7 +19050,7 @@ static uint8_t *CpuGrabOutputSurfaceLocked(int *ret_size, int *ret_width, int *r
 	Debug(3, "video/cpu: grab source rect %d,%d:%d,%d dest dim %dx%d\n",
 	source_rect.x0, source_rect.y0, source_rect.x1, source_rect.y1, width, height);
 
-	size = width * height * 4;;
+	size = width * height * 4;
 
 	base = malloc(size*sizeof(uint8_t));
 	if (!base) {
