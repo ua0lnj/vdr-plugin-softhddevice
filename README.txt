@@ -164,11 +164,11 @@ Setup: /etc/vdr/setup.conf
 	delay audio or delay video
 
 	softhddevice.AudioPassthrough = 0
-	0 = none, 1 = PCM, 2 = MPA, 4 = AC-3, 8 = EAC-3, 10 = DTS -X disable
+	0 = none, 1 = PCM, 2 = MPA, 4 = AC-3, 8 = EAC-3, 16 = DTS -X disable
 
 	for PCM/AC-3/EAC-3/DTS the pass-through device is used and the audio
 	stream is passed undecoded to the output device.
-	z.b. 12 = AC-3+EAC-3, 13 = PCM+AC-3+EAC-3, 23 = PCM+AC-3+EAC-3+DTS
+	z.b. 12 = AC-3+EAC-3, 13 = PCM+AC-3+EAC-3, 29 = PCM+AC-3+EAC-3+DTS
 	note: MPA/TrueHD/... aren't supported yet
 	negative values disable passthrough
 
