@@ -147,7 +147,7 @@ extern volatile char PlayRingbuffer;
 
 static const int AudioBytesProSample = 2;	///< number of bytes per sample
 
-static int AudioBufferTime = 128;	///< audio buffer time in ms
+static int AudioBufferTime;	///< audio buffer time in ms
 
 #ifdef USE_AUDIO_THREAD
 static pthread_t AudioThread;		///< audio play thread
@@ -181,11 +181,13 @@ extern volatile int EnoughVideo;
 volatile int EnoughAudio;
 extern volatile VideoResolutions VideoResolution;
 extern char VideoSoftStartSync;		///< soft start sync audio/video
+static int last_xrun_message = 0;
 
     /// default ring buffer size ~8s 8ch 16bit (3 * 5 * 7 * 8)
 static const unsigned AudioRingBufferSize = 3 * 5 * 7 * 8 * 8 * 1000;
 
 #define AUDIO_MIN_BUFFER_FREE (3072 * 8 * 8)
+#define DEFAULT_AUDIOBUFFERTIME 128
 
 static int AudioChannelsInHw[9];	///< table which channels are supported
 enum _audio_rates
@@ -2165,11 +2167,11 @@ static void *AudioPlayHandlerThread(void *dummy)
 		// underrun, and no new ring buffer, goto sleep.
 		if (!atomic_read(&AudioRingFilled)) {
 #ifdef USE_ALSA
-		    if (!AlsaPCMHandle) {
-			Error(_("audio: alsa not ready!!!\n"));
-			break;
-		    }
 		    if (AudioStarted && !IsReplay()) {
+			if (AlsaPCMHandle && snd_pcm_state(AlsaPCMHandle) == SND_PCM_STATE_XRUN && GetMsTicks() - last_xrun_message > 20) {
+			    Debug(3, "audio: alsa underrun, playing silence\n");
+			    last_xrun_message = GetMsTicks();
+			}
 			continue;
 		    } else {
 			Debug(3, "audio: buffer empty or pcm not running, and no new ring buffer, goto sleep\n");
@@ -2842,7 +2844,7 @@ void AudioPause(void)
 void AudioSetBufferTime(int delay)
 {
     if (!delay) {
-	delay = 128;
+	delay = DEFAULT_AUDIOBUFFERTIME;
     }
     AudioBufferTime = delay;
 }
