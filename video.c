@@ -646,6 +646,9 @@ static int VideoStartThreshold_HD = 38;
 void AudioDelayms(int);
 extern volatile char SoftIsPlayingVideo;        ///< stream contains video data
 volatile char PlayRingbuffer = 1;
+extern volatile char StillFrame;
+extern volatile char StillFramesFinished;
+extern volatile char StillFrameCounter;
 //----------------------------------------------------------------------------
 //	Common Functions
 //----------------------------------------------------------------------------
@@ -744,6 +747,7 @@ static void VideoSetPts(int64_t * pts_p, int interlaced,
 	} else {			// first new clock value
 	    EnoughVideo = 0;
 	    PlayRingbuffer = 1;
+	    StillFramesFinished = 0;
 	    AudioVideoReady(pts);
 	}
 	if (*pts_p != pts && lastpts != pts) {
@@ -7621,6 +7625,14 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    goto skip_sync;
 	}
     }
+   // StillPicture
+    if (StillFrameCounter > 0) {
+	while(atomic_read(&decoder->SurfacesFilled)) {
+	    VaapiAdvanceDecoderFrame(decoder);
+	}
+	StillFramesFinished = 1;
+	return;
+    }
     // TrickSpeed
     if (decoder->TrickSpeed) {
 	if (decoder->TrickCounter--) {
@@ -7948,7 +7960,14 @@ static void VaapiDisplayHandlerThread(void)
 	    // FIXME: hot polling
 	    // fetch+decode or reopen
 	    allfull = 0;
-	    err = VideoDecodeInput(decoder->Stream);
+	    if (!StillFrame) {
+		err = VideoDecodeInput(decoder->Stream);
+	    } else {
+again:
+		Debug(3, "video: StillFrame: VideoDecodeInput im DisplayHandlerThread buffers: %d filled: %d ms: %d\n", VideoGetBuffers(decoder->Stream), atomic_read(&decoder->SurfacesFilled), GetMsTicks() - VideoSwitch);
+		err = VideoDecodeInput(decoder->Stream);
+		if (!err) goto again; // we need to decode the whole stillpicture without further delay
+	    }
 	} else {
 	    err = VideoPollInput(decoder->Stream);
 	}
@@ -7968,13 +7987,13 @@ static void VaapiDisplayHandlerThread(void)
     }
     pthread_mutex_unlock(&VideoLockMutex);
 
-    if (!decoded) {			// nothing decoded, sleep
+    if (!decoded || StillFrame) {			// nothing decoded, sleep
 	// FIXME: sleep on wakeup
 	usleep(1 * 1000);
     }
     // all decoder buffers are full
     // speed up filling display queue, wait on display queue empty
-    if (!allfull) {
+    if (!allfull && !StillFrame) {
 	clock_gettime(CLOCK_MONOTONIC, &nowtime);
 	// time for one frame over?
 	if ((nowtime.tv_sec -
@@ -8530,7 +8549,7 @@ typedef struct _vdpau_decoder_
     VdpVideoSurface SurfacesFree[CODEC_SURFACES_MAX];
 
     /// video surface ring buffer
-    VdpVideoSurface SurfacesRb[VIDEO_SURFACES_MAX];
+    VdpVideoSurface SurfacesRb[VIDEO_SURFACES_MAX * 2];
     int SurfaceWrite;			///< write pointer
     int SurfaceRead;			///< read pointer
     atomic_t SurfacesFilled;		///< how many of the buffer is used
@@ -8732,7 +8751,7 @@ static void VdpauCreateSurfaces(VdpauDecoder * decoder, int width, int height)
 #ifdef DEBUG
     if (!decoder->SurfacesNeeded) {
 	Error(_("video/vdpau: surface needed not set\n"));
-	decoder->SurfacesNeeded = 3 + VIDEO_SURFACES_MAX;
+	decoder->SurfacesNeeded = 3 + VIDEO_SURFACES_MAX * 2;
     }
 #endif
     Debug(3, "video/vdpau: %s: %dx%d * %d\n", __FUNCTION__, width, height,
@@ -9201,7 +9220,7 @@ static VdpauDecoder *VdpauNewHwDecoder(VideoStream * stream)
     //
     atomic_set(&decoder->SurfacesFilled, 0);
 
-    for (i = 0; i < VIDEO_SURFACES_MAX; ++i) {
+    for (i = 0; i < VIDEO_SURFACES_MAX * 2; ++i) {
 	decoder->SurfacesRb[i] = VDP_INVALID_HANDLE;
     }
 
@@ -9280,7 +9299,7 @@ static void VdpauCleanup(VdpauDecoder * decoder)
     //
     atomic_set(&decoder->SurfacesFilled, 0);
 
-    for (i = 0; i < VIDEO_SURFACES_MAX; ++i) {
+    for (i = 0; i < VIDEO_SURFACES_MAX * 2; ++i) {
 	decoder->SurfacesRb[i] = VDP_INVALID_HANDLE;
     }
     decoder->SurfaceRead = 0;
@@ -10105,7 +10124,7 @@ static unsigned VdpauGetSurface(VdpauDecoder * decoder,
 	status =
 	    VdpauDecoderCreate(VdpauDevice, decoder->Profile, video_ctx->width,
 	    video_ctx->height,
-	    decoder->SurfacesNeeded - VIDEO_SURFACES_MAX - 1,
+	    decoder->SurfacesNeeded - VIDEO_SURFACES_MAX * 2 - 1,
 	    &decoder->VideoDecoder);
 	if (status != VDP_STATUS_OK) {
 	    Error(_("video/vdpau: can't create decoder: %s\n"),
@@ -10470,7 +10489,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	profile, video_ctx->width, video_ctx->height, max_refs);
 
     decoder->Profile = profile;
-    decoder->SurfacesNeeded = max_refs + VIDEO_SURFACES_MAX + 1;
+    decoder->SurfacesNeeded = max_refs + VIDEO_SURFACES_MAX * 2 + 1;
     decoder->PixFmt = *fmt_idx;
     decoder->InputWidth = 0;
     decoder->InputHeight = 0;
@@ -10559,7 +10578,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
     // no accelerated format found
     ist->hwaccel_get_buffer = NULL;
     decoder->Profile = VDP_INVALID_HANDLE;
-    decoder->SurfacesNeeded = VIDEO_SURFACES_MAX + 2;
+    decoder->SurfacesNeeded = VIDEO_SURFACES_MAX * 2 + 2;
     decoder->PixFmt = AV_PIX_FMT_NONE;
     video_ctx->draw_horiz_band = NULL;
 
@@ -10596,7 +10615,7 @@ static void VdpauGrabVideoSurface(VdpauDecoder * decoder)
     // for screen shots, atom light and auto crop.
 
     surface = decoder->SurfacesRb[(decoder->SurfaceRead + 1)
-	% VIDEO_SURFACES_MAX];
+	% VIDEO_SURFACES_MAX * 2];
 
     //	get real surface size
     status =
@@ -10843,7 +10862,7 @@ static void VdpauAutoCrop(VdpauDecoder * decoder)
     VdpYCbCrFormat format;
 
     surface = decoder->SurfacesRb[(decoder->SurfaceRead + 1)
-	% VIDEO_SURFACES_MAX];
+	% VIDEO_SURFACES_MAX * 2];
 
     //	get real surface size (can be different)
     status =
@@ -11049,7 +11068,7 @@ static void VdpauQueueSurface(VdpauDecoder * decoder, VdpVideoSurface surface,
     ++decoder->FrameCounter;
 
     if (1) {				// can't wait for output queue empty
-	if (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX) {
+	if (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX * 2) {
 	    Warning(_
 		("video/vdpau: output buffer full, dropping frame (%d/%d)\n"),
 		++decoder->FramesDropped, decoder->FrameCounter);
@@ -11064,7 +11083,7 @@ static void VdpauQueueSurface(VdpauDecoder * decoder, VdpVideoSurface surface,
 	}
 #if 0
     } else {				// wait for output queue empty
-	while (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX) {
+	while (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX * 2) {
 	    VideoDisplayHandler();
 	}
 #endif
@@ -11087,7 +11106,7 @@ static void VdpauQueueSurface(VdpauDecoder * decoder, VdpVideoSurface surface,
 
     decoder->SurfacesRb[decoder->SurfaceWrite] = surface;
     decoder->SurfaceWrite = (decoder->SurfaceWrite + 1)
-	% VIDEO_SURFACES_MAX;
+	% VIDEO_SURFACES_MAX * 2;
     atomic_inc(&decoder->SurfacesFilled);
 }
 
@@ -11219,7 +11238,7 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 	    decoder->InputWidth = video_ctx->width;
 	    decoder->InputHeight = video_ctx->height;
 	    VdpauCleanup(decoder);
-	    decoder->SurfacesNeeded = VIDEO_SURFACES_MAX + 2;
+	    decoder->SurfacesNeeded = VIDEO_SURFACES_MAX * 2 + 2;
 
 	    VdpauSetupOutput(decoder);
 	}
@@ -11570,10 +11589,10 @@ static void VdpauMixVideo(VdpauDecoder * decoder, int level)
 		past[1] = decoder->SurfacesRb[decoder->SurfaceRead];
 		past[0] = past[1];
 		current = decoder->SurfacesRb[(decoder->SurfaceRead + 1)
-		    % VIDEO_SURFACES_MAX];
+		    % VIDEO_SURFACES_MAX * 2];
 		future[0] = current;
 		future[1] = decoder->SurfacesRb[(decoder->SurfaceRead + 2)
-		    % VIDEO_SURFACES_MAX];
+		    % VIDEO_SURFACES_MAX * 2];
 		// FIXME: can support 1 future more
 	    } else {
 		cps = VDP_VIDEO_MIXER_PICTURE_STRUCTURE_BOTTOM_FIELD;
@@ -11581,10 +11600,10 @@ static void VdpauMixVideo(VdpauDecoder * decoder, int level)
 		// FIXME: can support 1 past more
 		past[1] = decoder->SurfacesRb[decoder->SurfaceRead];
 		past[0] = decoder->SurfacesRb[(decoder->SurfaceRead + 1)
-		    % VIDEO_SURFACES_MAX];
+		    % VIDEO_SURFACES_MAX * 2];
 		current = past[0];
 		future[0] = decoder->SurfacesRb[(decoder->SurfaceRead + 2)
-		    % VIDEO_SURFACES_MAX];
+		    % VIDEO_SURFACES_MAX * 2];
 		future[1] = future[0];
 	    }
 
@@ -11601,17 +11620,17 @@ static void VdpauMixVideo(VdpauDecoder * decoder, int level)
 		past[1] = decoder->SurfacesRb[decoder->SurfaceRead];
 		past[0] = past[1];
 		current = decoder->SurfacesRb[(decoder->SurfaceRead + 1)
-		    % VIDEO_SURFACES_MAX];
+		    % VIDEO_SURFACES_MAX * 2];
 		future[0] = current;
 	    } else {
 		cps = VDP_VIDEO_MIXER_PICTURE_STRUCTURE_BOTTOM_FIELD;
 
 		past[1] = decoder->SurfacesRb[decoder->SurfaceRead];
 		past[0] = decoder->SurfacesRb[(decoder->SurfaceRead + 1)
-		    % VIDEO_SURFACES_MAX];
+		    % VIDEO_SURFACES_MAX * 2];
 		current = past[0];
 		future[0] = decoder->SurfacesRb[(decoder->SurfaceRead + 2)
-		    % VIDEO_SURFACES_MAX];
+		    % VIDEO_SURFACES_MAX * 2];
 	    }
 
 	} else {
@@ -11635,7 +11654,7 @@ static void VdpauMixVideo(VdpauDecoder * decoder, int level)
     } else {
 	if (decoder->Interlaced) {
 	    current = decoder->SurfacesRb[(decoder->SurfaceRead + 1)
-		% VIDEO_SURFACES_MAX];
+		% VIDEO_SURFACES_MAX * 2];
 	} else {
 	    current = decoder->SurfacesRb[decoder->SurfaceRead];
 	}
@@ -11740,7 +11759,7 @@ static void VdpauAdvanceDecoderFrame(VdpauDecoder * decoder)
 		VideoGetBuffers(decoder->Stream));
 	    return;
 	}
-	decoder->SurfaceRead = (decoder->SurfaceRead + 1) % VIDEO_SURFACES_MAX;
+	decoder->SurfaceRead = (decoder->SurfaceRead + 1) % VIDEO_SURFACES_MAX * 2;
 	atomic_dec(&decoder->SurfacesFilled);
 	decoder->SurfaceField = !decoder->Interlaced;
 	return;
@@ -12112,6 +12131,14 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    goto skip_sync;
 	}
     }
+    // StillPicture
+    if (StillFrameCounter > 0) {
+	while(atomic_read(&decoder->SurfacesFilled)) {
+	    VdpauAdvanceDecoderFrame(decoder);
+	}
+	StillFramesFinished = 1;
+	return;
+    }
     // TrickSpeed
     if (decoder->TrickSpeed) {
 	if (decoder->TrickCounter--) {
@@ -12327,7 +12354,7 @@ static void VdpauSyncRenderFrame(VdpauDecoder * decoder,
 #endif
     // if video output buffer is full, wait and display surface.
     // loop for interlace
-    if (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX) {
+    if (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX * 2) {
 	Info("video/vdpau: this code part shouldn't be used\n");
 	return;
     }
@@ -12335,7 +12362,7 @@ static void VdpauSyncRenderFrame(VdpauDecoder * decoder,
     // FIXME: disabled for remove
     // FIXME: wrong for multiple streams
     // FIXME: this part code should be no longer be needed with new mpeg fix
-    while (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX) {
+    while (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX * 2) {
 	struct timespec abstime;
 
 	pthread_mutex_unlock(&VideoLockMutex);
@@ -12527,11 +12554,18 @@ static void VdpauDisplayHandlerThread(void)
 	// fill frame output ring buffer
 	//
 	filled = atomic_read(&decoder->SurfacesFilled);
-	if (filled <= 1 + 2 * decoder->Interlaced) {
+	if (filled <= 1 + 2 * decoder->Interlaced + 4 * StillFrame) {
 	    // FIXME: hot polling
 	    // fetch+decode or reopen
 	    allfull = 0;
-	    err = VideoDecodeInput(decoder->Stream);
+	    if (!StillFrame) {
+		err = VideoDecodeInput(decoder->Stream);
+	    } else {
+again:
+		Debug(3, "video: StillFrame: VideoDecodeInput im DisplayHandlerThread buffers: %d filled: %d ms: %d\n", VideoGetBuffers(decoder->Stream), atomic_read(&decoder->SurfacesFilled), GetMsTicks() - VideoSwitch);
+		err = VideoDecodeInput(decoder->Stream);
+		if (!err) goto again; // we need to decode the whole stillpicture without further delay
+	    }
 	} else {
 	    err = VideoPollInput(decoder->Stream);
 	}
@@ -12551,14 +12585,14 @@ static void VdpauDisplayHandlerThread(void)
     }
     pthread_mutex_unlock(&VideoLockMutex);
 
-    if (!decoded) {			// nothing decoded, sleep
+    if (!decoded || StillFrame) {			// nothing decoded, sleep
 	// FIXME: sleep on wakeup
 	usleep(1 * 1000);
     }
     // all decoder buffers are full
     // and display is not preempted
     // speed up filling display queue, wait on display queue empty
-    if (!allfull || VdpauPreemption) {
+    if ((!allfull && !StillFrame) || VdpauPreemption) {
 	clock_gettime(CLOCK_MONOTONIC, &nowtime);
 	// time for one frame over?
 	if ((nowtime.tv_sec - VdpauFrameTime.tv_sec) * 1000 * 1000 * 1000 +
@@ -15000,6 +15034,14 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    goto skip_sync;
 	}
     }
+    // StillPicture
+    if (StillFrameCounter > 0) {
+	while(atomic_read(&decoder->SurfacesFilled)) {
+	    CuvidAdvanceDecoderFrame(decoder);
+	}
+	StillFramesFinished = 1;
+	return;
+    }
     // TrickSpeed
     if (decoder->TrickSpeed) {
 	if (decoder->TrickCounter--) {
@@ -15344,11 +15386,18 @@ static void CuvidDisplayHandlerThread(void)
 	// fill frame output ring buffer
 	//
 	filled = atomic_read(&decoder->SurfacesFilled);
-	if (filled <= 1 + 2 * decoder->Interlaced) {
+	if (filled <= 1 + 2 * decoder->Interlaced + 4 * StillFrame) {
 	    // FIXME: hot polling
 	    // fetch+decode or reopen
 	    allfull = 0;
-	    err = VideoDecodeInput(decoder->Stream);
+	    if (!StillFrame) {
+		err = VideoDecodeInput(decoder->Stream);
+	    } else {
+again:
+		Debug(3, "video: StillFrame: VideoDecodeInput im DisplayHandlerThread buffers: %d filled: %d ms: %d\n", VideoGetBuffers(decoder->Stream), atomic_read(&decoder->SurfacesFilled), GetMsTicks() - VideoSwitch);
+		err = VideoDecodeInput(decoder->Stream);
+		if (!err) goto again; // we need to decode the whole stillpicture without further delay
+	    }
 	} else {
 	    err = VideoPollInput(decoder->Stream);
 	}
@@ -15368,14 +15417,14 @@ static void CuvidDisplayHandlerThread(void)
     }
     pthread_mutex_unlock(&VideoLockMutex);
 
-    if (!decoded) {			// nothing decoded, sleep
+    if (!decoded || StillFrame) {			// nothing decoded, sleep
 	// FIXME: sleep on wakeup
 	usleep(1 * 1000);
     }
     // all decoder buffers are full
     // and display is not preempted
     // speed up filling display queue, wait on display queue empty
-    if (!allfull) {
+    if (!allfull && !StillFrame) {
 	clock_gettime(CLOCK_MONOTONIC, &nowtime);
 	// time for one frame over?
 	if ((nowtime.tv_sec - CuvidFrameTime.tv_sec) * 1000 * 1000 * 1000 +
@@ -17672,6 +17721,14 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	    goto skip_sync;
 	}
     }
+    // StillPicture
+    if (StillFrameCounter > 0) {
+	while(atomic_read(&decoder->SurfacesFilled)) {
+	    NVdecAdvanceDecoderFrame(decoder);
+	}
+	StillFramesFinished = 1;
+	return;
+    }
     // TrickSpeed
     if (decoder->TrickSpeed) {
 	if (decoder->TrickCounter--) {
@@ -18016,11 +18073,18 @@ static void NVdecDisplayHandlerThread(void)
 	// fill frame output ring buffer
 	//
 	filled = atomic_read(&decoder->SurfacesFilled);
-	if (filled <= 1 + 2 * decoder->Interlaced) {
+	if (filled <= 1 + 2 * decoder->Interlaced + 4 * StillFrame) {
 	    // FIXME: hot polling
 	    // fetch+decode or reopen
 	    allfull = 0;
-	    err = VideoDecodeInput(decoder->Stream);
+	    if (!StillFrame) {
+	        err = VideoDecodeInput(decoder->Stream);
+	    } else {
+again:
+		Debug(3, "video: StillFrame: VideoDecodeInput im DisplayHandlerThread buffers: %d filled: %d ms: %d\n", VideoGetBuffers(decoder->Stream), atomic_read(&decoder->SurfacesFilled), GetMsTicks() - VideoSwitch);
+		err = VideoDecodeInput(decoder->Stream);
+		if (!err) goto again; // we need to decode the whole stillpicture without further delay
+	    }
 	} else {
 	    err = VideoPollInput(decoder->Stream);
 	}
@@ -18040,14 +18104,14 @@ static void NVdecDisplayHandlerThread(void)
     }
     pthread_mutex_unlock(&VideoLockMutex);
 
-    if (!decoded) {			// nothing decoded, sleep
+    if (!decoded || StillFrame) {			// nothing decoded, sleep
 	// FIXME: sleep on wakeup
 	usleep(1 * 1000);
     }
     // all decoder buffers are full
     // and display is not preempted
     // speed up filling display queue, wait on display queue empty
-    if (!allfull) {
+    if (!allfull && !StillFrame) {
 	clock_gettime(CLOCK_MONOTONIC, &nowtime);
 	// time for one frame over?
 	if ((nowtime.tv_sec - NVdecFrameTime.tv_sec) * 1000 * 1000 * 1000 +
@@ -20031,6 +20095,14 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	    goto skip_sync;
 	}
     }
+   // StillPicture
+    if (StillFrameCounter > 0) {
+	while(atomic_read(&decoder->SurfacesFilled)) {
+	    CpuAdvanceDecoderFrame(decoder);
+	}
+	StillFramesFinished = 1;
+	return;
+    }
     // TrickSpeed
     if (decoder->TrickSpeed) {
 	if (decoder->TrickCounter--) {
@@ -20379,7 +20451,14 @@ static void CpuDisplayHandlerThread(void)
 	    // FIXME: hot polling
 	    // fetch+decode or reopen
 	    allfull = 0;
-	    err = VideoDecodeInput(decoder->Stream);
+	    if (!StillFrame) {
+		err = VideoDecodeInput(decoder->Stream);
+	    } else {
+again:
+		Debug(3, "video: StillFrame: VideoDecodeInput im DisplayHandlerThread buffers: %d filled: %d ms: %d\n", VideoGetBuffers(decoder->Stream), atomic_read(&decoder->SurfacesFilled), GetMsTicks() - VideoSwitch);
+		err = VideoDecodeInput(decoder->Stream);
+		if (!err) goto again; // we need to decode the whole stillpicture without further delay
+	    }
 	} else {
 	    err = VideoPollInput(decoder->Stream);
 	}
@@ -20399,14 +20478,14 @@ static void CpuDisplayHandlerThread(void)
     }
     pthread_mutex_unlock(&VideoLockMutex);
 
-    if (!decoded) {			// nothing decoded, sleep
+    if (!decoded || StillFrame) {			// nothing decoded, sleep
 	// FIXME: sleep on wakeup
 	usleep(1 * 1000);
     }
     // all decoder buffers are full
     // and display is not preempted
     // speed up filling display queue, wait on display queue empty
-    if (!allfull) {
+    if (!allfull && !StillFrame) {
 	clock_gettime(CLOCK_MONOTONIC, &nowtime);
 	// time for one frame over?
 	if ((nowtime.tv_sec - CpuFrameTime.tv_sec) * 1000 * 1000 * 1000 +

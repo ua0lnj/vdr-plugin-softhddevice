@@ -140,6 +140,8 @@ static pthread_mutex_t CodecLockMutex;
 
     /// Flag prefer fast channel switch
 char CodecUsePossibleDefectFrames;
+extern volatile char StillFrame;
+extern volatile char StillFrameCounter;
 
 //----------------------------------------------------------------------------
 //	Video
@@ -968,7 +970,12 @@ int CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
                         } else
 #endif
 	                //DisplayPts(video_ctx, frame);
+	                {
+	                if (StillFrame) {
+                            StillFrameCounter++;
+	                }
 	                VideoRenderFrame(decoder->HwDecoder, video_ctx, frame);
+	                }
 #ifdef FFMPEG_WORKAROUND_ARTIFACTS
 	            }
 #endif
