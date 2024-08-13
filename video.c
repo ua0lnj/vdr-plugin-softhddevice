@@ -7956,7 +7956,7 @@ static void VaapiDisplayHandlerThread(void)
 	// fill frame output ring buffer
 	//
 	filled = atomic_read(&decoder->SurfacesFilled);
-	if (filled < VIDEO_SURFACES_MAX * 2 - 1) {
+	if (filled < VIDEO_SURFACES_MAX - 1 + 4 * StillFrame) {
 	    // FIXME: hot polling
 	    // fetch+decode or reopen
 	    allfull = 0;
