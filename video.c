@@ -20447,7 +20447,7 @@ static void CpuDisplayHandlerThread(void)
 	// fill frame output ring buffer
 	//
 	filled = atomic_read(&decoder->SurfacesFilled);
-	if (filled <= 1 + 2 * decoder->Interlaced) {
+	if (filled <= 1 + 2 * decoder->Interlaced + 4 * StillFrame) {
 	    // FIXME: hot polling
 	    // fetch+decode or reopen
 	    allfull = 0;
