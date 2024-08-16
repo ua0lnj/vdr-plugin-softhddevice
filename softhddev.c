@@ -3136,7 +3136,6 @@ void StillPicture(const uint8_t * data, int size)
     if (!MyVideoStream->Decoder || MyVideoStream->SkipStream) {
 	return;
     }
-    MyVideoStream->ClearBuffers = 0;
     // must be a PES start code
 
     if (size < 9 || !data || data[0] || data[1] || data[2] != 0x01) {
@@ -3157,8 +3156,6 @@ void StillPicture(const uint8_t * data, int size)
     if (VideoHardwareDecoder != ConfigStillDecoder && !VideoIsDriverCpu()) {
 	VideoHardwareDecoder = ConfigStillDecoder;
     }
-
-    VideoNextPacket(MyVideoStream, AV_CODEC_ID_NONE);	// close last stream
 
     if (MyVideoStream->CodecID == AV_CODEC_ID_NONE) {
 	// FIXME: should detect codec, see PlayVideo
@@ -3230,6 +3227,7 @@ void StillPicture(const uint8_t * data, int size)
 	VideoNextPacket(MyVideoStream, MyVideoStream->CodecID);	// terminate last packet
     }
 
+    VideoNextPacket(MyVideoStream, AV_CODEC_ID_NONE); // close last stream
     // wait for empty buffers
     for (i = 0; VideoGetBuffers(MyVideoStream) && i < 100; ++i) {
 	usleep(10 * 1000);
@@ -3246,7 +3244,6 @@ void StillPicture(const uint8_t * data, int size)
 	VideoHardwareDecoder = old_video_hardware_decoder;
 	VideoNextPacket(MyVideoStream, AV_CODEC_ID_NONE);	// close last stream
     }
-    VideoNextPacket(MyVideoStream, AV_CODEC_ID_NONE); // close last stream
     StillFrame = 0;
     StillFrameCounter = 0;
 }
