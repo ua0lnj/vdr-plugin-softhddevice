@@ -7956,7 +7956,7 @@ static void VaapiDisplayHandlerThread(void)
 	// fill frame output ring buffer
 	//
 	filled = atomic_read(&decoder->SurfacesFilled);
-	if (filled < VIDEO_SURFACES_MAX - 1 + 4 * StillFrame) {
+	if (filled < (VIDEO_SURFACES_MAX - 1) * !StillFrame + 4 * StillFrame) {
 	    // FIXME: hot polling
 	    // fetch+decode or reopen
 	    allfull = 0;
@@ -12554,7 +12554,7 @@ static void VdpauDisplayHandlerThread(void)
 	// fill frame output ring buffer
 	//
 	filled = atomic_read(&decoder->SurfacesFilled);
-	if (filled <= 1 + 2 * decoder->Interlaced + 4 * StillFrame) {
+	if (filled <= (1 + 2 * decoder->Interlaced) * !StillFrame + 3 * StillFrame) {
 	    // FIXME: hot polling
 	    // fetch+decode or reopen
 	    allfull = 0;
@@ -15386,7 +15386,7 @@ static void CuvidDisplayHandlerThread(void)
 	// fill frame output ring buffer
 	//
 	filled = atomic_read(&decoder->SurfacesFilled);
-	if (filled <= 1 + 2 * decoder->Interlaced + 4 * StillFrame) {
+	if (filled <= (1 + 2 * decoder->Interlaced) * !StillFrame + (VIDEO_SURFACES_MAX * 2 - 1) * StillFrame) {
 	    // FIXME: hot polling
 	    // fetch+decode or reopen
 	    allfull = 0;
@@ -18073,7 +18073,7 @@ static void NVdecDisplayHandlerThread(void)
 	// fill frame output ring buffer
 	//
 	filled = atomic_read(&decoder->SurfacesFilled);
-	if (filled <= 1 + 2 * decoder->Interlaced + 4 * StillFrame) {
+	if (filled <= (1 + 2 * decoder->Interlaced) * !StillFrame + (VIDEO_SURFACES_MAX * 2 - 1) * StillFrame) {
 	    // FIXME: hot polling
 	    // fetch+decode or reopen
 	    allfull = 0;
@@ -20447,7 +20447,7 @@ static void CpuDisplayHandlerThread(void)
 	// fill frame output ring buffer
 	//
 	filled = atomic_read(&decoder->SurfacesFilled);
-	if (filled <= 1 + 2 * decoder->Interlaced + 4 * StillFrame) {
+	if (filled <= (1 + 2 * decoder->Interlaced) * !StillFrame + (VIDEO_SURFACES_MAX * 2 - 1) * StillFrame) {
 	    // FIXME: hot polling
 	    // fetch+decode or reopen
 	    allfull = 0;
