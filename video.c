@@ -2371,7 +2371,7 @@ struct _vaapi_decoder_
     VASurfaceID BlackSurface;		///< empty black surface
 
     /// video surface ring buffer
-    VASurfaceID SurfacesRb[VIDEO_SURFACES_MAX * 2];
+    VASurfaceID SurfacesRb[VIDEO_SURFACES_MAX];
     VASurfaceID PostProcSurfacesRb[POSTPROC_SURFACES_MAX];	///< Posprocessing result surfaces
     VASurfaceID FirstFieldHistory[FIELD_SURFACES_MAX];	///< Postproc history result surfaces
     VASurfaceID SecondFieldHistory[FIELD_SURFACES_MAX];	///< Postproc history result surfaces
@@ -2604,7 +2604,7 @@ static void VaapiCreateSurfaces(VaapiDecoder * decoder, int width, int height)
 #ifdef DEBUG
     if (!decoder->SurfacesNeeded) {
 	Error(_("video/vaapi: surface needed not set\n"));
-	decoder->SurfacesNeeded = 3 + VIDEO_SURFACES_MAX * 2;
+	decoder->SurfacesNeeded = 3 + VIDEO_SURFACES_MAX;
     }
 #endif
     Debug(3, "video/vaapi: %s: %dx%d * %d\n", __FUNCTION__, width, height,
@@ -2626,7 +2626,7 @@ static void VaapiCreateSurfaces(VaapiDecoder * decoder, int width, int height)
 	    height, decoder->PostProcSurfacesRb, POSTPROC_SURFACES_MAX, NULL,
 	    0) != VA_STATUS_SUCCESS) {
 	Fatal(_("video/vaapi: can't create %d posproc surfaces\n"),
-	    VIDEO_SURFACES_MAX * 2);
+	    VIDEO_SURFACES_MAX);
     }
 
 }
@@ -2943,7 +2943,7 @@ static VaapiDecoder *VaapiNewHwDecoder(VideoStream * stream)
     // setup video surface ring buffer
     atomic_set(&decoder->SurfacesFilled, 0);
 
-    for (i = 0; i < VIDEO_SURFACES_MAX * 2; ++i) {
+    for (i = 0; i < VIDEO_SURFACES_MAX; ++i) {
 	decoder->SurfacesRb[i] = VA_INVALID_ID;
     }
     for (i = 0; i < POSTPROC_SURFACES_MAX; ++i) {
@@ -3056,7 +3056,7 @@ static void VaapiCleanup(VaapiDecoder * decoder)
 
     // flush output queue, only 1-2 frames buffered, no big loss
     while ((filled = atomic_read(&decoder->SurfacesFilled))) {
-	decoder->SurfaceRead = (decoder->SurfaceRead + 1) % VIDEO_SURFACES_MAX * 2;
+	decoder->SurfaceRead = (decoder->SurfaceRead + 1) % VIDEO_SURFACES_MAX;
 	atomic_dec(&decoder->SurfacesFilled);
 
 	surface = decoder->SurfacesRb[decoder->SurfaceRead];
@@ -3079,7 +3079,7 @@ static void VaapiCleanup(VaapiDecoder * decoder)
 #endif
 
     // clear ring buffer
-    for (i = 0; i < VIDEO_SURFACES_MAX * 2; ++i) {
+    for (i = 0; i < VIDEO_SURFACES_MAX; ++i) {
 	decoder->SurfacesRb[i] = VA_INVALID_ID;
     }
     if(!VaapiBuggyVdpau)
@@ -4905,19 +4905,19 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
     switch (video_ctx->codec_id) {
 	case AV_CODEC_ID_MPEG2VIDEO:
 	    decoder->SurfacesNeeded =
-		CODEC_SURFACES_MPEG2 + VIDEO_SURFACES_MAX * 2 + 2;
+		CODEC_SURFACES_MPEG2 + VIDEO_SURFACES_MAX + 2;
 	    p = VaapiFindProfile(profiles, profile_n, VAProfileMPEG2Main);
 	    break;
 	case AV_CODEC_ID_MPEG4:
 	case AV_CODEC_ID_H263:
 	    decoder->SurfacesNeeded =
-		CODEC_SURFACES_MPEG4 + VIDEO_SURFACES_MAX * 2 + 2;
+		CODEC_SURFACES_MPEG4 + VIDEO_SURFACES_MAX + 2;
 	    p = VaapiFindProfile(profiles, profile_n,
 		VAProfileMPEG4AdvancedSimple);
 	    break;
 	case AV_CODEC_ID_H264:
 	    decoder->SurfacesNeeded =
-		CODEC_SURFACES_H264 + VIDEO_SURFACES_MAX * 2 + 2;
+		CODEC_SURFACES_H264 + VIDEO_SURFACES_MAX + 2;
 	    // try more simple formats, fallback to better
 	    if (video_ctx->profile == FF_PROFILE_H264_BASELINE) {
 #if VA_CHECK_VERSION(1,0,8)
@@ -4938,7 +4938,7 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
 	    break;
        case AV_CODEC_ID_HEVC:
             decoder->SurfacesNeeded =
-               CODEC_SURFACES_H264 + VIDEO_SURFACES_MAX * 2 + 2;
+               CODEC_SURFACES_H264 + VIDEO_SURFACES_MAX + 2;
             // try more simple formats, fallback to better
             if (video_ctx->profile == FF_PROFILE_HEVC_MAIN_10) {
                p = VaapiFindProfile(profiles, profile_n,
@@ -4956,12 +4956,12 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
            break;
 	case AV_CODEC_ID_WMV3:
 	    decoder->SurfacesNeeded =
-		CODEC_SURFACES_VC1 + VIDEO_SURFACES_MAX * 2 + 2;
+		CODEC_SURFACES_VC1 + VIDEO_SURFACES_MAX + 2;
 	    p = VaapiFindProfile(profiles, profile_n, VAProfileVC1Main);
 	    break;
 	case AV_CODEC_ID_VC1:
 	    decoder->SurfacesNeeded =
-		CODEC_SURFACES_VC1 + VIDEO_SURFACES_MAX * 2 + 2;
+		CODEC_SURFACES_VC1 + VIDEO_SURFACES_MAX + 2;
 	    p = VaapiFindProfile(profiles, profile_n, VAProfileVC1Advanced);
 	    break;
 	default:
@@ -5131,7 +5131,7 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57,74,100)
     decoder->VaapiContext->config_id = VA_INVALID_ID;
 #endif
-    decoder->SurfacesNeeded = VIDEO_SURFACES_MAX * 2 + 2;
+    decoder->SurfacesNeeded = VIDEO_SURFACES_MAX + 2;
     decoder->PixFmt = AV_PIX_FMT_NONE;
     video_ctx->draw_horiz_band = NULL;
 
@@ -5489,8 +5489,8 @@ static void VaapiAutoCrop(VaapiDecoder * decoder)
     // no problem to go back, we just wrote it
     // FIXME: we can pass the surface through.
     surface =
-	decoder->SurfacesRb[(decoder->SurfaceWrite + VIDEO_SURFACES_MAX * 2 -
-	    1) % VIDEO_SURFACES_MAX * 2];
+	decoder->SurfacesRb[(decoder->SurfaceWrite + VIDEO_SURFACES_MAX -
+	    1) % VIDEO_SURFACES_MAX];
 
     //	Copy data from frame to image
     if (!decoder->GetPutImage
@@ -5746,7 +5746,7 @@ static void VaapiQueueSurface(VaapiDecoder * decoder, VASurfaceID surface,
     ++decoder->FrameCounter;
 
     if (1) {				// can't wait for output queue empty
-	if (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX * 2 - 1) {
+	if (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX - 1) {
 	    ++decoder->FramesDropped;
 	    Warning(_("video: output buffer full, dropping frame (%d/%d)\n"),
 		decoder->FramesDropped, decoder->FrameCounter);
@@ -5760,7 +5760,7 @@ static void VaapiQueueSurface(VaapiDecoder * decoder, VASurfaceID surface,
 	}
 #if 0
     } else {				// wait for output queue empty
-	while (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX * 2 - 1) {
+	while (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX - 1) {
 	    VideoDisplayHandler();
 	}
 #endif
@@ -5848,7 +5848,7 @@ static void VaapiQueueSurface(VaapiDecoder * decoder, VASurfaceID surface,
 
     /* Queue the first field */
     decoder->SurfacesRb[decoder->SurfaceWrite] = decoder->FirstFieldHistory[VideoFirstField[decoder->Resolution]];
-    decoder->SurfaceWrite = (decoder->SurfaceWrite + 1) % VIDEO_SURFACES_MAX * 2;
+    decoder->SurfaceWrite = (decoder->SurfaceWrite + 1) % VIDEO_SURFACES_MAX;
     decoder->SurfaceField = decoder->TopFieldFirst ? 0 : 1;
     atomic_inc(&decoder->SurfacesFilled);
 
@@ -5866,7 +5866,7 @@ static void VaapiQueueSurface(VaapiDecoder * decoder, VASurfaceID surface,
             VaapiAddToHistoryQueue(decoder->SecondFieldHistory, *secondfield);
         }
         decoder->SurfacesRb[decoder->SurfaceWrite] = decoder->SecondFieldHistory[VideoSecondField[decoder->Resolution]];
-        decoder->SurfaceWrite = (decoder->SurfaceWrite + 1) % VIDEO_SURFACES_MAX * 2;
+        decoder->SurfaceWrite = (decoder->SurfaceWrite + 1) % VIDEO_SURFACES_MAX;
         decoder->SurfaceField = decoder->TopFieldFirst ? 1 : 0;
         atomic_inc(&decoder->SurfacesFilled);
     }
@@ -7220,7 +7220,7 @@ static void VaapiAdvanceDecoderFrame(VaapiDecoder * decoder)
         Error(_("video/vaapi: vaSyncSurface failed\n"));
     }
 
-    decoder->SurfaceRead = (decoder->SurfaceRead + 1) % VIDEO_SURFACES_MAX * 2;
+    decoder->SurfaceRead = (decoder->SurfaceRead + 1) % VIDEO_SURFACES_MAX;
     atomic_dec(&decoder->SurfacesFilled);
 }
 
@@ -7828,13 +7828,13 @@ static void VaapiSyncRenderFrame(VaapiDecoder * decoder,
 #endif
     // if video output buffer is full, wait and display surface.
     // loop for interlace
-    if (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX * 2 - 1) {
+    if (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX - 1) {
 	Info("video/vaapi: this code part shouldn't be used\n");
 	return;
     }
 #else
     // FIXME: this part code should be no longer be needed with new mpeg fix
-    while (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX * 2 - 1) {
+    while (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX - 1) {
 	struct timespec abstime;
 
 	pthread_mutex_unlock(&VideoLockMutex);
@@ -8549,7 +8549,7 @@ typedef struct _vdpau_decoder_
     VdpVideoSurface SurfacesFree[CODEC_SURFACES_MAX];
 
     /// video surface ring buffer
-    VdpVideoSurface SurfacesRb[VIDEO_SURFACES_MAX * 2];
+    VdpVideoSurface SurfacesRb[VIDEO_SURFACES_MAX];
     int SurfaceWrite;			///< write pointer
     int SurfaceRead;			///< read pointer
     atomic_t SurfacesFilled;		///< how many of the buffer is used
@@ -8751,7 +8751,7 @@ static void VdpauCreateSurfaces(VdpauDecoder * decoder, int width, int height)
 #ifdef DEBUG
     if (!decoder->SurfacesNeeded) {
 	Error(_("video/vdpau: surface needed not set\n"));
-	decoder->SurfacesNeeded = 3 + VIDEO_SURFACES_MAX * 2;
+	decoder->SurfacesNeeded = 3 + VIDEO_SURFACES_MAX;
     }
 #endif
     Debug(3, "video/vdpau: %s: %dx%d * %d\n", __FUNCTION__, width, height,
@@ -9220,7 +9220,7 @@ static VdpauDecoder *VdpauNewHwDecoder(VideoStream * stream)
     //
     atomic_set(&decoder->SurfacesFilled, 0);
 
-    for (i = 0; i < VIDEO_SURFACES_MAX * 2; ++i) {
+    for (i = 0; i < VIDEO_SURFACES_MAX; ++i) {
 	decoder->SurfacesRb[i] = VDP_INVALID_HANDLE;
     }
 
@@ -9299,7 +9299,7 @@ static void VdpauCleanup(VdpauDecoder * decoder)
     //
     atomic_set(&decoder->SurfacesFilled, 0);
 
-    for (i = 0; i < VIDEO_SURFACES_MAX * 2; ++i) {
+    for (i = 0; i < VIDEO_SURFACES_MAX; ++i) {
 	decoder->SurfacesRb[i] = VDP_INVALID_HANDLE;
     }
     decoder->SurfaceRead = 0;
@@ -10124,7 +10124,7 @@ static unsigned VdpauGetSurface(VdpauDecoder * decoder,
 	status =
 	    VdpauDecoderCreate(VdpauDevice, decoder->Profile, video_ctx->width,
 	    video_ctx->height,
-	    decoder->SurfacesNeeded - VIDEO_SURFACES_MAX * 2 - 1,
+	    decoder->SurfacesNeeded - VIDEO_SURFACES_MAX - 1,
 	    &decoder->VideoDecoder);
 	if (status != VDP_STATUS_OK) {
 	    Error(_("video/vdpau: can't create decoder: %s\n"),
@@ -10489,7 +10489,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	profile, video_ctx->width, video_ctx->height, max_refs);
 
     decoder->Profile = profile;
-    decoder->SurfacesNeeded = max_refs + VIDEO_SURFACES_MAX * 2 + 1;
+    decoder->SurfacesNeeded = max_refs + VIDEO_SURFACES_MAX + 1;
     decoder->PixFmt = *fmt_idx;
     decoder->InputWidth = 0;
     decoder->InputHeight = 0;
@@ -10578,7 +10578,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
     // no accelerated format found
     ist->hwaccel_get_buffer = NULL;
     decoder->Profile = VDP_INVALID_HANDLE;
-    decoder->SurfacesNeeded = VIDEO_SURFACES_MAX * 2 + 2;
+    decoder->SurfacesNeeded = VIDEO_SURFACES_MAX + 2;
     decoder->PixFmt = AV_PIX_FMT_NONE;
     video_ctx->draw_horiz_band = NULL;
 
@@ -10615,7 +10615,7 @@ static void VdpauGrabVideoSurface(VdpauDecoder * decoder)
     // for screen shots, atom light and auto crop.
 
     surface = decoder->SurfacesRb[(decoder->SurfaceRead + 1)
-	% VIDEO_SURFACES_MAX * 2];
+	% VIDEO_SURFACES_MAX];
 
     //	get real surface size
     status =
@@ -10862,7 +10862,7 @@ static void VdpauAutoCrop(VdpauDecoder * decoder)
     VdpYCbCrFormat format;
 
     surface = decoder->SurfacesRb[(decoder->SurfaceRead + 1)
-	% VIDEO_SURFACES_MAX * 2];
+	% VIDEO_SURFACES_MAX];
 
     //	get real surface size (can be different)
     status =
@@ -11068,7 +11068,7 @@ static void VdpauQueueSurface(VdpauDecoder * decoder, VdpVideoSurface surface,
     ++decoder->FrameCounter;
 
     if (1) {				// can't wait for output queue empty
-	if (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX * 2) {
+	if (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX) {
 	    Warning(_
 		("video/vdpau: output buffer full, dropping frame (%d/%d)\n"),
 		++decoder->FramesDropped, decoder->FrameCounter);
@@ -11083,7 +11083,7 @@ static void VdpauQueueSurface(VdpauDecoder * decoder, VdpVideoSurface surface,
 	}
 #if 0
     } else {				// wait for output queue empty
-	while (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX * 2) {
+	while (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX) {
 	    VideoDisplayHandler();
 	}
 #endif
@@ -11106,7 +11106,7 @@ static void VdpauQueueSurface(VdpauDecoder * decoder, VdpVideoSurface surface,
 
     decoder->SurfacesRb[decoder->SurfaceWrite] = surface;
     decoder->SurfaceWrite = (decoder->SurfaceWrite + 1)
-	% VIDEO_SURFACES_MAX * 2;
+	% VIDEO_SURFACES_MAX;
     atomic_inc(&decoder->SurfacesFilled);
 }
 
@@ -11238,7 +11238,7 @@ static void VdpauRenderFrame(VdpauDecoder * decoder,
 	    decoder->InputWidth = video_ctx->width;
 	    decoder->InputHeight = video_ctx->height;
 	    VdpauCleanup(decoder);
-	    decoder->SurfacesNeeded = VIDEO_SURFACES_MAX * 2 + 2;
+	    decoder->SurfacesNeeded = VIDEO_SURFACES_MAX + 2;
 
 	    VdpauSetupOutput(decoder);
 	}
@@ -11589,10 +11589,10 @@ static void VdpauMixVideo(VdpauDecoder * decoder, int level)
 		past[1] = decoder->SurfacesRb[decoder->SurfaceRead];
 		past[0] = past[1];
 		current = decoder->SurfacesRb[(decoder->SurfaceRead + 1)
-		    % VIDEO_SURFACES_MAX * 2];
+		    % VIDEO_SURFACES_MAX];
 		future[0] = current;
 		future[1] = decoder->SurfacesRb[(decoder->SurfaceRead + 2)
-		    % VIDEO_SURFACES_MAX * 2];
+		    % VIDEO_SURFACES_MAX];
 		// FIXME: can support 1 future more
 	    } else {
 		cps = VDP_VIDEO_MIXER_PICTURE_STRUCTURE_BOTTOM_FIELD;
@@ -11600,10 +11600,10 @@ static void VdpauMixVideo(VdpauDecoder * decoder, int level)
 		// FIXME: can support 1 past more
 		past[1] = decoder->SurfacesRb[decoder->SurfaceRead];
 		past[0] = decoder->SurfacesRb[(decoder->SurfaceRead + 1)
-		    % VIDEO_SURFACES_MAX * 2];
+		    % VIDEO_SURFACES_MAX];
 		current = past[0];
 		future[0] = decoder->SurfacesRb[(decoder->SurfaceRead + 2)
-		    % VIDEO_SURFACES_MAX * 2];
+		    % VIDEO_SURFACES_MAX];
 		future[1] = future[0];
 	    }
 
@@ -11620,17 +11620,17 @@ static void VdpauMixVideo(VdpauDecoder * decoder, int level)
 		past[1] = decoder->SurfacesRb[decoder->SurfaceRead];
 		past[0] = past[1];
 		current = decoder->SurfacesRb[(decoder->SurfaceRead + 1)
-		    % VIDEO_SURFACES_MAX * 2];
+		    % VIDEO_SURFACES_MAX];
 		future[0] = current;
 	    } else {
 		cps = VDP_VIDEO_MIXER_PICTURE_STRUCTURE_BOTTOM_FIELD;
 
 		past[1] = decoder->SurfacesRb[decoder->SurfaceRead];
 		past[0] = decoder->SurfacesRb[(decoder->SurfaceRead + 1)
-		    % VIDEO_SURFACES_MAX * 2];
+		    % VIDEO_SURFACES_MAX];
 		current = past[0];
 		future[0] = decoder->SurfacesRb[(decoder->SurfaceRead + 2)
-		    % VIDEO_SURFACES_MAX * 2];
+		    % VIDEO_SURFACES_MAX];
 	    }
 
 	} else {
@@ -11654,7 +11654,7 @@ static void VdpauMixVideo(VdpauDecoder * decoder, int level)
     } else {
 	if (decoder->Interlaced) {
 	    current = decoder->SurfacesRb[(decoder->SurfaceRead + 1)
-		% VIDEO_SURFACES_MAX * 2];
+		% VIDEO_SURFACES_MAX];
 	} else {
 	    current = decoder->SurfacesRb[decoder->SurfaceRead];
 	}
@@ -11759,7 +11759,7 @@ static void VdpauAdvanceDecoderFrame(VdpauDecoder * decoder)
 		VideoGetBuffers(decoder->Stream));
 	    return;
 	}
-	decoder->SurfaceRead = (decoder->SurfaceRead + 1) % VIDEO_SURFACES_MAX * 2;
+	decoder->SurfaceRead = (decoder->SurfaceRead + 1) % VIDEO_SURFACES_MAX;
 	atomic_dec(&decoder->SurfacesFilled);
 	decoder->SurfaceField = !decoder->Interlaced;
 	return;
@@ -12354,7 +12354,7 @@ static void VdpauSyncRenderFrame(VdpauDecoder * decoder,
 #endif
     // if video output buffer is full, wait and display surface.
     // loop for interlace
-    if (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX * 2) {
+    if (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX) {
 	Info("video/vdpau: this code part shouldn't be used\n");
 	return;
     }
@@ -12362,7 +12362,7 @@ static void VdpauSyncRenderFrame(VdpauDecoder * decoder,
     // FIXME: disabled for remove
     // FIXME: wrong for multiple streams
     // FIXME: this part code should be no longer be needed with new mpeg fix
-    while (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX * 2) {
+    while (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX) {
 	struct timespec abstime;
 
 	pthread_mutex_unlock(&VideoLockMutex);
