@@ -7628,6 +7628,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
    // StillPicture
     if (StillFrameCounter > 0) {
 	while(atomic_read(&decoder->SurfacesFilled) > decoder->Interlaced * 2) {
+	    Debug(3, "video: stillpicture: AdvanceDecoderFrame, StillFrameCounter: %d, filled: %d\n", StillFrameCounter, atomic_read(&decoder->SurfacesFilled));
 	    VaapiAdvanceDecoderFrame(decoder);
 	}
 	StillFramesFinished = 1;
@@ -7966,7 +7967,7 @@ static void VaapiDisplayHandlerThread(void)
 again:
 		Debug(3, "video: StillFrame: VideoDecodeInput im DisplayHandlerThread buffers: %d filled: %d ms: %d\n", VideoGetBuffers(decoder->Stream), atomic_read(&decoder->SurfacesFilled), GetMsTicks() - VideoSwitch);
 		err = VideoDecodeInput(decoder->Stream);
-		if (!err) goto again; // we need to decode the whole stillpicture without further delay
+		if (!err && VideoGetBuffers(decoder->Stream)) goto again; // we need to decode the whole stillpicture without further delay
 	    }
 	} else {
 	    err = VideoPollInput(decoder->Stream);
@@ -12134,6 +12135,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
     // StillPicture
     if (StillFrameCounter > 0) {
 	while(atomic_read(&decoder->SurfacesFilled) > decoder->Interlaced * 2) {
+	    Debug(3, "video: stillpicture: AdvanceDecoderFrame, StillFrameCounter: %d, filled: %d\n", StillFrameCounter, atomic_read(&decoder->SurfacesFilled));
 	    VdpauAdvanceDecoderFrame(decoder);
 	}
 	StillFramesFinished = 1;
@@ -12564,7 +12566,7 @@ static void VdpauDisplayHandlerThread(void)
 again:
 		Debug(3, "video: StillFrame: VideoDecodeInput im DisplayHandlerThread buffers: %d filled: %d ms: %d\n", VideoGetBuffers(decoder->Stream), atomic_read(&decoder->SurfacesFilled), GetMsTicks() - VideoSwitch);
 		err = VideoDecodeInput(decoder->Stream);
-		if (!err) goto again; // we need to decode the whole stillpicture without further delay
+		if (!err && VideoGetBuffers(decoder->Stream)) goto again; // we need to decode the whole stillpicture without further delay
 	    }
 	} else {
 	    err = VideoPollInput(decoder->Stream);
@@ -15037,6 +15039,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
     // StillPicture
     if (StillFrameCounter > 0) {
 	while(atomic_read(&decoder->SurfacesFilled) > decoder->Interlaced * 2) {
+	    Debug(3, "video: stillpicture: AdvanceDecoderFrame, StillFrameCounter: %d, filled: %d\n", StillFrameCounter, atomic_read(&decoder->SurfacesFilled));
 	    CuvidAdvanceDecoderFrame(decoder);
 	}
 	StillFramesFinished = 1;
@@ -15396,7 +15399,7 @@ static void CuvidDisplayHandlerThread(void)
 again:
 		Debug(3, "video: StillFrame: VideoDecodeInput im DisplayHandlerThread buffers: %d filled: %d ms: %d\n", VideoGetBuffers(decoder->Stream), atomic_read(&decoder->SurfacesFilled), GetMsTicks() - VideoSwitch);
 		err = VideoDecodeInput(decoder->Stream);
-		if (!err) goto again; // we need to decode the whole stillpicture without further delay
+		if (!err && VideoGetBuffers(decoder->Stream)) goto again; // we need to decode the whole stillpicture without further delay
 	    }
 	} else {
 	    err = VideoPollInput(decoder->Stream);
@@ -17724,6 +17727,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
     // StillPicture
     if (StillFrameCounter > 0) {
 	while(atomic_read(&decoder->SurfacesFilled) > decoder->Interlaced * 2) {
+	    Debug(3, "video: stillpicture: AdvanceDecoderFrame, StillFrameCounter: %d, filled: %d\n", StillFrameCounter, atomic_read(&decoder->SurfacesFilled));
 	    NVdecAdvanceDecoderFrame(decoder);
 	}
 	StillFramesFinished = 1;
@@ -18083,7 +18087,7 @@ static void NVdecDisplayHandlerThread(void)
 again:
 		Debug(3, "video: StillFrame: VideoDecodeInput im DisplayHandlerThread buffers: %d filled: %d ms: %d\n", VideoGetBuffers(decoder->Stream), atomic_read(&decoder->SurfacesFilled), GetMsTicks() - VideoSwitch);
 		err = VideoDecodeInput(decoder->Stream);
-		if (!err) goto again; // we need to decode the whole stillpicture without further delay
+		if (!err && VideoGetBuffers(decoder->Stream)) goto again; // we need to decode the whole stillpicture without further delay
 	    }
 	} else {
 	    err = VideoPollInput(decoder->Stream);
@@ -20098,6 +20102,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
    // StillPicture
     if (StillFrameCounter > 0) {
 	while(atomic_read(&decoder->SurfacesFilled) > decoder->Interlaced * 2) {
+	    Debug(3, "video: stillpicture: AdvanceDecoderFrame, StillFrameCounter: %d, filled: %d\n", StillFrameCounter, atomic_read(&decoder->SurfacesFilled));
 	    CpuAdvanceDecoderFrame(decoder);
 	}
 	StillFramesFinished = 1;
@@ -20457,7 +20462,7 @@ static void CpuDisplayHandlerThread(void)
 again:
 		Debug(3, "video: StillFrame: VideoDecodeInput im DisplayHandlerThread buffers: %d filled: %d ms: %d\n", VideoGetBuffers(decoder->Stream), atomic_read(&decoder->SurfacesFilled), GetMsTicks() - VideoSwitch);
 		err = VideoDecodeInput(decoder->Stream);
-		if (!err) goto again; // we need to decode the whole stillpicture without further delay
+		if (!err && VideoGetBuffers(decoder->Stream)) goto again; // we need to decode the whole stillpicture without further delay
 	    }
 	} else {
 	    err = VideoPollInput(decoder->Stream);

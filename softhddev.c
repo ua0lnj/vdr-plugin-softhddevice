@@ -3157,6 +3157,8 @@ void StillPicture(const uint8_t * data, int size)
 	VideoHardwareDecoder = ConfigStillDecoder;
     }
 
+    VideoNextPacket(MyVideoStream, AV_CODEC_ID_NONE);	// close last stream
+
     if (MyVideoStream->CodecID == AV_CODEC_ID_NONE) {
 	// FIXME: should detect codec, see PlayVideo
 	Error(_("[softhddev] no codec known for still picture\n"));
@@ -3227,7 +3229,6 @@ void StillPicture(const uint8_t * data, int size)
 	VideoNextPacket(MyVideoStream, MyVideoStream->CodecID);	// terminate last packet
     }
 
-    VideoNextPacket(MyVideoStream, AV_CODEC_ID_NONE); // close last stream
     // wait for empty buffers
     for (i = 0; VideoGetBuffers(MyVideoStream) && i < 100; ++i) {
 	usleep(10 * 1000);
