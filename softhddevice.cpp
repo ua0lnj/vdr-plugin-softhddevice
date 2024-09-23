@@ -68,7 +68,7 @@ extern "C"
     /// vdr-plugin version number.
     /// Makefile extracts the version number for generating the file name
     /// for the distribution archive.
-static const char *const VERSION = "2.3.7"
+static const char *const VERSION = "2.3.8"
 #ifdef GIT_REV
     "-GIT" GIT_REV
 #endif
@@ -2223,7 +2223,12 @@ static void NewPip(int channel_nr)
 
 #ifdef DEBUG
     // is device replaying?
+#if APIVERSNUM >= 20402
+    cMutexLock mutexLock;
+    if (cDevice::PrimaryDevice()->Replaying() && cControl::Control(mutexLock)) {
+#else
     if (cDevice::PrimaryDevice()->Replaying() && cControl::Control()) {
+#endif
 	Debug(3, "[softhddev]%s: replay active\n", __FUNCTION__);
 	// FIXME: need to find PID
     }
