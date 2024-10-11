@@ -1651,6 +1651,8 @@ void cOglThread::Action(void) {
         startWait->Signal();
         return;
     }
+    VertexBuffers[vbText]->EnableBlending();
+    glDisable(GL_DEPTH_TEST);
 
     dsyslog("[softhddev]Vertex buffers initialized");
 
@@ -1773,8 +1775,6 @@ bool cOglThread::InitOpenGL(void) {
             return false;
         }
     }
-    VertexBuffers[vbText]->EnableBlending();
-    glDisable(GL_DEPTH_TEST);
     return true;
 }
 

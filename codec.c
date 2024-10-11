@@ -455,10 +455,10 @@ int CodecVideoInitFilter(VideoDecoder * decoder, const char *filter_descr)
 #endif
     Debug(3,"codec: filter %s init args: %s\n", filter_descr, args);
 
-    ret = avfilter_graph_create_filter(&decoder->buffersrc_ctx, buffersrc, "in",
-                                       args, NULL, decoder->filter_graph);
-    if (ret < 0) {
-        Error(_("Cannot create buffer source %s\n"), args);
+    decoder->buffersrc_ctx = avfilter_graph_alloc_filter(decoder->filter_graph, buffersrc, "in");
+
+    if (!decoder->buffersrc_ctx) {
+        Error(_("Cannot alloc buffer source %s\n"), args);
         goto end;
     }
 
@@ -475,6 +475,13 @@ int CodecVideoInitFilter(VideoDecoder * decoder, const char *filter_descr)
             Debug(3, "Cannot set hw_frames_ctx to src\n");
             goto end;
         }
+    }
+
+    ret = avfilter_init_str(decoder->buffersrc_ctx, args);
+
+    if (ret < 0) {
+        Error(_("Cannot init buffer source %s\n"), args);
+        goto end;
     }
 
     ret = avfilter_graph_create_filter(&decoder->buffersink_ctx, buffersink, "out",
