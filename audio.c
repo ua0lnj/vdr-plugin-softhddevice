@@ -141,7 +141,7 @@ static char AudioDoingInit;		///> flag in init, reduce error
 volatile char AudioRunning;		///< thread running / stopped
 volatile char AudioStarted;		///< audio started
 static volatile char AudioPaused;	///< audio paused
-static volatile char AudioVideoIsReady;	///< video ready start early
+volatile char AudioVideoIsReady;	///< video ready start early
 static int AudioSkip;			///< skip audio to sync to video
 extern volatile char PlayRingbuffer;
 

@@ -649,6 +649,7 @@ volatile char PlayRingbuffer = 1;
 extern volatile char StillFrame;
 extern volatile char StillFramesFinished;
 extern volatile char StillFrameCounter;
+extern volatile char AudioVideoIsReady;	///< video ready start early
 //----------------------------------------------------------------------------
 //	Common Functions
 //----------------------------------------------------------------------------
@@ -14952,6 +14953,8 @@ static void CuvidSetTrickSpeed(CuvidDecoder * decoder, int speed)
     decoder->TrickCounter = speed;
     if (speed) {
 	decoder->Closing = 0;
+    } else {
+	AudioVideoIsReady = 1; //  ugly fix for Pause -> SlowForward -> Play
     }
 }
 
