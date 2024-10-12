@@ -141,7 +141,7 @@ static char AudioDoingInit;		///> flag in init, reduce error
 volatile char AudioRunning;		///< thread running / stopped
 volatile char AudioStarted;		///< audio started
 static volatile char AudioPaused;	///< audio paused
-static volatile char AudioVideoIsReady;	///< video ready start early
+volatile char AudioVideoIsReady;	///< video ready start early
 static int AudioSkip;			///< skip audio to sync to video
 extern volatile char PlayRingbuffer;
 
@@ -2074,7 +2074,7 @@ static int AudioNextRing(void)
     if (remain <= AUDIO_MIN_BUFFER_FREE) {
 	Debug(3, "audio: force start\n");
     }
-    if (!used || AudioStartThreshold * 4 < used || remain <= AUDIO_MIN_BUFFER_FREE ||
+    if (!used || remain <= AUDIO_MIN_BUFFER_FREE ||
 	    ((AudioVideoIsReady || !SoftIsPlayingVideo) &&
 	    AudioStartThreshold < used)) {
 	return 0;
@@ -2458,6 +2458,7 @@ void AudioVideoReady(int64_t pts)
     int loop_max = 800; // 8s
 
     Debug(3, "audio: VideoSoftStartSync: %d\n", VideoSoftStartSync);
+    Debug(3, "VideoDriver: %s\n", VideoGetDriverName());
     if (pts == (int64_t) INT64_C(0x8000000000000000)) {
 	Debug(3, "audio: a/v start, no valid video\n");
 	return;

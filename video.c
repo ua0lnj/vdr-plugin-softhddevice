@@ -646,6 +646,10 @@ static int VideoStartThreshold_HD = 38;
 void AudioDelayms(int);
 extern volatile char SoftIsPlayingVideo;        ///< stream contains video data
 volatile char PlayRingbuffer = 1;
+extern volatile char StillFrame;
+extern volatile char StillFramesFinished;
+extern volatile char StillFrameCounter;
+extern volatile char AudioVideoIsReady;	///< video ready start early
 //----------------------------------------------------------------------------
 //	Common Functions
 //----------------------------------------------------------------------------
@@ -744,6 +748,7 @@ static void VideoSetPts(int64_t * pts_p, int interlaced,
 	} else {			// first new clock value
 	    EnoughVideo = 0;
 	    PlayRingbuffer = 1;
+	    StillFramesFinished = 0;
 	    AudioVideoReady(pts);
 	}
 	if (*pts_p != pts && lastpts != pts) {
@@ -7621,6 +7626,15 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    goto skip_sync;
 	}
     }
+   // StillPicture
+    if (StillFrameCounter > 0) {
+	while(atomic_read(&decoder->SurfacesFilled) > decoder->Interlaced * 2) {
+	    Debug(3, "video: stillpicture: AdvanceDecoderFrame, StillFrameCounter: %d, filled: %d\n", StillFrameCounter, atomic_read(&decoder->SurfacesFilled));
+	    VaapiAdvanceDecoderFrame(decoder);
+	}
+	StillFramesFinished = 1;
+	return;
+    }
     // TrickSpeed
     if (decoder->TrickSpeed) {
 	if (decoder->TrickCounter--) {
@@ -7944,11 +7958,18 @@ static void VaapiDisplayHandlerThread(void)
 	// fill frame output ring buffer
 	//
 	filled = atomic_read(&decoder->SurfacesFilled);
-	if (filled < VIDEO_SURFACES_MAX - 1) {
+	if (filled < (VIDEO_SURFACES_MAX - 1) * !StillFrame + 4 * StillFrame) {
 	    // FIXME: hot polling
 	    // fetch+decode or reopen
 	    allfull = 0;
-	    err = VideoDecodeInput(decoder->Stream);
+	    if (!StillFrame) {
+		err = VideoDecodeInput(decoder->Stream);
+	    } else {
+again:
+		Debug(3, "video: StillFrame: VideoDecodeInput im DisplayHandlerThread buffers: %d filled: %d ms: %d\n", VideoGetBuffers(decoder->Stream), atomic_read(&decoder->SurfacesFilled), GetMsTicks() - VideoSwitch);
+		err = VideoDecodeInput(decoder->Stream);
+		if (!err && VideoGetBuffers(decoder->Stream)) goto again; // we need to decode the whole stillpicture without further delay
+	    }
 	} else {
 	    err = VideoPollInput(decoder->Stream);
 	}
@@ -7968,13 +7989,13 @@ static void VaapiDisplayHandlerThread(void)
     }
     pthread_mutex_unlock(&VideoLockMutex);
 
-    if (!decoded) {			// nothing decoded, sleep
+    if (!decoded || StillFrame) {			// nothing decoded, sleep
 	// FIXME: sleep on wakeup
 	usleep(1 * 1000);
     }
     // all decoder buffers are full
     // speed up filling display queue, wait on display queue empty
-    if (!allfull) {
+    if (!allfull && !StillFrame) {
 	clock_gettime(CLOCK_MONOTONIC, &nowtime);
 	// time for one frame over?
 	if ((nowtime.tv_sec -
@@ -12112,6 +12133,15 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    goto skip_sync;
 	}
     }
+    // StillPicture
+    if (StillFrameCounter > 0) {
+	while(atomic_read(&decoder->SurfacesFilled) > decoder->Interlaced * 2) {
+	    Debug(3, "video: stillpicture: AdvanceDecoderFrame, StillFrameCounter: %d, filled: %d\n", StillFrameCounter, atomic_read(&decoder->SurfacesFilled));
+	    VdpauAdvanceDecoderFrame(decoder);
+	}
+	StillFramesFinished = 1;
+	return;
+    }
     // TrickSpeed
     if (decoder->TrickSpeed) {
 	if (decoder->TrickCounter--) {
@@ -12527,11 +12557,18 @@ static void VdpauDisplayHandlerThread(void)
 	// fill frame output ring buffer
 	//
 	filled = atomic_read(&decoder->SurfacesFilled);
-	if (filled <= 1 + 2 * decoder->Interlaced) {
+	if (filled <= (1 + 2 * decoder->Interlaced) * !StillFrame + 3 * StillFrame) {
 	    // FIXME: hot polling
 	    // fetch+decode or reopen
 	    allfull = 0;
-	    err = VideoDecodeInput(decoder->Stream);
+	    if (!StillFrame) {
+		err = VideoDecodeInput(decoder->Stream);
+	    } else {
+again:
+		Debug(3, "video: StillFrame: VideoDecodeInput im DisplayHandlerThread buffers: %d filled: %d ms: %d\n", VideoGetBuffers(decoder->Stream), atomic_read(&decoder->SurfacesFilled), GetMsTicks() - VideoSwitch);
+		err = VideoDecodeInput(decoder->Stream);
+		if (!err && VideoGetBuffers(decoder->Stream)) goto again; // we need to decode the whole stillpicture without further delay
+	    }
 	} else {
 	    err = VideoPollInput(decoder->Stream);
 	}
@@ -12551,14 +12588,14 @@ static void VdpauDisplayHandlerThread(void)
     }
     pthread_mutex_unlock(&VideoLockMutex);
 
-    if (!decoded) {			// nothing decoded, sleep
+    if (!decoded || StillFrame) {			// nothing decoded, sleep
 	// FIXME: sleep on wakeup
 	usleep(1 * 1000);
     }
     // all decoder buffers are full
     // and display is not preempted
     // speed up filling display queue, wait on display queue empty
-    if (!allfull || VdpauPreemption) {
+    if ((!allfull && !StillFrame) || VdpauPreemption) {
 	clock_gettime(CLOCK_MONOTONIC, &nowtime);
 	// time for one frame over?
 	if ((nowtime.tv_sec - VdpauFrameTime.tv_sec) * 1000 * 1000 * 1000 +
@@ -14916,6 +14953,8 @@ static void CuvidSetTrickSpeed(CuvidDecoder * decoder, int speed)
     decoder->TrickCounter = speed;
     if (speed) {
 	decoder->Closing = 0;
+    } else {
+	AudioVideoIsReady = 1; //  ugly fix for Pause -> SlowForward -> Play
     }
 }
 
@@ -14999,6 +15038,15 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	if (!decoder->TrickSpeed) {
 	    goto skip_sync;
 	}
+    }
+    // StillPicture
+    if (StillFrameCounter > 0) {
+	while(atomic_read(&decoder->SurfacesFilled) > decoder->Interlaced * 2) {
+	    Debug(3, "video: stillpicture: AdvanceDecoderFrame, StillFrameCounter: %d, filled: %d\n", StillFrameCounter, atomic_read(&decoder->SurfacesFilled));
+	    CuvidAdvanceDecoderFrame(decoder);
+	}
+	StillFramesFinished = 1;
+	return;
     }
     // TrickSpeed
     if (decoder->TrickSpeed) {
@@ -15344,11 +15392,18 @@ static void CuvidDisplayHandlerThread(void)
 	// fill frame output ring buffer
 	//
 	filled = atomic_read(&decoder->SurfacesFilled);
-	if (filled <= 1 + 2 * decoder->Interlaced) {
+	if (filled <= (1 + 2 * decoder->Interlaced) * !StillFrame + (VIDEO_SURFACES_MAX * 2 - 1) * StillFrame) {
 	    // FIXME: hot polling
 	    // fetch+decode or reopen
 	    allfull = 0;
-	    err = VideoDecodeInput(decoder->Stream);
+	    if (!StillFrame) {
+		err = VideoDecodeInput(decoder->Stream);
+	    } else {
+again:
+		Debug(3, "video: StillFrame: VideoDecodeInput im DisplayHandlerThread buffers: %d filled: %d ms: %d\n", VideoGetBuffers(decoder->Stream), atomic_read(&decoder->SurfacesFilled), GetMsTicks() - VideoSwitch);
+		err = VideoDecodeInput(decoder->Stream);
+		if (!err && VideoGetBuffers(decoder->Stream)) goto again; // we need to decode the whole stillpicture without further delay
+	    }
 	} else {
 	    err = VideoPollInput(decoder->Stream);
 	}
@@ -15368,14 +15423,14 @@ static void CuvidDisplayHandlerThread(void)
     }
     pthread_mutex_unlock(&VideoLockMutex);
 
-    if (!decoded) {			// nothing decoded, sleep
+    if (!decoded || StillFrame) {			// nothing decoded, sleep
 	// FIXME: sleep on wakeup
 	usleep(1 * 1000);
     }
     // all decoder buffers are full
     // and display is not preempted
     // speed up filling display queue, wait on display queue empty
-    if (!allfull) {
+    if (!allfull && !StillFrame) {
 	clock_gettime(CLOCK_MONOTONIC, &nowtime);
 	// time for one frame over?
 	if ((nowtime.tv_sec - CuvidFrameTime.tv_sec) * 1000 * 1000 * 1000 +
@@ -17672,6 +17727,15 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	    goto skip_sync;
 	}
     }
+    // StillPicture
+    if (StillFrameCounter > 0) {
+	while(atomic_read(&decoder->SurfacesFilled) > decoder->Interlaced * 2) {
+	    Debug(3, "video: stillpicture: AdvanceDecoderFrame, StillFrameCounter: %d, filled: %d\n", StillFrameCounter, atomic_read(&decoder->SurfacesFilled));
+	    NVdecAdvanceDecoderFrame(decoder);
+	}
+	StillFramesFinished = 1;
+	return;
+    }
     // TrickSpeed
     if (decoder->TrickSpeed) {
 	if (decoder->TrickCounter--) {
@@ -18016,11 +18080,18 @@ static void NVdecDisplayHandlerThread(void)
 	// fill frame output ring buffer
 	//
 	filled = atomic_read(&decoder->SurfacesFilled);
-	if (filled <= 1 + 2 * decoder->Interlaced) {
+	if (filled <= (1 + 2 * decoder->Interlaced) * !StillFrame + (VIDEO_SURFACES_MAX * 2 - 1) * StillFrame) {
 	    // FIXME: hot polling
 	    // fetch+decode or reopen
 	    allfull = 0;
-	    err = VideoDecodeInput(decoder->Stream);
+	    if (!StillFrame) {
+	        err = VideoDecodeInput(decoder->Stream);
+	    } else {
+again:
+		Debug(3, "video: StillFrame: VideoDecodeInput im DisplayHandlerThread buffers: %d filled: %d ms: %d\n", VideoGetBuffers(decoder->Stream), atomic_read(&decoder->SurfacesFilled), GetMsTicks() - VideoSwitch);
+		err = VideoDecodeInput(decoder->Stream);
+		if (!err && VideoGetBuffers(decoder->Stream)) goto again; // we need to decode the whole stillpicture without further delay
+	    }
 	} else {
 	    err = VideoPollInput(decoder->Stream);
 	}
@@ -18040,14 +18111,14 @@ static void NVdecDisplayHandlerThread(void)
     }
     pthread_mutex_unlock(&VideoLockMutex);
 
-    if (!decoded) {			// nothing decoded, sleep
+    if (!decoded || StillFrame) {			// nothing decoded, sleep
 	// FIXME: sleep on wakeup
 	usleep(1 * 1000);
     }
     // all decoder buffers are full
     // and display is not preempted
     // speed up filling display queue, wait on display queue empty
-    if (!allfull) {
+    if (!allfull && !StillFrame) {
 	clock_gettime(CLOCK_MONOTONIC, &nowtime);
 	// time for one frame over?
 	if ((nowtime.tv_sec - NVdecFrameTime.tv_sec) * 1000 * 1000 * 1000 +
@@ -20031,6 +20102,15 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	    goto skip_sync;
 	}
     }
+   // StillPicture
+    if (StillFrameCounter > 0) {
+	while(atomic_read(&decoder->SurfacesFilled) > decoder->Interlaced * 2) {
+	    Debug(3, "video: stillpicture: AdvanceDecoderFrame, StillFrameCounter: %d, filled: %d\n", StillFrameCounter, atomic_read(&decoder->SurfacesFilled));
+	    CpuAdvanceDecoderFrame(decoder);
+	}
+	StillFramesFinished = 1;
+	return;
+    }
     // TrickSpeed
     if (decoder->TrickSpeed) {
 	if (decoder->TrickCounter--) {
@@ -20375,11 +20455,18 @@ static void CpuDisplayHandlerThread(void)
 	// fill frame output ring buffer
 	//
 	filled = atomic_read(&decoder->SurfacesFilled);
-	if (filled <= 1 + 2 * decoder->Interlaced) {
+	if (filled <= (1 + 2 * decoder->Interlaced) * !StillFrame + (VIDEO_SURFACES_MAX * 2 - 1) * StillFrame) {
 	    // FIXME: hot polling
 	    // fetch+decode or reopen
 	    allfull = 0;
-	    err = VideoDecodeInput(decoder->Stream);
+	    if (!StillFrame) {
+		err = VideoDecodeInput(decoder->Stream);
+	    } else {
+again:
+		Debug(3, "video: StillFrame: VideoDecodeInput im DisplayHandlerThread buffers: %d filled: %d ms: %d\n", VideoGetBuffers(decoder->Stream), atomic_read(&decoder->SurfacesFilled), GetMsTicks() - VideoSwitch);
+		err = VideoDecodeInput(decoder->Stream);
+		if (!err && VideoGetBuffers(decoder->Stream)) goto again; // we need to decode the whole stillpicture without further delay
+	    }
 	} else {
 	    err = VideoPollInput(decoder->Stream);
 	}
@@ -20399,14 +20486,14 @@ static void CpuDisplayHandlerThread(void)
     }
     pthread_mutex_unlock(&VideoLockMutex);
 
-    if (!decoded) {			// nothing decoded, sleep
+    if (!decoded || StillFrame) {			// nothing decoded, sleep
 	// FIXME: sleep on wakeup
 	usleep(1 * 1000);
     }
     // all decoder buffers are full
     // and display is not preempted
     // speed up filling display queue, wait on display queue empty
-    if (!allfull) {
+    if (!allfull && !StillFrame) {
 	clock_gettime(CLOCK_MONOTONIC, &nowtime);
 	// time for one frame over?
 	if ((nowtime.tv_sec - CpuFrameTime.tv_sec) * 1000 * 1000 * 1000 +

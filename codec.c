@@ -140,6 +140,8 @@ static pthread_mutex_t CodecLockMutex;
 
     /// Flag prefer fast channel switch
 char CodecUsePossibleDefectFrames;
+extern volatile char StillFrame;
+extern volatile char StillFrameCounter;
 
 //----------------------------------------------------------------------------
 //	Video
@@ -966,8 +968,12 @@ int CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
                                     video_ctx->framerate.num *= 2;
                                 //do not render frames when flush buffers
                                 //avfilter not flushed when called avcodec_flush_buffers()
-                                if(decoder->FirstKeyFrame > 1)
+                                if(decoder->FirstKeyFrame > 1) {
+                                    if (StillFrame) {
+                                        StillFrameCounter++;
+                                    }
                                     VideoRenderFrame(decoder->HwDecoder, video_ctx, decoder->Filt_Frame);
+                                }
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(56,28,1)
                                 av_frame_unref(decoder->Filt_Frame);
 #endif
@@ -975,7 +981,12 @@ int CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
                         } else
 #endif
 	                //DisplayPts(video_ctx, frame);
+	                {
+	                if (StillFrame) {
+                            StillFrameCounter++;
+	                }
 	                VideoRenderFrame(decoder->HwDecoder, video_ctx, frame);
+	                }
 #ifdef FFMPEG_WORKAROUND_ARTIFACTS
 	            }
 #endif
