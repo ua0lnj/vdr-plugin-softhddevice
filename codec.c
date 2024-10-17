@@ -421,8 +421,9 @@ int CodecVideoInitFilter(VideoDecoder * decoder, const char *filter_descr)
     const AVFilter *buffersink = avfilter_get_by_name("buffersink");
     AVFilterInOut *outputs = avfilter_inout_alloc();
     AVFilterInOut *inputs  = avfilter_inout_alloc();
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(59,40,100)
     enum AVPixelFormat pix_fmts[] = { decoder->VideoCtx->pix_fmt, AV_PIX_FMT_NONE };
-
+#endif
     if (!filter_descr) {
         Error(_("codec: filter not described, filter disabled\n"));
         ret = -1;
@@ -488,13 +489,14 @@ int CodecVideoInitFilter(VideoDecoder * decoder, const char *filter_descr)
         Error(_("codec: cannot create buffer sink\n"));
         goto end;
     }
-
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(59,40,100)
     ret = av_opt_set_int_list(decoder->buffersink_ctx, "pix_fmts", pix_fmts,
                               AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
     if (ret < 0) {
         Error(_("codec: cannot set output pixel format\n"));
         goto end;
     }
+#endif
     outputs->name       = av_strdup("in");
     outputs->filter_ctx = decoder->buffersrc_ctx;
     outputs->pad_idx    = 0;
