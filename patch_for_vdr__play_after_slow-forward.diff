@@ -1,0 +1,41 @@
+--- dvbplayer.c.orig	2024-10-24 01:35:48.046359743 +0200
++++ dvbplayer.c	2024-10-26 03:28:09.254871899 +0200
+@@ -740,21 +740,34 @@ void cDvbPlayer::Pause(void)
+ 
+ void cDvbPlayer::Play(void)
+ {
++  bool resyncAfterSlowForward = false;
+   if (playMode != pmPlay) {
+      LOCK_THREAD;
+      if (playMode == pmStill || playMode == pmFast || (playMode == pmSlow && playDir == pdBackward)) {
+         if (!(DeviceHasIBPTrickSpeed() && playDir == pdForward))
+            Empty();
+         }
++     if (playMode == pmSlow && playDir == pdForward)
++        resyncAfterSlowForward = true;
+      DevicePlay();
+      playMode = pmPlay;
+      playDir = pdForward;
+-     if (resyncAfterPause) {
++     if (!resyncAfterSlowForward) {
++        if (resyncAfterPause) {
++           int Current, Total;
++           if (GetIndex(Current, Total, true))
++               Goto(Current);
++           }
++        }
++     else {
+         int Current, Total;
+-        if (GetIndex(Current, Total, true))
+-           Goto(Current);
+-        resyncAfterPause = false;
++        if (GetIndex(Current, Total, false)) {
++           int Index = index->GetNextIFrame(Current, true, NULL, NULL, NULL);
++           Goto(Index);
++           }
+         }
++     if (resyncAfterPause)
++        resyncAfterPause = false;
+      }
+ }
+ 
