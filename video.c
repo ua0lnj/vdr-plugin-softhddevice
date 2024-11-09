@@ -581,7 +581,7 @@ static VideoZoomModes VideoOtherZoomMode;
 
 static char Video60HzMode;		///< handle 60hz displays
 volatile char VideoSoftStartSync;		///< soft start sync audio/video
-static const int VideoSoftStartFrames = 100;	///< soft start frames
+static const int VideoSoftStartFrames = 200;	///< soft start frames
 static char VideoShowBlackPicture;	///< flag show black picture
 
 static xcb_atom_t WmDeleteWindowAtom;	///< WM delete message atom
