@@ -3088,6 +3088,8 @@ void Clear(void)
 */
 void Play(void)
 {
+    if (MyVideoStream->TrickSpeed)	//reset after slow play
+        Clear();
     TrickSpeed(0);			// normal play
     SkipAudio = 0;
     AudioPlay();
@@ -3145,7 +3147,7 @@ void StillPicture(const uint8_t * data, int size)
     if (MyVideoStream->NewStream) {
         VideoNextPacket(MyVideoStream, AV_CODEC_ID_NONE);	// close last stream
     }
-    VideoSetTrickSpeed(MyVideoStream->HwDecoder, 1);
+    VideoSetTrickSpeed(MyVideoStream->HwDecoder, 100);
     VideoResetPacket(MyVideoStream);
     old_video_hardware_decoder = VideoHardwareDecoder;
     // enable/disable hardware decoder for still picture

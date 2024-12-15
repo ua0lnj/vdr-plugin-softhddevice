@@ -7621,6 +7621,14 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    goto skip_sync;
 	}
     }
+    // StillPicture
+    if (decoder->TrickSpeed == 100) {
+        while(atomic_read(&decoder->SurfacesFilled) > 1) {
+          Debug(3, "video: stillpicture: AdvanceDecoderFrame filled: %d\n", atomic_read(&decoder->SurfacesFilled));
+          VaapiAdvanceDecoderFrame(decoder);
+        }
+        return;
+    }
     // TrickSpeed
     if (decoder->TrickSpeed) {
 	if (decoder->TrickCounter--) {
@@ -7817,7 +7825,8 @@ static void VaapiSyncRenderFrame(VaapiDecoder * decoder,
     // if video output buffer is full, wait and display surface.
     // loop for interlace
     if (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX - 1) {
-	Info("video/vaapi: this code part shouldn't be used\n");
+	if (decoder->TrickSpeed != 100)
+	    Info("video/vaapi: this code part shouldn't be used\n");
 	return;
     }
 #else
@@ -7948,7 +7957,10 @@ static void VaapiDisplayHandlerThread(void)
 	    // FIXME: hot polling
 	    // fetch+decode or reopen
 	    allfull = 0;
-	    err = VideoDecodeInput(decoder->Stream);
+	    while (!(err = VideoDecodeInput(decoder->Stream))) {
+		if (decoder->TrickSpeed != 100) break;
+		if (!VideoGetBuffers(decoder->Stream)) break;
+	    }
 	} else {
 	    err = VideoPollInput(decoder->Stream);
 	}
@@ -12112,6 +12124,14 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    goto skip_sync;
 	}
     }
+    // StillPicture
+    if (decoder->TrickSpeed == 100) {
+        while(atomic_read(&decoder->SurfacesFilled) > decoder->Interlaced * 2) {
+          Debug(3, "video: stillpicture: AdvanceDecoderFrame filled: %d\n", atomic_read(&decoder->SurfacesFilled));
+          VdpauAdvanceDecoderFrame(decoder);
+        }
+        return;
+    }
     // TrickSpeed
     if (decoder->TrickSpeed) {
 	if (decoder->TrickCounter--) {
@@ -12328,7 +12348,8 @@ static void VdpauSyncRenderFrame(VdpauDecoder * decoder,
     // if video output buffer is full, wait and display surface.
     // loop for interlace
     if (atomic_read(&decoder->SurfacesFilled) >= VIDEO_SURFACES_MAX) {
-	Info("video/vdpau: this code part shouldn't be used\n");
+	if (decoder->TrickSpeed != 100)
+	    Info("video/vdpau: this code part shouldn't be used\n");
 	return;
     }
 #else
@@ -12531,7 +12552,10 @@ static void VdpauDisplayHandlerThread(void)
 	    // FIXME: hot polling
 	    // fetch+decode or reopen
 	    allfull = 0;
-	    err = VideoDecodeInput(decoder->Stream);
+	    while (!(err = VideoDecodeInput(decoder->Stream))) {
+		if (decoder->TrickSpeed != 100) break;
+		if (!VideoGetBuffers(decoder->Stream)) break;
+	    }
 	} else {
 	    err = VideoPollInput(decoder->Stream);
 	}
@@ -15000,6 +15024,14 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    goto skip_sync;
 	}
     }
+    // StillPicture
+    if (decoder->TrickSpeed == 100) {
+        while(atomic_read(&decoder->SurfacesFilled) > decoder->Interlaced * 2) {
+          Debug(3, "video: stillpicture: AdvanceDecoderFrame filled: %d\n", atomic_read(&decoder->SurfacesFilled));
+          CuvidAdvanceDecoderFrame(decoder);
+        }
+        return;
+    }
     // TrickSpeed
     if (decoder->TrickSpeed) {
 	if (decoder->TrickCounter--) {
@@ -15210,7 +15242,8 @@ static void CuvidSyncRenderFrame(CuvidDecoder * decoder,
     // if video output buffer is full, wait and display surface.
     // loop for interlace
     if (atomic_read(&decoder->SurfacesFilled) >= (VIDEO_SURFACES_MAX * 2)) {
-	Info("video/cuvid: this code part shouldn't be used\n");
+	if (decoder->TrickSpeed != 100)
+	    Info("video/cuvid: this code part shouldn't be used\n");
 	return;
     }
 #else
@@ -15348,7 +15381,10 @@ static void CuvidDisplayHandlerThread(void)
 	    // FIXME: hot polling
 	    // fetch+decode or reopen
 	    allfull = 0;
-	    err = VideoDecodeInput(decoder->Stream);
+	    while (!(err = VideoDecodeInput(decoder->Stream))) {
+		if (decoder->TrickSpeed != 100) break;
+		if (!VideoGetBuffers(decoder->Stream)) break;
+	    }
 	} else {
 	    err = VideoPollInput(decoder->Stream);
 	}
@@ -17672,6 +17708,14 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	    goto skip_sync;
 	}
     }
+    // StillPicture
+    if (decoder->TrickSpeed == 100) {
+        while(atomic_read(&decoder->SurfacesFilled) > decoder->Interlaced * 2) {
+          Debug(3, "video: stillpicture: AdvanceDecoderFrame filled: %d\n", atomic_read(&decoder->SurfacesFilled));
+          NVdecAdvanceDecoderFrame(decoder);
+        }
+        return;
+    }
     // TrickSpeed
     if (decoder->TrickSpeed) {
 	if (decoder->TrickCounter--) {
@@ -17882,7 +17926,8 @@ static void NVdecSyncRenderFrame(NVdecDecoder * decoder,
     // if video output buffer is full, wait and display surface.
     // loop for interlace
     if (atomic_read(&decoder->SurfacesFilled) >= (VIDEO_SURFACES_MAX * 2)) {
-	Info("video/nvdec: this code part shouldn't be used\n");
+	if (decoder->TrickSpeed != 100)
+	    Info("video/nvdec: this code part shouldn't be used\n");
 	return;
     }
 #else
@@ -18020,7 +18065,10 @@ static void NVdecDisplayHandlerThread(void)
 	    // FIXME: hot polling
 	    // fetch+decode or reopen
 	    allfull = 0;
-	    err = VideoDecodeInput(decoder->Stream);
+	    while (!(err = VideoDecodeInput(decoder->Stream))) {
+		if (decoder->TrickSpeed != 100) break;
+		if (!VideoGetBuffers(decoder->Stream)) break;
+	    }
 	} else {
 	    err = VideoPollInput(decoder->Stream);
 	}
@@ -20031,6 +20079,14 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	    goto skip_sync;
 	}
     }
+    // StillPicture
+    if (decoder->TrickSpeed == 100) {
+        while(atomic_read(&decoder->SurfacesFilled) > decoder->Interlaced * 2) {
+          Debug(3, "video: stillpicture: AdvanceDecoderFrame filled: %d\n", atomic_read(&decoder->SurfacesFilled));
+          CpuAdvanceDecoderFrame(decoder);
+        }
+        return;
+    }
     // TrickSpeed
     if (decoder->TrickSpeed) {
 	if (decoder->TrickCounter--) {
@@ -20241,7 +20297,8 @@ static void CpuSyncRenderFrame(CpuDecoder * decoder,
     // if video output buffer is full, wait and display surface.
     // loop for interlace
     if (atomic_read(&decoder->SurfacesFilled) >= (VIDEO_SURFACES_MAX * 2)) {
-	Info("video/cpu: this code part shouldn't be used\n");
+	if (decoder->TrickSpeed != 100)
+	    Info("video/cpu: this code part shouldn't be used\n");
 	return;
     }
 #else
@@ -20379,7 +20436,10 @@ static void CpuDisplayHandlerThread(void)
 	    // FIXME: hot polling
 	    // fetch+decode or reopen
 	    allfull = 0;
-	    err = VideoDecodeInput(decoder->Stream);
+	    while (!(err = VideoDecodeInput(decoder->Stream))) {
+		if (decoder->TrickSpeed != 100) break;
+		if (!VideoGetBuffers(decoder->Stream)) break;
+	    }
 	} else {
 	    err = VideoPollInput(decoder->Stream);
 	}
