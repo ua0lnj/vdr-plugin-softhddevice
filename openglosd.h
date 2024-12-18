@@ -386,8 +386,9 @@ class cOglCmdDrawTexture : public cOglCmd {
 private:
     sOglImage *imageRef;
     GLint x, y;
+    GLfloat scaleX, scaleY;
 public:
-    cOglCmdDrawTexture(cOglFb *fb, sOglImage *imageRef, GLint x, GLint y);
+    cOglCmdDrawTexture(cOglFb *fb, sOglImage *imageRef, GLint x, GLint y, double scaleX = 1.0f, double scaleY = 1.0f);
     virtual ~cOglCmdDrawTexture(void) {};
     virtual const char* Description(void) { return "Draw Texture"; }
     virtual bool Execute(void);
@@ -477,6 +478,10 @@ public:
     virtual void Fill(tColor Color);
     virtual void DrawImage(const cPoint &Point, const cImage &Image);
     virtual void DrawImage(const cPoint &Point, int ImageHandle);
+#if VDRVERSNUM >= 20606
+    virtual void DrawScaledImage(const cPoint &Point, const cImage &Image, double FactorX = 1.0f, double FactorY = 1.0f, bool AntiAlias = false);
+    virtual void DrawScaledImage(const cPoint &Point, int ImageHandle, double FactorX = 1.0f, double FactorY = 1.0f, bool AntiAlias = false);
+#endif
     virtual void DrawPixel(const cPoint &Point, tColor Color);
     virtual void DrawBitmap(const cPoint &Point, const cBitmap &Bitmap, tColor ColorFg = 0, tColor ColorBg = 0, bool Overlay = false);
     virtual void DrawText(const cPoint &Point, const char *s, tColor ColorFg, tColor ColorBg, const cFont *Font, int Width = 0, int Height = 0, int Alignment = taDefault);
