@@ -7696,7 +7696,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    err = VaapiMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
 	    if (VideoSoftStartSync == 1) {
-		decoder->SyncCounter = diff > 100 * 90 ? diff % 2 : 1; //softsync :)
+		decoder->SyncCounter = diff % 2; //softsync :)
 	    }
 		goto out;
 	} else if (diff > 55 * 90) {
@@ -12199,7 +12199,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    err = VdpauMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
 	    if (VideoSoftStartSync == 1) {
-		decoder->SyncCounter = diff > 100 * 90 ? diff % 2 : 1; //softsync :)
+		decoder->SyncCounter = diff % 2; //softsync :)
 	    }
 	    goto out;
 	} else if (diff > 55 * 90) {
@@ -15099,7 +15099,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    err = CuvidMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
 	    if (VideoSoftStartSync == 1) {
-		decoder->SyncCounter = diff > 100 * 90 ? diff % 2 : 1; //softsync :)
+		decoder->SyncCounter = diff % 2; //softsync :)
 	    }
 	    goto out;
 	} else if (diff > 55 * 90) {
@@ -17783,7 +17783,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	    err = NVdecMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
 	    if (VideoSoftStartSync == 1) {
-		decoder->SyncCounter = diff > 100 * 90 ? diff % 2 : 1; //softsync :)
+		decoder->SyncCounter = diff % 2; //softsync :)
 	    }
 	    goto out;
 	} else if (diff > 55 * 90) {
@@ -20154,7 +20154,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	    err = CpuMessage(3, "video: slow down video, duping frame\n");
 	    ++decoder->FramesDuped;
 	    if (VideoSoftStartSync == 1) {
-		decoder->SyncCounter = diff > 100 * 90 ? diff % 2 : 1; //softsync :)
+		decoder->SyncCounter = diff % 2; //softsync :)
 	    }
 	    goto out;
 	} else if (diff > 55 * 90) {
