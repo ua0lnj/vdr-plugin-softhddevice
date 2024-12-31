@@ -49,6 +49,8 @@ extern void AudioSetStereoDescent(int);	///< set stereo loudness descent
 
 extern void AudioSetDevice(const char *);	///< set PCM audio device
 
+extern void SetAudioSkip(int);		///< set AudioSkip
+
     /// set pass-through device
 extern void AudioSetPassthroughDevice(const char *);
 extern void AudioSetChannel(const char *);	///< set mixer channel
