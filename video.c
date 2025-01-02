@@ -646,6 +646,7 @@ static int VideoStartThreshold_HD = 38;
 void AudioDelayms(int);
 extern volatile char SoftIsPlayingVideo;        ///< stream contains video data
 volatile char PlayRingbuffer = 1;
+extern volatile char AudioPaused;
 //----------------------------------------------------------------------------
 //	Common Functions
 //----------------------------------------------------------------------------
@@ -7593,7 +7594,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
     }
-    if (EnoughVideo && EnoughAudio && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE) {
+    if (EnoughVideo && EnoughAudio && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE && !AudioPaused) {
 	Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
 	AudioStarted = 1;
 	AudioRunning = 1;
@@ -7631,6 +7632,14 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
     }
     // TrickSpeed
     if (decoder->TrickSpeed) {
+        if (audio_clock != (int64_t) AV_NOPTS_VALUE
+	&& video_clock != (int64_t) AV_NOPTS_VALUE) {
+	    int diff;
+	    diff = video_clock - audio_clock - VideoAudioDelay;
+	    if (diff > 0) {
+		SetAudioSkip(diff);
+	    }
+	}
 	if (decoder->TrickCounter--) {
 	    goto out;
 	}
@@ -12099,7 +12108,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
     }
-    if (EnoughVideo && EnoughAudio && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE) {
+    if (EnoughVideo && EnoughAudio && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE && !AudioPaused) {
 	Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
 	AudioStarted = 1;
 	AudioRunning = 1;
@@ -12137,6 +12146,14 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
     }
     // TrickSpeed
     if (decoder->TrickSpeed) {
+        if (audio_clock != (int64_t) AV_NOPTS_VALUE
+	&& video_clock != (int64_t) AV_NOPTS_VALUE) {
+	    int diff;
+	    diff = video_clock - audio_clock - VideoAudioDelay;
+	    if (diff > 0) {
+		SetAudioSkip(diff);
+	    }
+	}
 	if (decoder->TrickCounter--) {
 	    goto out;
 	}
@@ -15001,7 +15018,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
     }
-    if (EnoughVideo && EnoughAudio && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE) {
+    if (EnoughVideo && EnoughAudio && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE && !AudioPaused) {
 	Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
 	AudioStarted = 1;
 	AudioRunning = 1;
@@ -15039,6 +15056,15 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
     }
     // TrickSpeed
     if (decoder->TrickSpeed) {
+        if (audio_clock != (int64_t) AV_NOPTS_VALUE
+	&& video_clock != (int64_t) AV_NOPTS_VALUE) {
+	    int diff;
+	    diff = video_clock - audio_clock - VideoAudioDelay;
+	    if (diff > 0) {
+		SetAudioSkip(diff);
+	    }
+	}
+
 	if (decoder->TrickCounter--) {
 	    goto out;
 	}
@@ -17687,7 +17713,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
     }
-    if (EnoughVideo && EnoughAudio && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE) {
+    if (EnoughVideo && EnoughAudio && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE && !AudioPaused) {
         Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
         AudioStarted = 1;
         AudioRunning = 1;
@@ -17725,6 +17751,14 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
     }
     // TrickSpeed
     if (decoder->TrickSpeed) {
+        if (audio_clock != (int64_t) AV_NOPTS_VALUE
+	&& video_clock != (int64_t) AV_NOPTS_VALUE) {
+	    int diff;
+	    diff = video_clock - audio_clock - VideoAudioDelay;
+	    if (diff > 0) {
+		SetAudioSkip(diff);
+	    }
+	}
 	if (decoder->TrickCounter--) {
 	    goto out;
 	}
@@ -20060,7 +20094,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	Debug (3,"video: force enough video\n");
 	EnoughVideo = 1;
     }
-    if (EnoughVideo && EnoughAudio && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE) {
+    if (EnoughVideo && EnoughAudio && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE && !AudioPaused) {
         Debug(3, "video: start audio after waiting for enough video: SurfacesFilled: %d, PacketsFilled: %d\n", atomic_read(&decoder->SurfacesFilled), VideoGetBuffers(decoder->Stream));
         AudioStarted = 1;
         AudioRunning = 1;
@@ -20098,6 +20132,14 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
     }
     // TrickSpeed
     if (decoder->TrickSpeed) {
+        if (audio_clock != (int64_t) AV_NOPTS_VALUE
+	&& video_clock != (int64_t) AV_NOPTS_VALUE) {
+	    int diff;
+	    diff = video_clock - audio_clock - VideoAudioDelay;
+	    if (diff > 0) {
+		SetAudioSkip(diff);
+	    }
+	}
 	if (decoder->TrickCounter--) {
 	    goto out;
 	}

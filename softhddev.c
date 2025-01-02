@@ -3088,8 +3088,6 @@ void Clear(void)
 */
 void Play(void)
 {
-    if (MyVideoStream->TrickSpeed)	//reset after slow play
-        Clear();
     TrickSpeed(0);			// normal play
     SkipAudio = 0;
     AudioPlay();
@@ -3110,9 +3108,10 @@ void Freeze(void)
 */
 void Mute(void)
 {
-    SkipAudio = 1;
-    AudioFlushBuffers();
+    //SkipAudio = 1;
+    //AudioFlushBuffers();
     //AudioSetVolume(0);
+    AudioPause();
 }
 
 /**

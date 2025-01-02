@@ -140,9 +140,9 @@ static const char *AudioMixerChannel;	///< mixer channel name
 static char AudioDoingInit;		///> flag in init, reduce error
 volatile char AudioRunning;		///< thread running / stopped
 volatile char AudioStarted;		///< audio started
-static volatile char AudioPaused;	///< audio paused
+volatile char AudioPaused;		///< audio paused
 static volatile char AudioVideoIsReady;	///< video ready start early
-static int AudioSkip;			///< skip audio to sync to video
+volatile int AudioSkip;			///< skip audio to sync to video
 extern volatile char PlayRingbuffer;
 
 static const int AudioBytesProSample = 2;	///< number of bytes per sample
@@ -2428,6 +2428,8 @@ void AudioEnqueue(const void *samples, int count)
 	    AudioStarted=1;
 	    pthread_cond_signal(&AudioStartCond);
 	}
+	if (AudioPaused)
+	    return;
 	if ((AudioStartThreshold * 4 < n && VideoSoftStartSync < 2) || remain <= AUDIO_MIN_BUFFER_FREE ||  // early audio
 	    ((AudioVideoIsReady || !SoftIsPlayingVideo) &&
 	    AudioStartThreshold < n && (!AudioSkip || VideoSoftStartSync < 2))) { // enough audio, early audio
@@ -2699,7 +2701,7 @@ int64_t AudioGetDelay(void)
     int64_t pts;
 
     if (!AudioRunning) {
-	return 0L;			// audio not running
+	//return 0L;			// audio not running
     }
     if (!AudioRing[AudioRingRead].HwSampleRate) {
 	return 0L;			// audio not setup
@@ -3315,3 +3317,21 @@ int main(int argc, char *const argv[])
 }
 
 #endif
+
+void SetAudioSkip(int skip) {
+	// guard against old PTS
+	if (skip < 8000 * 90) { // 8s
+	    skip = (((int64_t) skip * AudioRing[AudioRingWrite].HwSampleRate)
+		/ (1000 * 90))
+		* AudioRing[AudioRingWrite].HwChannels * AudioBytesProSample;
+	    Debug(4, "audio: sync advance %dms %d\n",
+		(skip * 1000) / (AudioRing[AudioRingWrite].HwSampleRate *
+		    AudioRing[AudioRingWrite].HwChannels *
+		    AudioBytesProSample), skip);
+	    // FIXME: round to packet size
+	    AudioSkip = skip;
+	} else {
+		Debug(3, "audio: did not sync advance, please fix guard condition, skip: %d\n", skip);
+		printf("audio: did not sync advance, please fix guard condition, skip: %d\n", skip);
+	}
+}
