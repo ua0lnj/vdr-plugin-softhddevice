@@ -7575,11 +7575,13 @@ void VaapiGetStats(VaapiDecoder * decoder, int *missed, int *duped,
 ///
 static void VaapiSyncDecoder(VaapiDecoder * decoder)
 {
-    int err;
+    int err, is_av_pts, diff;
     int64_t audio_clock;
     int64_t video_clock;
 
     err = 0;
+    is_av_pts = 0;
+    diff = 0;
     video_clock = VaapiGetClock(decoder);
     audio_clock = AudioGetClock();
 
@@ -7607,10 +7609,16 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
         pthread_cond_signal(&AudioStartCond);
     }
 
+    if (audio_clock != (int64_t) AV_NOPTS_VALUE
+	&& video_clock != (int64_t) AV_NOPTS_VALUE) {
+	// both clocks are known
+	is_av_pts = 1;
+	diff = video_clock - audio_clock - VideoAudioDelay;
+    }
+
     // 60Hz: repeat every 5th field
     if (Video60HzMode && !(decoder->FramesDisplayed % 6)) {
-	if (audio_clock == (int64_t) AV_NOPTS_VALUE
-	    || video_clock == (int64_t) AV_NOPTS_VALUE) {
+	if (!is_av_pts) {
 	    goto out;
 	}
 	// both clocks are known
@@ -7632,13 +7640,8 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
     }
     // TrickSpeed
     if (decoder->TrickSpeed) {
-        if (audio_clock != (int64_t) AV_NOPTS_VALUE
-	&& video_clock != (int64_t) AV_NOPTS_VALUE) {
-	    int diff;
-	    diff = video_clock - audio_clock - VideoAudioDelay;
-	    if (diff > 0) {
-		SetAudioSkip(diff);
-	    }
+        if (is_av_pts && diff > 0) {
+	    SetAudioSkip(diff);
 	}
 	if (decoder->TrickCounter--) {
 	    goto out;
@@ -7661,11 +7664,15 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	goto skip_sync;
     }
 
-    if (audio_clock != (int64_t) AV_NOPTS_VALUE
-	&& video_clock != (int64_t) AV_NOPTS_VALUE) {
-	// both clocks are known
-	int diff;
+    if (is_av_pts) {
 	int lower_limit;
+	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 12;
+	//diff = (decoder->LastAVDiff + diff) / 2;
+	decoder->LastAVDiff = diff;
+#ifdef DEBUG
+	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
+	    Debug(3, "video/vaapi: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, atomic_read(&decoder->SurfacesFilled));
+#endif
 	if (IsReplay()) {
 	    if((video_clock > audio_clock + VideoAudioDelay + 8000 * 90) && decoder->StartCounter < VideoSoftStartFrames) { // 8s
 		Debug(3,"flush audio\n");
@@ -7680,15 +7687,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 		goto skip_sync;
 	    }
 	}
-	diff = video_clock - audio_clock - VideoAudioDelay;
-	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 12;
-	//diff = (decoder->LastAVDiff + diff) / 2;
-	decoder->LastAVDiff = diff;
 	if (!IsReplay() && ABS(diff/90) > 1000000) goto skip_sync; //static image??? radio plugin
-#ifdef DEBUG
-	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
-	    Debug(3, "video/vaapi: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, atomic_read(&decoder->SurfacesFilled));
-#endif
 	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = VaapiMessage(3, "video: audio/video difference too big\n");
 	}
@@ -12089,15 +12088,17 @@ void VdpauGetStats(VdpauDecoder * decoder, int *missed, int *duped,
 ///
 static void VdpauSyncDecoder(VdpauDecoder * decoder)
 {
-    int err;
+    int err, is_av_pts, diff;
     int64_t audio_clock;
     int64_t video_clock;
 
     err = 0;
+    is_av_pts = 0;
+    diff = 0;
     video_clock = VdpauGetClock(decoder);
     audio_clock = AudioGetClock();
 
-    if (!decoder->SyncOnAudio  || !SoftIsPlayingVideo) {
+    if (!decoder->SyncOnAudio || !SoftIsPlayingVideo) {
 	audio_clock = AV_NOPTS_VALUE;
 	// FIXME: 60Hz Mode
 	goto skip_sync;
@@ -12121,10 +12122,16 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
         pthread_cond_signal(&AudioStartCond);
     }
 
+    if (audio_clock != (int64_t) AV_NOPTS_VALUE
+	&& video_clock != (int64_t) AV_NOPTS_VALUE) {
+	// both clocks are known
+	is_av_pts = 1;
+	diff = video_clock - audio_clock - VideoAudioDelay;
+    }
+
     // 60Hz: repeat every 5th field
     if (Video60HzMode && !(decoder->FramesDisplayed % 6)) {
-	if (audio_clock == (int64_t) AV_NOPTS_VALUE
-	    || video_clock == (int64_t) AV_NOPTS_VALUE) {
+	if (!is_av_pts) {
 	    goto out;
 	}
 	// both clocks are known
@@ -12146,13 +12153,8 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
     }
     // TrickSpeed
     if (decoder->TrickSpeed) {
-        if (audio_clock != (int64_t) AV_NOPTS_VALUE
-	&& video_clock != (int64_t) AV_NOPTS_VALUE) {
-	    int diff;
-	    diff = video_clock - audio_clock - VideoAudioDelay;
-	    if (diff > 0) {
-		SetAudioSkip(diff);
-	    }
+        if (is_av_pts && diff > 0) {
+	    SetAudioSkip(diff);
 	}
 	if (decoder->TrickCounter--) {
 	    goto out;
@@ -12175,11 +12177,15 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	goto skip_sync;
     }
 
-    if (audio_clock != (int64_t) AV_NOPTS_VALUE
-	&& video_clock != (int64_t) AV_NOPTS_VALUE) {
-	// both clocks are known
-	int diff;
+    if (is_av_pts) {
 	int lower_limit;
+	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 32;
+	//diff = (decoder->LastAVDiff + diff) / 2;
+	decoder->LastAVDiff = diff;
+#ifdef DEBUG
+	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
+	    Debug(3, "video/vdpau: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, atomic_read(&decoder->SurfacesFilled));
+#endif
 	if (IsReplay()) {
 	    if((video_clock > audio_clock + VideoAudioDelay + 8000 * 90) && decoder->StartCounter < VideoSoftStartFrames) { // 8s
 		Debug(3,"flush audio\n");
@@ -12194,15 +12200,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 		goto skip_sync;
 	    }
 	}
-	diff = video_clock - audio_clock - VideoAudioDelay;
-	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 32;
-	//diff = (decoder->LastAVDiff + diff) / 2;
-	decoder->LastAVDiff = diff;
 	if (!IsReplay() && ABS(diff/90) > 1000000) goto skip_sync; //static image??? radio plugin
-#ifdef DEBUG
-	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
-	    Debug(3, "video/vdpau: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, atomic_read(&decoder->SurfacesFilled));
-#endif
 	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = VdpauMessage(3, "video: audio/video difference too big\n");
 	}
@@ -14999,15 +14997,17 @@ void CuvidGetStats(CuvidDecoder * decoder, int *missed, int *duped,
 ///
 static void CuvidSyncDecoder(CuvidDecoder * decoder)
 {
-    int err;
+    int err, is_av_pts, diff;
     int64_t audio_clock;
     int64_t video_clock;
 
     err = 0;
+    is_av_pts = 0;
+    diff = 0;
     video_clock = CuvidGetClock(decoder);
     audio_clock = AudioGetClock();
 
-    if (!decoder->SyncOnAudio  || !SoftIsPlayingVideo) {
+    if (!decoder->SyncOnAudio || !SoftIsPlayingVideo) {
 	audio_clock = AV_NOPTS_VALUE;
 	// FIXME: 60Hz Mode
 	goto skip_sync;
@@ -15031,10 +15031,16 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
         pthread_cond_signal(&AudioStartCond);
     }
 
+    if (audio_clock != (int64_t) AV_NOPTS_VALUE
+	&& video_clock != (int64_t) AV_NOPTS_VALUE) {
+	// both clocks are known
+	is_av_pts = 1;
+	diff = video_clock - audio_clock - VideoAudioDelay;
+    }
+
     // 60Hz: repeat every 5th field
     if (Video60HzMode && !(decoder->FramesDisplayed % 6)) {
-	if (audio_clock == (int64_t) AV_NOPTS_VALUE
-	    || video_clock == (int64_t) AV_NOPTS_VALUE) {
+	if (!is_av_pts) {
 	    goto out;
 	}
 	// both clocks are known
@@ -15056,15 +15062,9 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
     }
     // TrickSpeed
     if (decoder->TrickSpeed) {
-        if (audio_clock != (int64_t) AV_NOPTS_VALUE
-	&& video_clock != (int64_t) AV_NOPTS_VALUE) {
-	    int diff;
-	    diff = video_clock - audio_clock - VideoAudioDelay;
-	    if (diff > 0) {
-		SetAudioSkip(diff);
-	    }
+        if (is_av_pts && diff > 0) {
+	    SetAudioSkip(diff);
 	}
-
 	if (decoder->TrickCounter--) {
 	    goto out;
 	}
@@ -15086,11 +15086,15 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	goto skip_sync;
     }
 
-    if (audio_clock != (int64_t) AV_NOPTS_VALUE
-	&& video_clock != (int64_t) AV_NOPTS_VALUE) {
-	// both clocks are known
-	int diff;
+    if (is_av_pts) {
 	int lower_limit;
+	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 32;
+	//diff = (decoder->LastAVDiff + diff) / 2;
+	decoder->LastAVDiff = diff;
+#ifdef DEBUG
+	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
+	    Debug(3, "video/cuvid: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, atomic_read(&decoder->SurfacesFilled));
+#endif
 	if (IsReplay()) {
 	    if((video_clock > audio_clock + VideoAudioDelay + 8000 * 90) && decoder->StartCounter < VideoSoftStartFrames) { // 8s
 		Debug(3,"flush audio\n");
@@ -15105,15 +15109,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 		goto skip_sync;
 	    }
 	}
-	diff = video_clock - audio_clock - VideoAudioDelay;
-	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 32;
-	//diff = (decoder->LastAVDiff + diff) / 2;
-	decoder->LastAVDiff = diff;
 	if (!IsReplay() && ABS(diff/90) > 1000000) goto skip_sync; //static image??? radio plugin
-#ifdef DEBUG
-	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
-	    Debug(3, "video/cuvid: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, atomic_read(&decoder->SurfacesFilled));
-#endif
 	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = CuvidMessage(3, "video: audio/video difference too big\n");
 	}
@@ -17694,11 +17690,13 @@ void NVdecGetStats(NVdecDecoder * decoder, int *missed, int *duped,
 ///
 static void NVdecSyncDecoder(NVdecDecoder * decoder)
 {
-    int err;
+    int err, is_av_pts, diff;
     int64_t audio_clock;
     int64_t video_clock;
 
     err = 0;
+    is_av_pts = 0;
+    diff = 0;
     video_clock = NVdecGetClock(decoder);
     audio_clock = AudioGetClock();
 
@@ -17726,10 +17724,16 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
         pthread_cond_signal(&AudioStartCond);
     }
 
+    if (audio_clock != (int64_t) AV_NOPTS_VALUE
+	&& video_clock != (int64_t) AV_NOPTS_VALUE) {
+	// both clocks are known
+	is_av_pts = 1;
+	diff = video_clock - audio_clock - VideoAudioDelay;
+    }
+
     // 60Hz: repeat every 5th field
     if (Video60HzMode && !(decoder->FramesDisplayed % 6)) {
-	if (audio_clock == (int64_t) AV_NOPTS_VALUE
-	    || video_clock == (int64_t) AV_NOPTS_VALUE) {
+	if (!is_av_pts) {
 	    goto out;
 	}
 	// both clocks are known
@@ -17751,13 +17755,8 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
     }
     // TrickSpeed
     if (decoder->TrickSpeed) {
-        if (audio_clock != (int64_t) AV_NOPTS_VALUE
-	&& video_clock != (int64_t) AV_NOPTS_VALUE) {
-	    int diff;
-	    diff = video_clock - audio_clock - VideoAudioDelay;
-	    if (diff > 0) {
-		SetAudioSkip(diff);
-	    }
+        if (is_av_pts && diff > 0) {
+	    SetAudioSkip(diff);
 	}
 	if (decoder->TrickCounter--) {
 	    goto out;
@@ -17780,11 +17779,15 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	goto skip_sync;
     }
 
-    if (audio_clock != (int64_t) AV_NOPTS_VALUE
-	&& video_clock != (int64_t) AV_NOPTS_VALUE) {
-	// both clocks are known
-	int diff;
+    if (is_av_pts) {
 	int lower_limit;
+	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 32;
+	//diff = (decoder->LastAVDiff + diff) / 2;
+	decoder->LastAVDiff = diff;
+#ifdef DEBUG
+	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
+	    Debug(3, "video/nvdec: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, atomic_read(&decoder->SurfacesFilled));
+#endif
 	if (IsReplay()) {
 	    if((video_clock > audio_clock + VideoAudioDelay + 8000 * 90) && decoder->StartCounter < VideoSoftStartFrames) { // 8s
 		Debug(3,"flush audio\n");
@@ -17799,15 +17802,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 		goto skip_sync;
 	    }
 	}
-	diff = video_clock - audio_clock - VideoAudioDelay;
-	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 32;
-	//diff = (decoder->LastAVDiff + diff) / 2;
-	decoder->LastAVDiff = diff;
 	if (!IsReplay() && ABS(diff/90) > 1000000) goto skip_sync; //static image??? radio plugin
-#ifdef DEBUG
-	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
-	    Debug(3, "video/nvdec: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, atomic_read(&decoder->SurfacesFilled));
-#endif
 	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = NVdecMessage(3, "video: audio/video difference too big\n");
 	}
@@ -20075,15 +20070,17 @@ void CpuGetStats(CpuDecoder * decoder, int *missed, int *duped,
 ///
 static void CpuSyncDecoder(CpuDecoder * decoder)
 {
-    int err;
+    int err, is_av_pts, diff;
     int64_t audio_clock;
     int64_t video_clock;
 
     err = 0;
+    is_av_pts = 0;
+    diff = 0;
     video_clock = CpuGetClock(decoder);
     audio_clock = AudioGetClock();
 
-    if (!decoder->SyncOnAudio  || !SoftIsPlayingVideo) {
+    if (!decoder->SyncOnAudio || !SoftIsPlayingVideo) {
 	audio_clock = AV_NOPTS_VALUE;
 	// FIXME: 60Hz Mode
 	goto skip_sync;
@@ -20107,10 +20104,16 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
         pthread_cond_signal(&AudioStartCond);
     }
 
+    if (audio_clock != (int64_t) AV_NOPTS_VALUE
+	&& video_clock != (int64_t) AV_NOPTS_VALUE) {
+	// both clocks are known
+	is_av_pts = 1;
+	diff = video_clock - audio_clock - VideoAudioDelay;
+    }
+
     // 60Hz: repeat every 5th field
     if (Video60HzMode && !(decoder->FramesDisplayed % 6)) {
-	if (audio_clock == (int64_t) AV_NOPTS_VALUE
-	    || video_clock == (int64_t) AV_NOPTS_VALUE) {
+	if (!is_av_pts) {
 	    goto out;
 	}
 	// both clocks are known
@@ -20132,13 +20135,8 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
     }
     // TrickSpeed
     if (decoder->TrickSpeed) {
-        if (audio_clock != (int64_t) AV_NOPTS_VALUE
-	&& video_clock != (int64_t) AV_NOPTS_VALUE) {
-	    int diff;
-	    diff = video_clock - audio_clock - VideoAudioDelay;
-	    if (diff > 0) {
-		SetAudioSkip(diff);
-	    }
+        if (is_av_pts && diff > 0) {
+	    SetAudioSkip(diff);
 	}
 	if (decoder->TrickCounter--) {
 	    goto out;
@@ -20161,11 +20159,15 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	goto skip_sync;
     }
 
-    if (audio_clock != (int64_t) AV_NOPTS_VALUE
-	&& video_clock != (int64_t) AV_NOPTS_VALUE) {
-	// both clocks are known
-	int diff;
+    if (is_av_pts) {
 	int lower_limit;
+	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 32;
+	//diff = (decoder->LastAVDiff + diff) / 2;
+	decoder->LastAVDiff = diff;
+#ifdef DEBUG
+	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
+	    Debug(3, "video/cpu: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, atomic_read(&decoder->SurfacesFilled));
+#endif
 	if (IsReplay()) {
 	    if((video_clock > audio_clock + VideoAudioDelay + 8000 * 90) && decoder->StartCounter < VideoSoftStartFrames) { // 8s
 		Debug(3,"flush audio\n");
@@ -20180,15 +20182,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 		goto skip_sync;
 	    }
 	}
-	diff = video_clock - audio_clock - VideoAudioDelay;
-	lower_limit = !IsReplay() ? -25 - (VideoResolution == VideoResolution576i ? 40 : 0) : 32;
-	//diff = (decoder->LastAVDiff + diff) / 2;
-	decoder->LastAVDiff = diff;
 	if (!IsReplay() && ABS(diff/90) > 1000000) goto skip_sync; //static image??? radio plugin
-#ifdef DEBUG
-	if (!decoder->SyncCounter && decoder->StartCounter < 1000)
-	    Debug(3, "video/cpu: diff %d %d lim %d fill %d\n", diff, diff/90, lower_limit, atomic_read(&decoder->SurfacesFilled));
-#endif
 	if (abs(diff) > 8000 * 90) {	// more than 8s
 	    err = CpuMessage(3, "video: audio/video difference too big\n");
 	}
