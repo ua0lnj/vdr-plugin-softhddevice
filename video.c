@@ -587,6 +587,7 @@ static char VideoShowBlackPicture;	///< flag show black picture
 static xcb_atom_t WmDeleteWindowAtom;	///< WM delete message atom
 static xcb_atom_t NetWmState;		///< wm-state message atom
 static xcb_atom_t NetWmStateFullscreen;	///< fullscreen wm-state message atom
+static xcb_atom_t NetFrameExtents;	///< window properties message atom
 
 #ifdef DEBUG
 extern uint32_t VideoSwitch;		///< ticks for channel switch
@@ -21173,20 +21174,33 @@ static void VideoEvent(void)
 	    {
 	    //Debug(3, "video/event: ConfigureNotify\n");
 	    //get window position and save it
-	    //x11 creates window with title and child window with video
+	    //x11 creates parent window and child video window with title
 	    xcb_window_t parent = 0;
 	    int x = 0, y = 0;
 	    xcb_query_tree_cookie_t  cookie;
 	    xcb_query_tree_reply_t *reply = NULL;
 	    xcb_get_geometry_cookie_t geocookie;
 	    xcb_get_geometry_reply_t *georeply = NULL;
+	    xcb_get_property_cookie_t procookie;
+	    xcb_get_property_reply_t *proreply = NULL;
 	    //get video window position
 	    geocookie = xcb_get_geometry(Connection, VideoWindow);
 	    georeply = xcb_get_geometry_reply(Connection, geocookie, NULL);
 	    if (georeply) {
 	        x = georeply->x;
-	        y = 8;//georeply->y; //height of window title "softhddevice"
+	        y = georeply->y;
 	        free(georeply);
+	    }
+	    //get video window decoration property
+	    procookie = xcb_get_property(Connection, 0, VideoWindow, NetFrameExtents, XCB_ATOM_CARDINAL, 0, 4);
+	    proreply = xcb_get_property_reply(Connection, procookie, NULL);
+	    if(proreply) {
+	        int len = xcb_get_property_value_length(proreply);
+	        if (len == 16) {
+		    uint32_t* data = xcb_get_property_value(proreply);
+		    y -= data[2];
+		}
+		free(proreply);
 	    }
 	    //get parent window
 	    cookie = xcb_query_tree(Connection, VideoWindow);
@@ -22304,6 +22318,14 @@ static void VideoCreateWindow(xcb_window_t parent, xcb_visualid_t visual,
 		    sizeof("_NET_WM_STATE_FULLSCREEN") - 1,
 		    "_NET_WM_STATE_FULLSCREEN"), NULL))) {
 	NetWmStateFullscreen = reply->atom;
+	free(reply);
+    }
+
+    // prepare to get window properties
+    if ((reply =
+	    xcb_intern_atom_reply(Connection, xcb_intern_atom(Connection, 0,
+		    sizeof("_NET_FRAME_EXTENTS") - 1, "_NET_FRAME_EXTENTS"), NULL))) {
+	NetFrameExtents = reply->atom;
 	free(reply);
     }
 
