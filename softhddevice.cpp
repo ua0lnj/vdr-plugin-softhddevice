@@ -1681,10 +1681,12 @@ void cMenuSetupSoft::Store(void)
     SetupStore("MakePrimary", ConfigMakePrimary = MakePrimary);
     SetupStore("HideMainMenuEntry", ConfigHideMainMenuEntry =
 	HideMainMenuEntry);
-    if (StoreVideoGeometry) {
-	SetupStore("VideoGeometry", ConfigVideoGeometry = VideoGetGeometry());
-    } else
-	SetupStore("VideoGeometry", ConfigVideoGeometry = "");
+    if (!VideoFullscreen) {
+	if (StoreVideoGeometry) {
+	    SetupStore("VideoGeometry", ConfigVideoGeometry = VideoGetGeometry());
+	} else
+	    SetupStore("VideoGeometry", ConfigVideoGeometry = "");
+    }
     SetupStore("DoOnWindowClose", ConfigDoOnWindowClose =
 	DoOnWindowClose);
     SetupStore("DetachFromMainMenu", ConfigDetachFromMainMenu =
@@ -2971,6 +2973,7 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 	if (SuspendMode != SUSPEND_EXTERNAL) {
 	    return false;
 	}
+	VideoSetGeometry(ConfigVideoGeometry);
 	Resume();
         if (play_mode != 0)
             SuspendMode = NOT_SUSPENDED;
@@ -3534,7 +3537,7 @@ bool cPluginSoftHdDevice::Start(void)
 void cPluginSoftHdDevice::Stop(void)
 {
     //Debug(3, "[softhddev]%s:\n", __FUNCTION__);
-    if (ConfigVideoGeometry && strlen(ConfigVideoGeometry))
+    if (!VideoFullscreen && ConfigVideoGeometry && strlen(ConfigVideoGeometry))
         SetupStore("VideoGeometry", VideoGetGeometry());
     ::Stop();
     delete csoft;

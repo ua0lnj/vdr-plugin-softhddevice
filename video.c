@@ -494,6 +494,7 @@ static VideoConfigValues CpuConfigStde =
 
 
 char VideoIgnoreRepeatPict;		///< disable repeat pict warning
+char VideoFullscreen;			///< video window fullscreen state
 
 static const char *VideoDriverName;	///< video output device
 static Display *XlibDisplay;		///< Xlib X11 display
@@ -21218,6 +21219,16 @@ static void VideoEvent(void)
 	            y += georeply->y;
 	            free(georeply);
 	        }
+	    }
+	    //get video window fullscreen state
+	    procookie = xcb_get_property(Connection, 0, VideoWindow, NetWmState, XCB_ATOM_ATOM, 0, sizeof(xcb_atom_t));
+	    proreply = xcb_get_property_reply(Connection, procookie, NULL);
+	    if(proreply) {
+		if(((xcb_atom_t *)xcb_get_property_value(proreply))[0] == NetWmStateFullscreen)
+		    VideoFullscreen = 1;
+		else
+		    VideoFullscreen = 0;
+		free(proreply);
 	    }
 	    VideoSetVideoMode(x, y, event.xconfigure.width, event.xconfigure.height);
 	    break;

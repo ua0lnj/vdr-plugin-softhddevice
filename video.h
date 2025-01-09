@@ -66,6 +66,7 @@ extern enum VideoHardwareDecoderMode VideoHardwareDecoder;	///< flag use hardwar
 extern char VideoIgnoreRepeatPict;	///< disable repeat pict warning
 extern int VideoAudioDelay;		///< audio/video delay
 extern char ConfigStartX11Server;	///< flag start the x11 server
+extern char VideoFullscreen;		///< flag full screen video
 
 //----------------------------------------------------------------------------
 //	Prototypes
