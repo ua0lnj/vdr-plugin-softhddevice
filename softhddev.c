@@ -3844,6 +3844,7 @@ void Suspend(int video, int audio, int dox11)
     if (video) {
 	StopVideo();
 	if (VideoFullscreen) ConfigFullscreen = 1; //store fullscreen before suspend
+	else ConfigFullscreen = 0;
     }
 
     if (dox11) {
