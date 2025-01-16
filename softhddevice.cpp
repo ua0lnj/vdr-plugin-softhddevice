@@ -2973,7 +2973,8 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 	if (SuspendMode != SUSPEND_EXTERNAL) {
 	    return false;
 	}
-	VideoSetGeometry(ConfigVideoGeometry);
+	if (SuspendMode == SUSPEND_EXTERNAL && play_mode == 0)
+	    VideoSetGeometry(ConfigVideoGeometry);
 	Resume();
         if (play_mode != 0)
             SuspendMode = NOT_SUSPENDED;
