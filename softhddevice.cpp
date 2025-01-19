@@ -68,7 +68,7 @@ extern "C"
     /// vdr-plugin version number.
     /// Makefile extracts the version number for generating the file name
     /// for the distribution archive.
-static const char *const VERSION = "2.4.1"
+static const char *const VERSION = "2.4.2"
 #ifdef GIT_REV
     "-GIT" GIT_REV
 #endif
@@ -3187,6 +3187,10 @@ void cSoftHdDevice::GetOsdSize(int &width, int &height, double &pixel_aspect)
 int cSoftHdDevice::PlayAudio(const uchar * data, int length, uchar id)
 {
     //Debug(3, "[softhddev]%s: %p %p %d %d\n", __FUNCTION__, this, data, length, id);
+    if (SoftIsPlayingVideo != cDevice::IsPlayingVideo()) {
+	SoftIsPlayingVideo = cDevice::IsPlayingVideo();
+	Debug(3, "[softhddev]%s: SoftIsPlayingVideo: %d\n", __FUNCTION__, SoftIsPlayingVideo);
+    }
 
     return::PlayAudio(data, length, id);
 }
