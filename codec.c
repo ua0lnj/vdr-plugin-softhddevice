@@ -952,7 +952,8 @@ int CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
 #endif
                                     return -1;
                                 }
-                                decoder->Filt_Frame->pts /=2;
+                                if (decoder->Filt_Frame->pts != AV_NOPTS_VALUE)
+                                    decoder->Filt_Frame->pts /=2;
 #if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(58,7,100)
                                 interlaced = frame->interlaced_frame;
                                 decoder->Filt_Frame->interlaced_frame = 0;
