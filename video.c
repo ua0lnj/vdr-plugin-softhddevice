@@ -7633,7 +7633,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	}
     }
     // StillPicture
-    if (decoder->TrickSpeed == 100) {
+    if (decoder->TrickSpeed >= 100) {
         while(atomic_read(&decoder->SurfacesFilled) > 1) {
           Debug(3, "video: stillpicture: AdvanceDecoderFrame filled: %d\n", atomic_read(&decoder->SurfacesFilled));
           VaapiAdvanceDecoderFrame(decoder);
@@ -12151,7 +12151,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	}
     }
     // StillPicture
-    if (decoder->TrickSpeed == 100) {
+    if (decoder->TrickSpeed >= 100) {
         while(atomic_read(&decoder->SurfacesFilled) > decoder->Interlaced * 2) {
           Debug(3, "video: stillpicture: AdvanceDecoderFrame filled: %d\n", atomic_read(&decoder->SurfacesFilled));
           VdpauAdvanceDecoderFrame(decoder);
@@ -15065,7 +15065,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	}
     }
     // StillPicture
-    if (decoder->TrickSpeed == 100) {
+    if (decoder->TrickSpeed >= 100) {
         while(atomic_read(&decoder->SurfacesFilled) > decoder->Interlaced * 2) {
           Debug(3, "video: stillpicture: AdvanceDecoderFrame filled: %d\n", atomic_read(&decoder->SurfacesFilled));
           CuvidAdvanceDecoderFrame(decoder);
@@ -17758,7 +17758,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	}
     }
     // StillPicture
-    if (decoder->TrickSpeed == 100) {
+    if (decoder->TrickSpeed >= 100) {
         while(atomic_read(&decoder->SurfacesFilled) > decoder->Interlaced * 2) {
           Debug(3, "video: stillpicture: AdvanceDecoderFrame filled: %d\n", atomic_read(&decoder->SurfacesFilled));
           NVdecAdvanceDecoderFrame(decoder);
@@ -20143,7 +20143,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	}
     }
     // StillPicture
-    if (decoder->TrickSpeed == 100) {
+    if (decoder->TrickSpeed >= 100) {
         while(atomic_read(&decoder->SurfacesFilled) > decoder->Interlaced * 2) {
           Debug(3, "video: stillpicture: AdvanceDecoderFrame filled: %d\n", atomic_read(&decoder->SurfacesFilled));
           CpuAdvanceDecoderFrame(decoder);

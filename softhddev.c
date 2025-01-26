@@ -2788,6 +2788,9 @@ int PlayVideo3(VideoStream * stream, const uint8_t * data, int size)
 */
 int PlayVideo(const uint8_t * data, int size)
 {
+    //reset trickspeed after still picture
+    if (MyVideoStream->TrickSpeed > 100) TrickSpeed(0);
+
     return PlayVideo3(MyVideoStream, data, size);
 }
 
@@ -2817,6 +2820,9 @@ int PlayTsVideo(const uint8_t * data, int size)
     if (StreamFreezed) {		// stream freezed
 	return 0;
     }
+    //reset trickspeed after still picture
+    if (MyVideoStream->TrickSpeed > 100) TrickSpeed(0);
+
     if (MyVideoStream->NewStream) {// channel switched
 	Debug(3, "video: new stream %dms\n", GetMsTicks() - VideoSwitch);
 	if (atomic_read(&MyVideoStream->PacketsFilled) >= VIDEO_PACKET_MAX - 1) {
@@ -3147,7 +3153,7 @@ void StillPicture(const uint8_t * data, int size)
     if (MyVideoStream->NewStream) {
         VideoNextPacket(MyVideoStream, AV_CODEC_ID_NONE);	// close last stream
     }
-    VideoSetTrickSpeed(MyVideoStream->HwDecoder, 100);
+    TrickSpeed(100);
     VideoResetPacket(MyVideoStream);
     old_video_hardware_decoder = VideoHardwareDecoder;
     // enable/disable hardware decoder for still picture
@@ -3240,6 +3246,8 @@ void StillPicture(const uint8_t * data, int size)
 	VideoHardwareDecoder = old_video_hardware_decoder;
 	VideoNextPacket(MyVideoStream, AV_CODEC_ID_NONE);	// close last stream
     }
+    //end stillpicture
+    TrickSpeed(101);
 }
 
 /**
