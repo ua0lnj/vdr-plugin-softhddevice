@@ -7638,6 +7638,11 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
           Debug(3, "video: stillpicture: AdvanceDecoderFrame filled: %d\n", atomic_read(&decoder->SurfacesFilled));
           VaapiAdvanceDecoderFrame(decoder);
         }
+        if (EnoughAudio && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE && !AudioPaused) {
+            AudioStarted = 1;
+            AudioRunning = 1;
+            pthread_cond_signal(&AudioStartCond);
+        }
         return;
     }
     // TrickSpeed
@@ -12150,6 +12155,11 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
         while(atomic_read(&decoder->SurfacesFilled) > decoder->Interlaced * 2) {
           Debug(3, "video: stillpicture: AdvanceDecoderFrame filled: %d\n", atomic_read(&decoder->SurfacesFilled));
           VdpauAdvanceDecoderFrame(decoder);
+        }
+        if (EnoughAudio && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE && !AudioPaused) {
+            AudioStarted = 1;
+            AudioRunning = 1;
+            pthread_cond_signal(&AudioStartCond);
         }
         return;
     }
@@ -17753,6 +17763,11 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
           Debug(3, "video: stillpicture: AdvanceDecoderFrame filled: %d\n", atomic_read(&decoder->SurfacesFilled));
           NVdecAdvanceDecoderFrame(decoder);
         }
+        if (EnoughAudio && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE && !AudioPaused) {
+            AudioStarted = 1;
+            AudioRunning = 1;
+            pthread_cond_signal(&AudioStartCond);
+        }
         return;
     }
     // TrickSpeed
@@ -20132,6 +20147,11 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
         while(atomic_read(&decoder->SurfacesFilled) > decoder->Interlaced * 2) {
           Debug(3, "video: stillpicture: AdvanceDecoderFrame filled: %d\n", atomic_read(&decoder->SurfacesFilled));
           CpuAdvanceDecoderFrame(decoder);
+        }
+        if (EnoughAudio && !AudioRunning && audio_clock != (int64_t) AV_NOPTS_VALUE && !AudioPaused) {
+            AudioStarted = 1;
+            AudioRunning = 1;
+            pthread_cond_signal(&AudioStartCond);
         }
         return;
     }
