@@ -2700,8 +2700,8 @@ int64_t AudioGetDelay(void)
 {
     int64_t pts;
 
-    if (!AudioRunning) {
-	//return 0L;			// audio not running
+    if (!AudioRunning && !IsReplay()) {
+	return 0L;			// audio not running
     }
     if (!AudioRing[AudioRingRead].HwSampleRate) {
 	return 0L;			// audio not setup
