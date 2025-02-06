@@ -93,7 +93,7 @@ extern volatile char AudioStarted;
 char ConfigStartX11Server;		///< flag start the x11 server
 static signed char ConfigStartSuspended;	///< flag to start in suspend mode
 static char ConfigFullscreen;		///< fullscreen modus
-extern char VideoFullscreen;		///< fullscreen state
+char VideoFullscreen;			///< fullscreen state
 static const char *X11ServerArguments;	///< default command arguments
 static enum VideoHardwareDecoderMode ConfigStillDecoder;		///< hw/sw decoder for still picture
 

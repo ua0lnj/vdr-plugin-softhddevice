@@ -494,7 +494,6 @@ static VideoConfigValues CpuConfigStde =
 
 
 char VideoIgnoreRepeatPict;		///< disable repeat pict warning
-char VideoFullscreen;			///< video window fullscreen state
 
 static const char *VideoDriverName;	///< video output device
 static Display *XlibDisplay;		///< Xlib X11 display
