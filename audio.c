@@ -1041,25 +1041,33 @@ static snd_pcm_t *AlsaOpenPCM(int passthrough)
 	    passthrough ? "pass-through " : "", device);
     }
     //
-    // for AC3 pass-through try to set the non-audio bit, use AES0=6
+    // for AC3 pass-through try to set the non-audio bit
     //
     if (passthrough && AudioAppendAES) {
-#if 0
-	// FIXME: not yet finished
+
 	char *buf;
 	const char *s;
+	char a[] = ":";
+	char b[] = ",";
+	char c[] = "AES0=6,AES1=130,AES2=0,AES3=2";
 	int n;
 
 	n = strlen(device);
-	buf = alloca(n + sizeof(":AES0=6") + 1);
+	buf = alloca(n + sizeof(c) + 2);
 	strcpy(buf, device);
 	if (!(s = strchr(buf, ':'))) {
 	    // no alsa parameters
-	    strcpy(buf + n, ":AES=6");
+	    strcpy(buf + n, a);
+	} else {
+	    strcpy(buf + n, b);
 	}
+	strcpy(buf + n + 1, c);
+
 	Debug(3, "audio/alsa: try '%s'\n", buf);
-#endif
+	device = buf;
+	Info(_("audio/alsa AES: using pass-through device '%s'\n"), device);
     }
+
     // open none blocking; if device is already used, we don't want wait
     if ((err =
 	    snd_pcm_open(&handle, device, SND_PCM_STREAM_PLAYBACK,
