@@ -222,6 +222,13 @@ typedef enum
 #define FFMPEG_BUG1_WORKAROUND		///< get_format bug workaround
 #endif
 
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(60,26,100)
+#define AV_PROFILE_H264_BASELINE FF_PROFILE_H264_BASELINE
+#define AV_PROFILE_H264_MAIN FF_PROFILE_H264_MAIN
+#define AV_PROFILE_HEVC_MAIN_10 FF_PROFILE_HEVC_MAIN_10
+#define AV_PROFILE_HEVC_MAIN FF_PROFILE_HEVC_MAIN
+#endif
+
 #include "iatomic.h"			// portable atomic_t
 #include "misc.h"
 #include "video.h"
@@ -4917,7 +4924,7 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
 	    decoder->SurfacesNeeded =
 		CODEC_SURFACES_H264 + VIDEO_SURFACES_MAX + 2;
 	    // try more simple formats, fallback to better
-	    if (video_ctx->profile == FF_PROFILE_H264_BASELINE) {
+	    if (video_ctx->profile == AV_PROFILE_H264_BASELINE) {
 #if VA_CHECK_VERSION(1,0,8)
 		p = VaapiFindProfile(profiles, profile_n, VAProfileH264ConstrainedBaseline);
 #else
@@ -4927,7 +4934,7 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
 		    p = VaapiFindProfile(profiles, profile_n,
 			VAProfileH264Main);
 		}
-	    } else if (video_ctx->profile == FF_PROFILE_H264_MAIN) {
+	    } else if (video_ctx->profile == AV_PROFILE_H264_MAIN) {
 		p = VaapiFindProfile(profiles, profile_n, VAProfileH264Main);
 	    }
 	    if (p == -1) {
@@ -4938,14 +4945,14 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
             decoder->SurfacesNeeded =
                CODEC_SURFACES_H264 + VIDEO_SURFACES_MAX + 2;
             // try more simple formats, fallback to better
-            if (video_ctx->profile == FF_PROFILE_HEVC_MAIN_10) {
+            if (video_ctx->profile == AV_PROFILE_HEVC_MAIN_10) {
                p = VaapiFindProfile(profiles, profile_n,
                    VAProfileHEVCMain10);
                if (p == -1) {
                    p = VaapiFindProfile(profiles, profile_n,
                        VAProfileHEVCMain);
                }
-            } else if (video_ctx->profile == FF_PROFILE_HEVC_MAIN) {
+            } else if (video_ctx->profile == AV_PROFILE_HEVC_MAIN) {
                p = VaapiFindProfile(profiles, profile_n, VAProfileHEVCMain);
             }
             if (p == -1) {
@@ -5036,7 +5043,7 @@ static enum AVPixelFormat Vaapi_get_format(VaapiDecoder * decoder,
 	goto slow_path;
     }
     if (!(attrib.value & VA_RT_FORMAT_YUV420_10BPP)
-        && video_ctx->profile == FF_PROFILE_HEVC_MAIN_10) {
+        && video_ctx->profile == AV_PROFILE_HEVC_MAIN_10) {
 	Warning(_("codec: YUV 420 10 bit not supported\n"));
 	goto slow_path;
     }
@@ -10430,7 +10437,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	    // vdpau supports only 16 references
 	    max_refs = 16;
 	    // try more simple formats, fallback to better
-	    if (video_ctx->profile == FF_PROFILE_H264_BASELINE) {
+	    if (video_ctx->profile == AV_PROFILE_H264_BASELINE) {
 		profile =
 		    VdpauCheckProfile(decoder,
 		    VDP_DECODER_PROFILE_H264_BASELINE);
@@ -10444,7 +10451,7 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 			VdpauCheckProfile(decoder,
 			VDP_DECODER_PROFILE_H264_HIGH);
 		}
-	    } else if (video_ctx->profile == FF_PROFILE_H264_MAIN) {
+	    } else if (video_ctx->profile == AV_PROFILE_H264_MAIN) {
 		profile =
 		    VdpauCheckProfile(decoder, VDP_DECODER_PROFILE_H264_MAIN);
 		if (profile == VDP_INVALID_HANDLE) {
@@ -10459,13 +10466,13 @@ static enum AVPixelFormat Vdpau_get_format(VdpauDecoder * decoder,
 	    break;
         case AV_CODEC_ID_HEVC:
             max_refs = 16;
-            if (video_ctx->profile == FF_PROFILE_HEVC_MAIN_10) {
+            if (video_ctx->profile == AV_PROFILE_HEVC_MAIN_10) {
                 Debug(3,"HEVC Profile Main 10 detected\n");
                 profile =
                     VdpauCheckProfile(decoder,
                     VDP_DECODER_PROFILE_HEVC_MAIN_10);
             }
-            else if (video_ctx->profile == FF_PROFILE_HEVC_MAIN) {
+            else if (video_ctx->profile == AV_PROFILE_HEVC_MAIN) {
                 Debug(3,"HEVC Profile Main detected\n");
                 profile =
                     VdpauCheckProfile(decoder,
