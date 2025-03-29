@@ -1028,7 +1028,7 @@ static snd_pcm_t *AlsaOpenPCM(int passthrough)
 {
     const char *device;
     snd_pcm_t *handle;
-    int err;
+    int err = -1;
 
     // &&|| hell
     if (!(passthrough && ((device = AudioPassthroughDevice)
@@ -1064,12 +1064,20 @@ static snd_pcm_t *AlsaOpenPCM(int passthrough)
 	strcpy(buf + n + 1, c);
 
 	Debug(3, "audio/alsa: try '%s'\n", buf);
-	device = buf;
-	Info(_("audio/alsa AES: using pass-through device '%s'\n"), device);
+	
+	// try open none blocking; if device is already used, we don't want wait
+	if ((err =
+	    snd_pcm_open(&handle, (const char*)buf, SND_PCM_STREAM_PLAYBACK,
+		SND_PCM_NONBLOCK)) < 0) {
+	    Error(_("audio/alsa: playback open '%s' error: %s\n"), buf,
+	    snd_strerror(err));
+	    AudioAppendAES = 0;
+	} else
+	    Info(_("audio/alsa AES: using pass-through device '%s'\n"), buf);
     }
 
     // open none blocking; if device is already used, we don't want wait
-    if ((err =
+    if (err < 0 && (err =
 	    snd_pcm_open(&handle, device, SND_PCM_STREAM_PLAYBACK,
 		SND_PCM_NONBLOCK)) < 0) {
 	Error(_("audio/alsa: playback open '%s' error: %s\n"), device,

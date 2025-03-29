@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: VDR \n"
 "Report-Msgid-Bugs-To: <see README>\n"
-"POT-Creation-Date: 2024-05-11 00:38+1000\n"
+"POT-Creation-Date: 2025-03-29 19:36+1000\n"
 "PO-Revision-Date: \n"
 "Last-Translator: fiveten_59\n"
 "Language-Team: fiveten_59\n"
@@ -79,6 +79,10 @@ msgid "audio/alsa: playback open '%s' error: %s\n"
 msgstr ""
 
 #, c-format
+msgid "audio/alsa AES: using pass-through device '%s'\n"
+msgstr ""
+
+#, c-format
 msgid "audio/alsa: can't set block mode: %s\n"
 msgstr ""
 
@@ -104,6 +108,10 @@ msgstr ""
 
 #, c-format
 msgid "audio: snd_pcm_sw_params_get_boundary failed: %s\n"
+msgstr ""
+
+#, c-format
+msgid "audio: snd_pcm_sw_params_set_silence_threshold failed: %s\n"
 msgstr ""
 
 #, c-format
@@ -226,12 +234,6 @@ msgstr ""
 msgid "audio: can't set channels %d sample-rate %dHz\n"
 msgstr ""
 
-msgid "audio: alsa not ready!!!\n"
-msgstr ""
-
-msgid "audio: audio started and underrun, increase AudioBufferTime?!\n"
-msgstr ""
-
 msgid "audio: can't cancel play thread\n"
 msgstr ""
 
@@ -264,7 +266,11 @@ msgid "codec: filter not described, filter disabled\n"
 msgstr ""
 
 #, c-format
-msgid "Cannot create buffer source %s\n"
+msgid "Cannot alloc buffer source %s\n"
+msgstr ""
+
+#, c-format
+msgid "Cannot init buffer source %s\n"
 msgstr ""
 
 msgid "codec: cannot create buffer sink\n"
@@ -685,6 +691,9 @@ msgstr ""
 msgid "  DTS pass-through"
 msgstr ""
 
+msgid "  Enable automatic AES"
+msgstr ""
+
 msgid "Enable multichannel downmix"
 msgstr "Abilita Downmix multicanale"
 
@@ -714,9 +723,6 @@ msgstr "Diminuisci volume stereo (/1000)"
 
 msgid "Audio buffer size (ms)"
 msgstr "Dimensione buffer audio (ms)"
-
-msgid "Enable automatic AES"
-msgstr ""
 
 msgid "Picture-In-Picture"
 msgstr ""
@@ -1462,6 +1468,9 @@ msgid "video/vdpau: pixel format %d not supported\n"
 msgstr ""
 
 msgid "Cannot initialize the conversion context!\n"
+msgstr ""
+
+msgid "No memory for 422->yv12 conversion!\n"
 msgstr ""
 
 #, c-format

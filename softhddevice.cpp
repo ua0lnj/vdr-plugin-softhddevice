@@ -68,7 +68,7 @@ extern "C"
     /// vdr-plugin version number.
     /// Makefile extracts the version number for generating the file name
     /// for the distribution archive.
-static const char *const VERSION = "2.4.4"
+static const char *const VERSION = "2.4.5"
 #ifdef GIT_REV
     "-GIT" GIT_REV
 #endif
@@ -1351,6 +1351,8 @@ void cMenuSetupSoft::Create(void)
 	    }
 	    Add(new cMenuEditBoolItem(tr("\040\040DTS pass-through"),
 		&AudioPassthroughDTS, trVDR("no"), trVDR("yes")));
+	    Add(new cMenuEditBoolItem(tr("\040\040Enable automatic AES"), &AudioAutoAES,
+		trVDR("no"), trVDR("yes")));
 	} else {
 	    Add(new cMenuEditBoolItem(tr("Enable multichannel downmix"),
 		&AudioDownmix, trVDR("no"), trVDR("yes")));
@@ -1369,8 +1371,6 @@ void cMenuSetupSoft::Create(void)
 		&AudioStereoDescent, 0, 1000));
 	Add(new cMenuEditIntItem(tr("Audio buffer size (ms)"),
 		&AudioBufferTime, 0, 1000));
-	Add(new cMenuEditBoolItem(tr("Enable automatic AES"), &AudioAutoAES,
-		trVDR("no"), trVDR("yes")));
     }
 #ifdef USE_PIP
     //
@@ -1436,6 +1436,7 @@ eOSState cMenuSetupSoft::ProcessKey(eKeys key)
     int old_stde;
     int i;
     int old_pass;
+    int old_eac3;
 #ifdef USE_SCREENSAVER
     int old_ssaver;
     old_ssaver = DisableScreensaver;
@@ -1456,6 +1457,7 @@ eOSState cMenuSetupSoft::ProcessKey(eKeys key)
     old_hue = Hue;
     old_stde = Stde;
     old_pass = AudioPassthroughDefault;
+    old_eac3 = AudioPassthroughEAC3;
     state = cMenuSetupPage::ProcessKey(key);
 
     if (key != kNone) {
@@ -1469,6 +1471,7 @@ eOSState cMenuSetupSoft::ProcessKey(eKeys key)
 	    || old_ssaver != DisableScreensaver
 #endif
 	    || old_pass != AudioPassthroughDefault
+	    || old_eac3 != AudioPassthroughEAC3
 	    || old_osd_size != OsdSize) {
 	    Create();			// update menu
 	} else {
