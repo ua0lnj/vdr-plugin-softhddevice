@@ -13221,8 +13221,11 @@ void CuvidCreateGlTexture(CuvidDecoder * decoder, unsigned int size_x, unsigned 
         GlCheck();
     }
     Debug(3,"video/cuvid: create %d Textures Format %s w %d h %d \n",
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(55,41,100)
         decoder->SurfacesNeeded, decoder->PixFmt != AV_PIX_FMT_P010LE && decoder->PixFmt != AV_PIX_FMT_YUV420P10LE ? "NV12/YV12" : "P010", size_x, size_y);
-
+#else
+        decoder->SurfacesNeeded, decoder->PixFmt != AV_PIX_FMT_P010LE && decoder->PixFmt != AV_PIX_FMT_P016LE && decoder->PixFmt != AV_PIX_FMT_YUV420P10LE ? "NV12/YV12" : "P010", size_x, size_y);
+#endif
     for (i = 0; i < decoder->SurfacesNeeded; i++) {
         for (n = 0; n < 2; n++) {   // number of planes
 
@@ -13233,7 +13236,11 @@ void CuvidCreateGlTexture(CuvidDecoder * decoder, unsigned int size_x, unsigned 
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(55,41,100)
             if (decoder->PixFmt != AV_PIX_FMT_P010LE && decoder->PixFmt != AV_PIX_FMT_YUV420P10LE)
+#else
+            if (decoder->PixFmt != AV_PIX_FMT_P010LE && decoder->PixFmt != AV_PIX_FMT_P016LE && decoder->PixFmt != AV_PIX_FMT_YUV420P10LE)
+#endif
                 glTexImage2D(GL_TEXTURE_2D, 0, n == 0 ? GL_R8 : GL_RG8, n == 0 ? size_x : size_x/2, n == 0 ? size_y : size_y/2, 0,
                      n == 0 ? GL_RED : GL_RG, GL_UNSIGNED_BYTE, NULL);
             else
@@ -13242,7 +13249,11 @@ void CuvidCreateGlTexture(CuvidDecoder * decoder, unsigned int size_x, unsigned 
 
             GlCheck();
             // register this texture with CUDA, not need for software decoder YV12
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(55,41,100)
             if (decoder->PixFmt == AV_PIX_FMT_NV12 || decoder->PixFmt == AV_PIX_FMT_P010LE) {
+#else
+            if (decoder->PixFmt == AV_PIX_FMT_NV12 || decoder->PixFmt == AV_PIX_FMT_P010LE || decoder->PixFmt == AV_PIX_FMT_P016LE) {
+#endif
                 ret = CUStatus(cu->cuGraphicsGLRegisterImage(&decoder->cu_res[i][n], decoder->gl_textures[i][n],
                     GL_TEXTURE_2D, CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD));
                 if (ret < 0)
@@ -13304,8 +13315,11 @@ static void CuvidUnregisterSurface(CuvidDecoder * decoder)
     int i,n;
 
     //not need for softdecoder
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(55,41,100)
     if (decoder->PixFmt != AV_PIX_FMT_NV12 && decoder->PixFmt != AV_PIX_FMT_P010LE) return;
-
+#else
+    if (decoder->PixFmt != AV_PIX_FMT_NV12 && decoder->PixFmt != AV_PIX_FMT_P010LE && decoder->PixFmt != AV_PIX_FMT_P016LE) return;
+#endif
     if(GlxEnabled) {
         if(GlxThreadContext){
             glXMakeCurrent(XlibDisplay, VideoWindow, GlxThreadContext);
@@ -13877,6 +13891,9 @@ static enum AVPixelFormat Cuvid_get_format(CuvidDecoder * decoder,
 	// check supported pixel format with entry point
 	switch (*fmt_idx) {
 	    case AV_PIX_FMT_P010LE:
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55,41,100)
+	    case AV_PIX_FMT_P016LE:
+#endif
 	    case AV_PIX_FMT_NV12:
 		break;
 	    default:
@@ -14997,7 +15014,11 @@ void CuvidGetStats(CuvidDecoder * decoder, int *missed, int *duped,
     *duped = decoder->FramesDuped;
     *dropped = decoder->FramesDropped;
     *counter = decoder->FrameCounter;
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(55,41,100)
     *dec = (decoder->PixFmt == AV_PIX_FMT_NV12 || decoder->PixFmt == AV_PIX_FMT_P010LE)
+#else
+    *dec = (decoder->PixFmt == AV_PIX_FMT_NV12 || decoder->PixFmt == AV_PIX_FMT_P010LE || decoder->PixFmt == AV_PIX_FMT_P016LE)
+#endif
         ? HWACCEL_CUVID : HWACCEL_NONE;
 }
 
