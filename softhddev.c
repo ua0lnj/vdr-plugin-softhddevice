@@ -3024,8 +3024,8 @@ void GetVideoSize(int *width, int *height, double *aspect)
 #endif
     int aspect_num;
     int aspect_den;
-
-    if (MyVideoStream->HwDecoder) {
+    //have hw decoder and not suspended, otherwise get 0x0
+    if (MyVideoStream->HwDecoder && !MyVideoStream->SkipStream && !SkipAudio) {
 	VideoGetVideoSize(MyVideoStream->HwDecoder, width, height, &aspect_num,
 	    &aspect_den);
 	*aspect = (double)aspect_num / (double)aspect_den;
@@ -3834,6 +3834,7 @@ void Suspend(int video, int audio, int dox11)
     // Move down into if (video) ...
     MyVideoStream->SkipStream = 1;
     SkipAudio = 1;
+    OsdClose();
 
     if (audio) {
 	AudioExit();
