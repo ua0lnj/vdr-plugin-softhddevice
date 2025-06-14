@@ -1272,13 +1272,6 @@ static int GlxMaxPixmapSize (void)
 static void GlxSetupWindow(xcb_window_t window, int width, int height,
     GLXContext context)
 {
-#ifdef DEBUG
-    uint32_t start;
-    uint32_t end;
-    int i;
-    unsigned count;
-#endif
-
     Debug(3, "video/glx: %s %x %dx%d context:%p", __FUNCTION__, window, width,
 	height, context);
 
@@ -1293,20 +1286,26 @@ static void GlxSetupWindow(xcb_window_t window, int width, int height,
 
 #ifdef DEBUG
     // check if v-sync is working correct
-    end = GetMsTicks();
-    for (i = 0; i < 10; ++i) {
-	start = end;
+    if (GlxGetVideoSyncSGI) {
+	uint32_t start;
+	uint32_t end;
+	int i;
+	unsigned count;
 
-	glClear(GL_COLOR_BUFFER_BIT);
-	glXSwapBuffers(XlibDisplay, window);
 	end = GetMsTicks();
+	for (i = 0; i < 10; ++i) {
+	    start = end;
 
-	if (GlxGetVideoSyncSGI)
+	    glClear(GL_COLOR_BUFFER_BIT);
+	    glXSwapBuffers(XlibDisplay, window);
+	    end = GetMsTicks();
+
 	    GlxGetVideoSyncSGI(&count);
-	Debug(3, "video/glx: %5d frame rate %dms\n", count, end - start);
-	// nvidia can queue 5 swaps
-	if (i > 5 && (end - start) < 15) {
-	    Warning(_("video/glx: no v-sync\n"));
+	    Debug(3, "video/glx: %5d frame rate %dms\n", count, end - start);
+	    // nvidia can queue 5 swaps
+	    if (i > 5 && (end - start) < 15) {
+		Warning(_("video/glx: no v-sync\n"));
+	    }
 	}
     }
 #endif
