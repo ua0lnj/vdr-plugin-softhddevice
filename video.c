@@ -22434,9 +22434,11 @@ static void VideoCreateWindow(xcb_window_t parent, xcb_visualid_t visual,
         Debug(3, "video: crtc = %d | x = %d | y = %d | w = %d | h = %d\n", i, crtc->x, crtc->y, crtc->width, crtc->height);
 
         //set video screen size to crtc size where video window was created
-        if (VideoWindowX > crtc->x && VideoWindowX < crtc->x + crtc->width) {
+        if (VideoWindowX >= crtc->x && VideoWindowX <= crtc->x + crtc->width) {
             VideoScreenWidth = crtc->width;
             VideoScreenHeight = crtc->height;
+            if (VideoWindowWidth > VideoScreenWidth) VideoWindowWidth = crtc->width;
+            if (VideoWindowHeight > VideoScreenHeight) VideoWindowHeight = crtc->height;
         }
         free(crtc);
         free(output);
