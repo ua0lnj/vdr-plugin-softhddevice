@@ -21222,7 +21222,7 @@ static void VideoEvent(void)
 	    //Debug(3, "video/event: ConfigureNotify\n");
 	    //get window position and save it
 	    //x11 creates parent window and child video window with title
-	    xcb_window_t parent = 0;
+	    xcb_window_t parent, window;
 	    int x = 0, y = 0;
 	    xcb_query_tree_cookie_t  cookie;
 	    xcb_query_tree_reply_t *reply = NULL;
@@ -21249,23 +21249,29 @@ static void VideoEvent(void)
 		}
 		free(proreply);
 	    }
-	    //get parent window
-	    cookie = xcb_query_tree(Connection, VideoWindow);
-	    reply = xcb_query_tree_reply(Connection, cookie, 0);
-	    if (reply) {
-	        parent = reply->parent;
-	        free(reply);
-	    }
-	    //get parent window position
-	    if (parent) {
-	        geocookie = xcb_get_geometry(Connection, parent);
-	        georeply = xcb_get_geometry_reply(Connection, geocookie, NULL);
-	        if (georeply) {
-	            x += georeply->x;
-	            y += georeply->y;
-	            free(georeply);
-	        }
-	    }
+	    //KDE have 2 parent window, Gnome have 1 parent window
+	    window = VideoWindow;
+	    do {
+		//get parent window
+		parent = 0;
+		cookie = xcb_query_tree(Connection, window);
+		reply = xcb_query_tree_reply(Connection, cookie, 0);
+		if (reply) {
+		    parent = reply->parent;
+		    free(reply);
+		}
+		//get parent window position
+		if (parent) {
+		    geocookie = xcb_get_geometry(Connection, parent);
+		    georeply = xcb_get_geometry_reply(Connection, geocookie, NULL);
+		    if (georeply) {
+			x += georeply->x;
+			y += georeply->y;
+			free(georeply);
+		    }
+		    window = parent;
+		}
+	    } while (parent);
 	    //get video window fullscreen state
 	    procookie = xcb_get_property(Connection, 0, VideoWindow, NetWmState, XCB_ATOM_ATOM, 0, sizeof(xcb_atom_t));
 	    proreply = xcb_get_property_reply(Connection, procookie, NULL);
