@@ -336,6 +336,7 @@ Commandline:
 	disable-ogl-osd			disable openGL accelerated osd
 
     -D 			start in detached mode
+    -N 			disable softhddevice's remote control
 
 
 SVDRP:

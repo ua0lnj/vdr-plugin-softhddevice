@@ -3518,7 +3518,8 @@ bool cPluginSoftHdDevice::Start(void)
 	}
     }
 
-    csoft = new cSoftRemote;
+    if (!ConfigNoRemote)
+	csoft = new cSoftRemote;
 
     switch (::Start()) {
 	case 1:
