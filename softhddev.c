@@ -92,6 +92,7 @@ extern char ConfigVideoClearOnSwitch;	///< clear decoder on channel switch
 extern volatile char AudioStarted;
 char ConfigStartX11Server;		///< flag start the x11 server
 static signed char ConfigStartSuspended;	///< flag to start in suspend mode
+signed char ConfigNoRemote = 0;		///< flag to disable softhddevice's remote control
 static char ConfigFullscreen;		///< fullscreen modus
 char VideoFullscreen;			///< fullscreen state
 static const char *X11ServerArguments;	///< default command arguments
@@ -3399,7 +3400,8 @@ const char *CommandLineHelp(void)
 	"\tignore-repeat-pict\tdisable repeat pict message\n"
 	"\tuse-possible-defect-frames prefer faster channel switch\n"
 	"\tdisable-ogl-osd disable openGL osd\n"
-	"  -D\t\tstart in detached mode\n";
+	"  -D\t\tstart in detached mode\n"
+	"  -N\t\tdisable softhddevice's remote control\n";
 }
 
 /**
@@ -3423,7 +3425,7 @@ int ProcessArgs(int argc, char *const argv[])
     LogLevel = SysLogLevel; // default is the global log level
 
     for (;;) {
-	switch (getopt(argc, argv, "-a:c:d:fg:l:p:sv:w:xDX:")) {
+	switch (getopt(argc, argv, "-a:c:d:fg:l:p:sv:w:xDNX:")) {
 	    case 'a':			// audio device for pcm
 		AudioSetDevice(optarg);
 		continue;
@@ -3464,6 +3466,9 @@ int ProcessArgs(int argc, char *const argv[])
 		continue;
 	    case 'D':			// start in detached mode
 		ConfigStartSuspended = -1;
+		continue;
+	    case 'N':			// disable softhddevice's remote control
+		ConfigNoRemote = 1;
 		continue;
 	    case 'w':			// workarounds
 		if (!strcasecmp("no-hw-decoder", optarg)) {
