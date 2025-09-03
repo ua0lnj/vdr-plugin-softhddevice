@@ -2962,6 +2962,8 @@ bool cSoftHdDevice::SetPlayMode(ePlayMode play_mode)
 	    cSoftOsdProvider::StopOpenGlThread();
 #endif
 	    Setup.CurrentVolume  = cDevice::CurrentVolume();
+	    if (!VideoFullscreen && ConfigVideoGeometry && strlen(ConfigVideoGeometry))
+	        cPluginManager::GetPlugin(PLUGIN_NAME_I18N)->SetupStore("VideoGeometry", VideoGetGeometry());
 	    Setup.Save();
 	    Suspend(1, 1, 0);
 	    SuspendMode = SUSPEND_EXTERNAL;
