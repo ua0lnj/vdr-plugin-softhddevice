@@ -1642,6 +1642,7 @@ void cOglThread::Action(void) {
             esyslog("[softhddev]: vdpau interop NOT initialized");
             Cleanup();
             startWait->Signal();
+            DisableOglOsd = 1;
             return;
         }
         dsyslog("[softhddev]vdpau interop initialized");
