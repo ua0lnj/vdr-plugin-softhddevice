@@ -3733,6 +3733,7 @@ int Start(void)
 
 	if (!ConfigStartX11Server) {
 	    StartVideo();
+	    VideoDisplayWakeup();
 	}
     } else {
 	MyVideoStream->SkipStream = 1;
