@@ -1,19 +1,20 @@
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# VDR SoftHDDevice plugin language source file.
+# Copyright (C) 2011-2013 by Johns, 2019-2025 ua0lnj
+# This file is distributed under the same license as the vdr-softhddevice package.
+# Tomasz Maciej Nowak <tomek_n@o2.pl>, 2025.
 #
+#, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: VDR \n"
+"Project-Id-Version: vdr-softhddevice 2.4.6\n"
 "Report-Msgid-Bugs-To: <see README>\n"
 "POT-Creation-Date: 2025-12-18 18:02+0100\n"
-"PO-Revision-Date: 2020-07-04 00:33+1000\n"
-"Last-Translator: ua0lnj\n"
-"Language-Team: ua0lnj\n"
-"Language: ru\n"
+"PO-Revision-Date: 2025-12-18 18:30+0100\n"
+"Last-Translator: tomek_n@o2.pl\n"
+"Language-Team: vdr@linuxtv.org\n"
+"Language: pl_PL\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=utf-8\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
 #, c-format
@@ -477,314 +478,314 @@ msgid "[softhddev] ready%s\n"
 msgstr ""
 
 msgid "A software and GPU emulated UHD device"
-msgstr "Программное и аппаратное UHD устройство вывода"
+msgstr "Programowa i sprzętowa emulacja urządzenia UHD"
 
 msgid "SoftHdDevice"
-msgstr "SoftHdDevice"
+msgstr "Obraz"
 
 msgid "[softhddev]: dirty area too big\n"
 msgstr ""
 
 msgid "show"
-msgstr "увидеть"
+msgstr "pokaż"
 
 msgid "hide"
-msgstr "скрыть"
+msgstr "ukryj"
 
 msgid "auto"
-msgstr "авто"
+msgstr "automatyczne"
 
 msgid "custom"
-msgstr "ручной"
+msgstr "własne"
 
 msgid "early audio"
-msgstr ""
+msgstr "wczesny dźwięk"
 
 msgid "early audio + soft sync"
-msgstr ""
+msgstr "wczesny dźwięk + łagodna synchronizacja"
 
 msgid "early sync + fast switch"
-msgstr ""
+msgstr "wczesna synchronizacja + szybkie przełączenie"
 
 msgid "early sync + accurate switch"
-msgstr ""
+msgstr "wczesna synchronizacja + dokładne przełączenie"
 
 msgid "None"
-msgstr "Нет"
+msgstr "Żadne"
 
 msgid "Shutdown VDR"
-msgstr "Выключить VDR"
+msgstr "Wyłącz VDR"
 
 msgid "Suspend SoftHdDevice"
-msgstr "Приостановить SoftHdDevice"
+msgstr "Wstrzymaj wyświetlanie obrazu"
 
 msgid "Detach SoftHdDevice"
-msgstr "Отцепить SoftHdDevice"
+msgstr "Odłącz urządzenie wyświetlające obraz"
 
 msgid "Ignore"
-msgstr "Игнорировать"
+msgstr "Ignoruj"
 
 msgid "Never"
-msgstr "Никогда"
+msgstr "Nigdy"
 
 msgid "At Black Screen"
-msgstr "При чёрном экране"
+msgstr "Przy czarnym ekranie"
 
 msgid "Always"
-msgstr "Всегда"
+msgstr "Zawsze"
 
 msgid "General"
-msgstr "Основное"
+msgstr "Główne"
 
 msgid "Make primary device"
-msgstr "Сделать основным устройством"
+msgstr "Oznacz jako główne urządzenie"
 
 msgid "Hide main menu entry"
-msgstr "Скрыть в основном меню"
+msgstr "Ukryj pozycję w głównym menu"
 
 msgid "Store video geometry"
-msgstr "Сохранить геометрию видео"
+msgstr "Zapisz geometrię obrazu"
 
 msgid "Do on window close"
-msgstr "Cделать при закрытии окна"
+msgstr "Wykonaj przy zamknięciu okna"
 
 msgid "Osd size"
-msgstr "OSD размер"
+msgstr "Rozmiar OSD"
 
 msgid "Osd width"
-msgstr "OSD ширина"
+msgstr "Szerokość OSD"
 
 msgid "Osd height"
-msgstr "OSD высота"
+msgstr "Wysokość OSD"
 
 msgid "GPU mem used for image caching (MB)"
-msgstr "Видео память для кэша изображ. (МБ)"
+msgstr "Pamięć GPU przeznaczona na bufor obrazu (MB)"
 
 msgid "Suspend"
-msgstr "Приостановка"
+msgstr "Wstrzymanie"
 
 msgid "Detach from main menu entry"
-msgstr "Отцепить от основного меню"
+msgstr "  Odłącz w głównym menu"
 
 msgid "Suspend closes video+audio"
-msgstr "Приостановка закроет видео+звук"
+msgstr "  Wstrzymanie zamyka obraz i dźwięk"
 
 msgid "Suspend stops x11"
-msgstr "Приостановка остановит X11"
+msgstr "  Wstrzymanie zatrzymuje X11"
 
 msgid "Video"
-msgstr "Видео"
+msgstr "Obraz"
 
 msgid "Disable Screensaver"
-msgstr "Выкл. хранитель экрана"
+msgstr "Wyłącz wygaszacz ekranu"
 
 msgid "Enable Power management (DPMS)"
-msgstr "Вкл. Управление питанием (DPMS)"
+msgstr "Włącz zarządzanie energią wyświetlacza (DPMS)"
 
 msgid "4:3 video display format"
-msgstr ""
+msgstr "Format wyświetlacza dla proporcji 4:3"
 
 msgid "16:9+other video display format"
-msgstr ""
+msgstr "Format obrazu dla proporcji 16:9 i innych"
 
 msgid "Video background color (RGB)"
-msgstr "Цвет заднего фона видео (RGB)"
+msgstr "Kolor tła obrazu (RGB)"
 
 msgid "Video background color (Alpha)"
-msgstr "Цвет заднего фона видео (Alpha)"
+msgstr "Kolor tła obrazu (Alfa)"
 
 msgid "Use studio levels"
-msgstr "Использовать Studio Levels"
+msgstr "Używaj jakości studyjnej"
 
 msgid "60hz display mode"
-msgstr "60ГЦ экран"
+msgstr "Wyświetlacz 60Hz"
 
 msgid "A/V sync start"
-msgstr "Старт В/З синхр."
+msgstr "Synchronizacja dźwięku/obrazu"
 
 msgid "Black during channel switch"
-msgstr "Тёмный экран при смене канала"
+msgstr "Czarny obraz podczas przełączania kanałów"
 
 msgid "Clear decoder on channel switch"
-msgstr "Сброс декодера при смене канала"
+msgstr "Wyczyść bufor dekodera podczas przełączania kanałów"
 
 #, c-format
 msgid "Brightness (%d..[%d]..%d)"
-msgstr "Яркость (%d..[%d]..%d)"
+msgstr "Jasność (%d..[%d]..%d)"
 
 #, c-format
 msgid "Contrast (%d..[%d]..%d)"
-msgstr "Контраст (%d..[%d]..%d)"
+msgstr "Kontrast (%d..[%d]..%d)"
 
 #, c-format
 msgid "Saturation (%d..[%d]..%d)"
-msgstr "Насыщенность (%d..[%d]..%d)"
+msgstr "Nasycenie (%d..[%d]..%d)"
 
 #, c-format
 msgid "Hue (%d..[%d]..%d)"
-msgstr "Тон (%d..[%d]..%d)"
+msgstr "Odcień (%d..[%d]..%d)"
 
 #, c-format
 msgid "Skin Tone Enhancement (%d..[%d]..%d)"
-msgstr "Расширенный тон скина (%d..[%d]..%d)"
+msgstr "Wzmocnienie koloru skóry (%d..[%d]..%d)"
 
 msgid "Scaling"
-msgstr "Масштабирование"
+msgstr "  Skalowanie"
 
 msgid "Deinterlace"
-msgstr "Устранение черезстр."
+msgstr "  Usuwanie przeplotu"
 
 msgid "SkipChromaDeinterlace"
-msgstr "Пропуск черезстр. цвета"
+msgstr "  Pomiń usunięcie przeplotu z chrominacji"
 
 msgid "Inverse Telecine"
-msgstr "Обратный Телесин"
+msgstr "  Odwróć Telekino"
 
 #, c-format
 msgid "Denoise (%d..[%d]..%d)"
-msgstr "Шумоподавл. (%d..[%d]..%d)"
+msgstr "  Usuwanie zakłóceń (%d..[%d]..%d)"
 
 #, c-format
 msgid "Sharpen (%d..[%d]..%d)"
-msgstr "Чёткость (%d..[%d]..%d)"
+msgstr "  Wyostrzenie (%d..[%d]..%d)"
 
 msgid "Cut top and bottom (pixel)"
-msgstr "Обрезка сверху и снизу (пикс)"
+msgstr "  Utnij górę i dół (piksele)"
 
 msgid "Cut left and right (pixel)"
-msgstr "Обрезка слева и справа (пикс)"
+msgstr "  Utnij lewo i prawo (piksele)"
 
 msgid "First field order (0-2)"
-msgstr "Порядок 1 поля (0-2)"
+msgstr "  Porządek pierwszego pola (0-2)"
 
 msgid "Second field order (0-2)"
-msgstr "Порядок 2 поля (0-2)"
+msgstr "  Porządek drugiego pola (0-2)"
 
 msgid "Auto-crop"
-msgstr "Автообрезка"
+msgstr "Automatyczne przycięcie"
 
 msgid "Autocrop interval (frames)"
-msgstr "Интервал автообрезки (кадров)"
+msgstr "  Interwał przycięcia (klatki)"
 
 msgid "off"
-msgstr "выкл"
+msgstr "wyłaczone"
 
 msgid "Autocrop delay (n * interval)"
-msgstr "Задержка автообрезки (n * интервал)"
+msgstr "  Opóźnienie przycięcia (n * interwał)"
 
 msgid "Autocrop tolerance (pixel)"
-msgstr "Чувствительность автообрезки (пикс)"
+msgstr "  Tolerancja przycięcia (piksele)"
 
 msgid "Audio"
-msgstr "Звук"
+msgstr "Dźwięk"
 
 msgid "Audio/Video delay (ms)"
-msgstr "Звук/Видео задержка (мс)"
+msgstr "Opóźnienie dźwięku/obrazu (ms)"
 
 msgid "Audio drift correction"
-msgstr "Коррекция дрейфа звука"
+msgstr "Korekcja dryftu dźwięku"
 
 msgid "Pass-through default"
-msgstr "Передать напрямую"
+msgstr "Przekazanie dźwięku"
 
 msgid "  PCM pass-through"
-msgstr "  передать PCM"
+msgstr "  PCM"
 
 msgid "  AC-3 pass-through"
-msgstr "  передать AC-3"
+msgstr "  AC-3"
 
 msgid "  E-AC-3 pass-through"
-msgstr "  передать E-AC-3"
+msgstr "  E-AC-3"
 
 msgid "   Enable HBR"
-msgstr "   Вкл. HBR"
+msgstr "    Włącz HBR"
 
 msgid "  DTS pass-through"
-msgstr "  передать DTS"
+msgstr "  DTS"
 
 msgid "  Enable automatic AES"
-msgstr "  Вкл. авто AES"
+msgstr "  Automatyczne AES"
 
 msgid "Enable multichannel downmix"
-msgstr "Вкл. многоканальное смешивание"
+msgstr "Włącz degradację dźwięku wielokanałowego"
 
 msgid "Volume control"
-msgstr "Контроль громкости"
+msgstr "Kontrola głośności"
 
 msgid "Hardware"
-msgstr "Аппарат."
+msgstr "Sprętowo"
 
 msgid "Software"
-msgstr "Прогр."
+msgstr "Programowo"
 
 msgid "Enable normalize volume"
-msgstr "Вкл. нормализацию громкости"
+msgstr "Normalizacja głośności"
 
 msgid "  Max normalize factor (/1000)"
-msgstr "  Макс. норм. фактор (/1000)"
+msgstr "  Maksymalny współczynnik normalizacji (/1000)"
 
 msgid "Enable volume compression"
-msgstr "Вкл. сжатие громкости"
+msgstr "Kompresja głośności"
 
 msgid "  Max compression factor (/1000)"
-msgstr "  Макс. фактор сжития (/1000)"
+msgstr "  Maksymalny współczynnik kompresji (/1000)"
 
 msgid "Reduce stereo volume (/1000)"
-msgstr "Уменьшение стерео громкости (/1000)"
+msgstr "Redukcja głośności stereo (/1000)"
 
 msgid "Audio buffer size (ms)"
-msgstr "Размер буфера звука (мс)"
+msgstr "Rozmiar buforu dźwięku (ms)"
 
 msgid "Picture-In-Picture"
-msgstr "Картинка в картинке (PIP)"
+msgstr "Obraz w obrazie (PIP)"
 
 msgid "Pip X (%)"
-msgstr "PIP X (%)"
+msgstr "Pozycja PIP na osi X (%)"
 
 msgid "Pip Y (%)"
-msgstr "PIP Y (%)"
+msgstr "Pozycja PIP na osi Y (%)"
 
 msgid "Pip Width (%)"
-msgstr "PIP Ширина (%)"
+msgstr "Szerokość PIP (%)"
 
 msgid "Pip Height (%)"
-msgstr "PIP Высота (%)"
+msgstr "Wysokość PIP (%)"
 
 msgid "Video X (%)"
-msgstr "Видео X (%)"
+msgstr "Pozycja głównego obrazu na osi X (%)"
 
 msgid "Video Y (%)"
-msgstr "Видео Y (%)"
+msgstr "Pozycja głównego obrazu na osi Y (%)"
 
 msgid "Video Width (%)"
-msgstr "Видео Ширина (%)"
+msgstr "Szerokość głównego obrazu (%)"
 
 msgid "Video Height (%)"
-msgstr "Видео Высота (%)"
+msgstr "Wysokość głównego obrazu (%)"
 
 msgid "Alternative Pip X (%)"
-msgstr "Другой PIP X (%)"
+msgstr "Alternatywna pozycja PIP na osi X (%)"
 
 msgid "Alternative Pip Y (%)"
-msgstr "Другой Pip Y (%)"
+msgstr "Alternatywna pozycja PIP na osi Y (%)"
 
 msgid "Alternative Pip Width (%)"
-msgstr "Другой PIP Ширина (%)"
+msgstr "Alternatywna szerokość PIP (%)"
 
 msgid "Alternative Pip Height (%)"
-msgstr "Другой PIP Высота (%)"
+msgstr "Alternatywna wysokość PIP (%)"
 
 msgid "Alternative Video X (%)"
-msgstr "Другое Видео X (%)"
+msgstr "Alternatywna pozycja głównego obrazu na osi X (%)"
 
 msgid "Alternative Video Y (%)"
-msgstr "Другое Видео Y (%)"
+msgstr "Alternatywna pozycja głównego obrazu na osi Y (%)"
 
 msgid "Alternative Video Width (%)"
-msgstr "Другое Видео Ширина (%)"
+msgstr "Alternatywna szerokość głównego obrazu (%)"
 
 msgid "Alternative Video Height (%)"
-msgstr "Другое Видео Высота (%)"
+msgstr "Alternatywna wysokość głównego obrazu (%)"
 
 #, c-format
 msgid "[softhddev]pip: invalid PES packet %d\n"
@@ -797,45 +798,45 @@ msgid "[softhddev]tsdemux: transport stream out of sync\n"
 msgstr ""
 
 msgid "Channel not available!"
-msgstr "Канал не доступен!"
+msgstr ""
 
 msgid "PIP toggle on/off: off"
-msgstr "PIP выключить"
+msgstr "PIP wyłączone"
 
 msgid "PIP toggle on/off: on"
-msgstr "PIP включить"
+msgstr "PIP wyłączone"
 
 msgid "PIP zapmode (not working)"
-msgstr "PIP захват (не работает)"
+msgstr "PIP tryb zap (nie działa)"
 
 msgid "PIP channel +"
-msgstr "PIP канал +"
+msgstr "PIP kanał +"
 
 msgid "PIP channel -"
-msgstr "PIP канал -"
+msgstr "PIP kanał -"
 
 msgid "PIP on/swap channels: swap"
-msgstr "PIP вкл/обмен каналов: обмен"
+msgstr "PIP zamiana pozycji: włączona"
 
 msgid "PIP on/swap channels: on"
-msgstr "PIP вкл/обмен каналов: вкл"
+msgstr "PIP zamiana pozycji: wyłączona"
 
 msgid "PIP swap position: normal"
-msgstr "PIP положение обмена: нормальное"
+msgstr "PIP zamiana pozycji: pozycja domyślna"
 
 msgid "PIP swap position: alternative"
-msgstr "PIP положение обмена: другое"
+msgstr "PIP zamiana pozycji: pozycja alternatywna"
 
 msgid "PIP close"
-msgstr "PIP закрыть"
+msgstr "PIP zamknięcie"
 
 #, c-format
 msgid " Video Decoder: %s  OSD: %s"
-msgstr "Видео Декодер: %s ОСД: %s"
+msgstr " Dekoder obrazu: %s  OSD: %s"
 
 #, c-format
 msgid " Frames missed(%d) duped(%d) dropped(%d) total(%d)"
-msgstr " Кадров потяряно(%d) дублировано(%d) отброшено(%d) всего(%d)"
+msgstr " Klatki: pominięte(%d) duplikaty(%d) porzucone(%d) wszystkie(%d)"
 
 msgid "pass-through disabled"
 msgstr ""

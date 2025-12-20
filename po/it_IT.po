@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: VDR \n"
 "Report-Msgid-Bugs-To: <see README>\n"
-"POT-Creation-Date: 2025-03-29 19:36+1000\n"
+"POT-Creation-Date: 2025-12-18 18:02+0100\n"
 "PO-Revision-Date: \n"
 "Last-Translator: fiveten_59\n"
 "Language-Team: fiveten_59\n"
@@ -574,6 +574,12 @@ msgid "Disable Screensaver"
 msgstr ""
 
 msgid "Enable Power management (DPMS)"
+msgstr ""
+
+msgid "4:3 video display format"
+msgstr ""
+
+msgid "16:9+other video display format"
 msgstr ""
 
 msgid "Video background color (RGB)"

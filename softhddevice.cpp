@@ -1230,9 +1230,9 @@ void cMenuSetupSoft::Create(void)
 		cMenuEditStraItem(tr("Enable Power management (DPMS)"),
 		    &EnableDPMS, 3, enable_dpms));
 #endif
-	Add(new cMenuEditStraItem(trVDR("4:3 video display format"),
+	Add(new cMenuEditStraItem(tr("4:3 video display format"),
 		&Video4to3DisplayFormat, 3, video_display_formats_4_3));
-	Add(new cMenuEditStraItem(trVDR("16:9+other video display format"),
+	Add(new cMenuEditStraItem(tr("16:9+other video display format"),
 		&VideoOtherDisplayFormat, 3, video_display_formats_16_9));
 
 	// FIXME: switch config gray/color configuration
