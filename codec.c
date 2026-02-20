@@ -893,13 +893,14 @@ int CodecVideoDecode(VideoDecoder * decoder, const AVPacket * avpkt)
             if (pkt->size) {
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57,37,100)
                 used = avcodec_send_packet(video_ctx, pkt);
+                if (used == AVERROR_INVALIDDATA) return -1;
                 if (used < 0 && used != AVERROR(EAGAIN)&& used != AVERROR_EOF)
-                    return -1;
+                    return 0;
 
                 while(!used) { //multiple frames
                     used = avcodec_receive_frame(video_ctx, frame);
                     if (used < 0 && used != AVERROR(EAGAIN) && used != AVERROR_EOF)
-                        return -1;
+                        return 0;
                     if (used>=0)
                         got_frame = 1;
                     else got_frame = 0;

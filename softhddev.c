@@ -1265,12 +1265,10 @@ int VideoDecodeInput(VideoStream * stream)
     pthread_mutex_lock(&stream->DecoderLockMutex);
     if (stream->Decoder) {
 	if (CodecVideoDecode(stream->Decoder, avpkt) < 0) {
-#ifdef NVDEC_BUG_WORKAROUND
 	    pthread_mutex_unlock(&stream->DecoderLockMutex);
 	    stream->LastCodecID = AV_CODEC_ID_NONE;
 	    CodecVideoClose(stream->Decoder);
 	    goto skip;
-#endif
 	}
     }
     pthread_mutex_unlock(&stream->DecoderLockMutex);
