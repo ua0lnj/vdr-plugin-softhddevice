@@ -2613,7 +2613,7 @@ static void HandleHotkey(int code)
 	    if (SuspendMode != SUSPEND_NORMAL) {
 		break;
 	    }
-	    if (ShutdownHandler.GetUserInactiveTime()) {
+	    if (ShutdownHandler.GetUserInactiveTime() > 1) {
 		ShutdownHandler.SetUserInactiveTimeout();
 	    }
 	    if (cSoftHdControl::Player) {	// suspended
@@ -2749,7 +2749,7 @@ eOSState cSoftHdMenu::ProcessKey(eKeys key)
 			ConfigSuspendX11);
 		    SuspendMode = SUSPEND_NORMAL;
 		}
-		if (ShutdownHandler.GetUserInactiveTime()) {
+		if (ShutdownHandler.GetUserInactiveTime() > 1) {
 		    Debug(3, "[softhddev]%s: set user inactive\n",
 			__FUNCTION__);
 		    ShutdownHandler.SetUserInactive();
@@ -4190,7 +4190,7 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command,
 	if (SuspendMode != SUSPEND_NORMAL) {
 	    return "can't resume SoftHdDevice";
 	}
-	if (ShutdownHandler.GetUserInactiveTime()) {
+	if (ShutdownHandler.GetUserInactiveTime() > 1) {
 	    ShutdownHandler.SetUserInactiveTimeout();
 	}
 	if (cSoftHdControl::Player) {	// suspended
@@ -4276,7 +4276,7 @@ cString cPluginSoftHdDevice::SVDRPCommand(const char *command,
 	    }
 	}
 	free(tmp);
-	if (ShutdownHandler.GetUserInactiveTime()) {
+	if (ShutdownHandler.GetUserInactiveTime() > 1) {
 	    ShutdownHandler.SetUserInactiveTimeout();
 	}
 	if (cSoftHdControl::Player) {	// suspended
