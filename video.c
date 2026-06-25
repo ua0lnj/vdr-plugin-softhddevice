@@ -1588,6 +1588,7 @@ static EGLContext EglContext;           ///< our gl context
 static EGLConfig EglConfig;
 static EGLDisplay EglDisplay;
 static EGLSurface EglSurface;
+static int EglUseModifier;
 #ifdef USE_VIDEO_THREAD
 static EGLContext EglThreadContext;     ///< our gl context for the thread
 #endif
@@ -1945,6 +1946,8 @@ static void EglInit(void)
     Debug(3,"video/egl: egl vendor: %s", eglQueryString(EglDisplay, EGL_VENDOR));
     Debug(3,"video/egl: egl extensions: %s", eglQueryString(EglDisplay, EGL_EXTENSIONS));
     Debug(3,"video/egl: egl apis: %s", eglQueryString(EglDisplay, EGL_CLIENT_APIS));
+
+    EglUseModifier = strstr(eglQueryString(EglDisplay, EGL_EXTENSIONS),"EGL_EXT_image_dma_buf_import_modifiers") ? 1 : 0;
 
     eglChooseConfig(EglDisplay, visual_attr, &config, 1, &numConfig);
     EglCheck();
@@ -5371,6 +5374,7 @@ static void VaapiPutSurfaceEGL(VaapiDecoder * decoder, VASurfaceID surface,
 
 #if VA_CHECK_VERSION(1,1,0)
     // convert the frame into a pair of DRM-PRIME FDs
+    EGLint img_attr[17];
 
     if (vaExportSurfaceHandle(decoder->VaDisplay, surface, VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2,
             VA_EXPORT_SURFACE_READ_ONLY | VA_EXPORT_SURFACE_SEPARATE_LAYERS,
@@ -5382,15 +5386,22 @@ static void VaapiPutSurfaceEGL(VaapiDecoder * decoder, VASurfaceID surface,
     vaSyncSurface(decoder->VaDisplay, surface);
 
     for (int i = 0;  i < 2;  ++i) {
-        EGLint img_attr[] = {
-            EGL_LINUX_DRM_FOURCC_EXT,      prime.layers[i].drm_format,
-            EGL_WIDTH,                     decoder->InputWidth  / (i + 1),  // half size
-            EGL_HEIGHT,                    decoder->InputHeight / (i + 1),  // for chroma
-            EGL_DMA_BUF_PLANE0_FD_EXT,     prime.objects[prime.layers[i].object_index[0]].fd,
-            EGL_DMA_BUF_PLANE0_OFFSET_EXT, prime.layers[i].offset[0],
-            EGL_DMA_BUF_PLANE0_PITCH_EXT,  prime.layers[i].pitch[0],
-            EGL_NONE
-        };
+        img_attr[0] = EGL_LINUX_DRM_FOURCC_EXT;			img_attr[1] = prime.layers[i].drm_format;
+        img_attr[2] = EGL_WIDTH;				img_attr[3] = decoder->InputWidth  / (i + 1);  // half size
+        img_attr[4] = EGL_HEIGHT;				img_attr[5] = decoder->InputHeight / (i + 1);  // for chroma
+        img_attr[6] = EGL_DMA_BUF_PLANE0_FD_EXT;		img_attr[7] = prime.objects[prime.layers[i].object_index[0]].fd;
+        img_attr[8] = EGL_DMA_BUF_PLANE0_OFFSET_EXT;		img_attr[9] = prime.layers[i].offset[0];
+        img_attr[10] = EGL_DMA_BUF_PLANE0_PITCH_EXT;		img_attr[11] = prime.layers[i].pitch[0];
+#if defined EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT && defined EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT
+      if (EglUseModifier) {
+        img_attr[12] = EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT;	img_attr[13] = (uint32_t) ((prime.objects[prime.layers[i].object_index[0]].drm_format_modifier) & 0xFFFFFFFFlu);
+        img_attr[14] = EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT;	img_attr[15] = (uint32_t) (((prime.objects[prime.layers[i].object_index[0]].drm_format_modifier) >> 32u) & 0xFFFFFFFFlu);
+        img_attr[16] = EGL_NONE;
+      } else {
+#endif
+        img_attr[12] = EGL_NONE;
+      }
+
         decoder->EglImages[i] = EglCreateImageKHR(EglDisplay, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, NULL, img_attr);
         EglCheck();
         if (decoder->EglImages[i]) {
