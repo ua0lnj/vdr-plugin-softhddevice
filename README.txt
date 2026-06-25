@@ -463,3 +463,12 @@ Note:
 	For old Nvidia video use vdpau and vdpau-glx.
 	For newest Nvidia video use cuvid or nvdec.
 	For all system with openGL you can use cpu-glx or cpu-egl.
+
+	Xorg + Wayland
+	To control the VDR, you can use a mouse with two buttons and a scroll wheel as a third button.
+	Double-click the left button to change the size to full screen and back.
+	Right click brings up the menu.
+	Right-clicking again while the menu is active acts as a back exit.
+	Scrolling the wheel without a menu changes the volume.
+	Scrolling the wheel with the menu active moves through the menu.
+	Pressing the wheel acts as an OK button.

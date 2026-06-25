@@ -68,7 +68,7 @@ extern "C"
     /// vdr-plugin version number.
     /// Makefile extracts the version number for generating the file name
     /// for the distribution archive.
-static const char *const VERSION = "2.4.8"
+static const char *const VERSION = "2.5.0"
 #ifdef GIT_REV
     "-GIT" GIT_REV
 #endif
@@ -208,6 +208,7 @@ static volatile int DoMakePrimary;	///< switch primary device to this
 static signed char SuspendMode;		///< suspend mode
 volatile char SoftIsPlayingVideo;       ///< stream contains video data
 static bool UseOpenGl = 0;
+volatile char ShownMenu;
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -461,6 +462,7 @@ cSoftOsd::~cSoftOsd(void)
 
     SetActive(false);
     // done by SetActive: OsdClose();
+    ShownMenu = 0;
 
 #ifdef USE_YAEPG
     // support yaepghd, video window
@@ -1984,7 +1986,7 @@ cSoftHdControl::~cSoftHdControl()
 
 extern "C" void DelPip(void);		///< remove PIP
 static int PipAltPosition;		///< flag alternative position
-
+extern "C" void SwapPipChannels(void);
 //////////////////////////////////////////////////////////////////////////////
 //	cReceiver
 //////////////////////////////////////////////////////////////////////////////
@@ -2321,7 +2323,7 @@ static void PipNextAvailableChannel(int direction)
 /**
 **	Swap PIP channels.
 */
-static void SwapPipChannels(void)
+extern "C" void SwapPipChannels(void)
 {
     const cChannel *channel;
 
@@ -3586,6 +3588,8 @@ const char *cPluginSoftHdDevice::MainMenuEntry(void)
 {
     //Debug(3, "[softhddev]%s:\n", __FUNCTION__);
 
+    if (SuspendMode == NOT_SUSPENDED)
+	ShownMenu = 1;
     return ConfigHideMainMenuEntry ? NULL : tr(MAINMENUENTRY);
 }
 

@@ -513,13 +513,18 @@ static xcb_pixmap_t VideoCursorPixmap;	///< blank curosr pixmap
 static xcb_cursor_t VideoBlankCursor;	///< empty invisible cursor
 
 static int VideoWindowX;		///< video output window x coordinate
-static int VideoWindowY;		///< video outout window y coordinate
+static int VideoWindowY;		///< video output window y coordinate
 static unsigned VideoWindowWidth;	///< video output window width
 static unsigned VideoWindowHeight;	///< video output window height
 static unsigned VideoScreenWidth;	///< video screen width
 static unsigned VideoScreenHeight;	///< video screen height
 static char VideoGeometry[25];
-
+#ifdef USE_PIP
+static int VideoPipWindowX;		///< video pip output window x coordinate
+static int VideoPipWindowY;		///< video pip output window y coordinate
+static unsigned VideoPipWindowWidth;	///< video pip output window width
+static unsigned VideoPipWindowHeight;	///< video pip output window height
+#endif
 static const VideoModule NoopModule;	///< forward definition of noop module
 
     /// selected video module
@@ -653,6 +658,7 @@ static int VideoStartThreshold_SD = 16;
 static int VideoStartThreshold_HD = 38;
 void AudioDelayms(int);
 extern volatile char SoftIsPlayingVideo;        ///< stream contains video data
+extern volatile char ShownMenu;			///< shown osd menu
 volatile char PlayRingbuffer = 1;
 extern volatile char AudioPaused;
 //----------------------------------------------------------------------------
@@ -3695,6 +3701,14 @@ static void VaapiUpdateOutput(VaapiDecoder * decoder)
 #ifdef USE_AUTOCROP
     decoder->AutoCrop->State = 0;
     decoder->AutoCrop->Count = AutoCropDelay;
+#endif
+#ifdef USE_PIP
+    if (decoder == VaapiDecoders[1]) {   // Pip
+	VideoPipWindowX = decoder->OutputX;
+	VideoPipWindowY = decoder->OutputY;
+	VideoPipWindowWidth = decoder->OutputWidth;
+	VideoPipWindowHeight = decoder->OutputHeight;
+    }
 #endif
 }
 
@@ -10083,6 +10097,14 @@ static void VdpauUpdateOutput(VdpauDecoder * decoder)
     decoder->AutoCrop->State = 0;
     decoder->AutoCrop->Count = AutoCropDelay;
 #endif
+#ifdef USE_PIP
+    if (decoder == VdpauDecoders[1]) {   // Pip
+	VideoPipWindowX = decoder->OutputX;
+	VideoPipWindowY = decoder->OutputY;
+	VideoPipWindowWidth = decoder->OutputWidth;
+	VideoPipWindowHeight = decoder->OutputHeight;
+    }
+#endif
 }
 
 ///
@@ -13816,6 +13838,14 @@ static void CuvidUpdateOutput(CuvidDecoder * decoder)
     decoder->AutoCrop->State = 0;
     decoder->AutoCrop->Count = AutoCropDelay;
 #endif
+#ifdef USE_PIP
+    if (decoder == CuvidDecoders[1]) {   // Pip
+	VideoPipWindowX = decoder->OutputX;
+	VideoPipWindowY = decoder->OutputY;
+	VideoPipWindowWidth = decoder->OutputWidth;
+	VideoPipWindowHeight = decoder->OutputHeight;
+    }
+#endif
 }
 
 ///
@@ -16422,6 +16452,14 @@ static void NVdecUpdateOutput(NVdecDecoder * decoder)
     decoder->AutoCrop->State = 0;
     decoder->AutoCrop->Count = AutoCropDelay;
 #endif
+#ifdef USE_PIP
+    if (decoder == NVdecDecoders[1]) {   // Pip
+	VideoPipWindowX = decoder->OutputX;
+	VideoPipWindowY = decoder->OutputY;
+	VideoPipWindowWidth = decoder->OutputWidth;
+	VideoPipWindowHeight = decoder->OutputHeight;
+    }
+#endif
 }
 
 ///
@@ -18992,6 +19030,14 @@ static void CpuUpdateOutput(CpuDecoder * decoder)
     decoder->AutoCrop->State = 0;
     decoder->AutoCrop->Count = AutoCropDelay;
 #endif
+#ifdef USE_PIP
+    if (decoder == CpuDecoders[1]) {   // Pip
+	VideoPipWindowX = decoder->OutputX;
+	VideoPipWindowY = decoder->OutputY;
+	VideoPipWindowWidth = decoder->OutputWidth;
+	VideoPipWindowHeight = decoder->OutputHeight;
+    }
+#endif
 }
 
 ///
@@ -21156,7 +21202,9 @@ int VideoMaxPixmapSize (void)
 
 /// C callback feed key press
 extern void FeedKeyPress(const char *, const char *, int, int, const char *);
-
+#ifdef USE_PIP
+extern void SwapPipChannels(void);
+#endif
 extern uint8_t *GrabExtService(int *, int *, int *);
 
 ///
@@ -21205,6 +21253,7 @@ static void VideoEvent(void)
     int letter_len;
     uint32_t values[1];
     static Time clicktime;
+    static int xmouse, ymouse;
 
     VideoThreadLock();
     XNextEvent(XlibDisplay, &event);
@@ -21307,21 +21356,37 @@ static void VideoEvent(void)
 	case ButtonPress:
 	    if (event.xbutton.button == 1) {
 		Time difftime = event.xbutton.time - clicktime;
-		if (difftime < 500)
-		    VideoSetFullscreen(-1);
+		if (difftime < 500) {
+#ifdef USE_PIP
+		    if (xmouse > VideoPipWindowX && xmouse < (VideoPipWindowX + (int)VideoPipWindowWidth)
+			&& ymouse > VideoPipWindowY && ymouse < (VideoPipWindowY + (int)VideoPipWindowHeight)) {
+			SwapPipChannels();
+		    } else
+#endif
+		        VideoSetFullscreen(-1);
+		}
 		clicktime = event.xbutton.time;
 	    }
 	    else if (event.xbutton.button == 2) {
 		FeedKeyPress("XKeySym", "Ok", 0, 0, NULL);
 	    }
 	    else if (event.xbutton.button == 3) {
-		FeedKeyPress("XKeySym", "Menu", 0, 0, NULL);
+		if (ShownMenu)
+		    FeedKeyPress("XKeySym", "Back", 0, 0, NULL);
+		else
+		    FeedKeyPress("XKeySym", "Menu", 0, 0, NULL);
 	    }
 	    if (event.xbutton.button == 4) {
-		FeedKeyPress("XKeySym", "Volume+", 0, 0, NULL);
+		if (ShownMenu)
+		    FeedKeyPress("XKeySym", "Up", 0, 0, NULL);
+		else
+		    FeedKeyPress("XKeySym", "Volume+", 0, 0, NULL);
 	    }
 	    if (event.xbutton.button == 5) {
-		FeedKeyPress("XKeySym", "Volume-", 0, 0, NULL);
+		if (ShownMenu)
+		    FeedKeyPress("XKeySym", "Down", 0, 0, NULL);
+		else
+		    FeedKeyPress("XKeySym", "Volume-", 0, 0, NULL);
 	    }
 	    break;
 	case ButtonRelease:
@@ -21366,6 +21431,8 @@ static void VideoEvent(void)
 	    VideoThreadLock();
 	    xcb_change_window_attributes(Connection, VideoWindow,
 		XCB_CW_CURSOR, values);
+	    xmouse = event.xmotion.x;
+	    ymouse = event.xmotion.y;
 	    VideoThreadUnlock();
 	    VideoBlankTick = GetMsTicks();
 	    break;
@@ -21656,6 +21723,13 @@ void VideoDelHwDecoder(VideoHwDecoder * hw_decoder)
 	VideoUsedModule->DelHwDecoder(hw_decoder);
 	//VideoThreadUnlock();
     }
+#ifdef USE_PIP
+    // reset pip window
+    VideoPipWindowX = 0;
+    VideoPipWindowY = 0;
+    VideoPipWindowWidth = 0;
+    VideoPipWindowHeight = 0;
+#endif
 }
 
 ///
