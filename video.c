@@ -7732,6 +7732,7 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    }
 
 	    decoder->SyncCounter = 2;
+	    goto out;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 2 && !IsReplay()) { // if double advance video not possible, delay audio
 #ifdef USE_ALSA
 	    if (PlayRingbuffer == 1) {
@@ -12249,6 +12250,7 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 		VdpauAdvanceDecoderFrame(decoder);
 	    }
 	    decoder->SyncCounter = 2;
+	    goto out;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { //if double advance video not possible, delay audio
 #ifdef USE_ALSA
 	    if (PlayRingbuffer == 1) {
@@ -15179,6 +15181,7 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 		CuvidAdvanceDecoderFrame(decoder);
 	    }
 	    decoder->SyncCounter = 2;
+	    goto out;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { //if double advance video not possible, delay audio
 #ifdef USE_ALSA
 	    if (PlayRingbuffer == 1) {
@@ -17877,6 +17880,7 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 		NVdecAdvanceDecoderFrame(decoder);
 	    }
 	    decoder->SyncCounter = 2;
+	    goto out;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { // if double advance video not possible, delay audio
 #ifdef USE_ALSA
 	    if (PlayRingbuffer == 1) {
@@ -20262,6 +20266,7 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 		CpuAdvanceDecoderFrame(decoder);
 	    }
 	    decoder->SyncCounter = 2;
+	    goto out;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { // if double advance video not possible, delay audio
 #ifdef USE_ALSA
 	    if (PlayRingbuffer == 1) {
