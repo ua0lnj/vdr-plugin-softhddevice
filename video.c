@@ -7749,15 +7749,6 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
 	    goto out;
-	} else if (diff < lower_limit * 90) {
-	    while (atomic_read(&decoder->SurfacesFilled) > 2) { // double advance possible?
-		err = VaapiMessage(3, "video: speed up video, droping frame\n");
-		++decoder->FramesDropped;
-		VaapiAdvanceDecoderFrame(decoder);
-	    }
-
-	    decoder->SyncCounter = 2;
-	    goto out;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 2 && !IsReplay()) { // if double advance video not possible, delay audio
 #ifdef USE_ALSA
 	    if (PlayRingbuffer == 1) {
@@ -7768,6 +7759,15 @@ static void VaapiSyncDecoder(VaapiDecoder * decoder)
 	    err = VaapiMessage(3, "video: slow down audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 #endif
+	} else if (diff < lower_limit * 90) {
+	    while (atomic_read(&decoder->SurfacesFilled) > 2) { // double advance possible?
+		err = VaapiMessage(3, "video: speed up video, droping frame\n");
+		++decoder->FramesDropped;
+		VaapiAdvanceDecoderFrame(decoder);
+	    }
+
+	    decoder->SyncCounter = 2;
+	    goto out;
 	}
 #if defined(DEBUG) || defined(AV_INFO)
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
@@ -12276,14 +12276,6 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
 	    goto out;
-	} else if (diff < lower_limit * 90) {
-	    while (atomic_read(&decoder->SurfacesFilled) > 1 + decoder->Interlaced) { // double advance possible?
-		err = VdpauMessage(3, "video: speed up video, droping frame\n");
-		++decoder->FramesDropped;
-		VdpauAdvanceDecoderFrame(decoder);
-	    }
-	    decoder->SyncCounter = 2;
-	    goto out;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { //if double advance video not possible, delay audio
 #ifdef USE_ALSA
 	    if (PlayRingbuffer == 1) {
@@ -12294,6 +12286,14 @@ static void VdpauSyncDecoder(VdpauDecoder * decoder)
 	    err = VdpauMessage(3, "video: slow down audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 #endif
+	} else if (diff < lower_limit * 90) {
+	    while (atomic_read(&decoder->SurfacesFilled) > 1 + decoder->Interlaced) { // double advance possible?
+		err = VdpauMessage(3, "video: speed up video, droping frame\n");
+		++decoder->FramesDropped;
+		VdpauAdvanceDecoderFrame(decoder);
+	    }
+	    decoder->SyncCounter = 2;
+	    goto out;
 	}
 #if defined(DEBUG) || defined(AV_INFO)
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
@@ -15215,14 +15215,6 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
 	    goto out;
-	} else if (diff < lower_limit * 90) {
-	    while (atomic_read(&decoder->SurfacesFilled) > 1 + decoder->Interlaced) { // double advance possible?
-		err = CuvidMessage(3, "video: speed up video, droping frame\n");
-		++decoder->FramesDropped;
-		CuvidAdvanceDecoderFrame(decoder);
-	    }
-	    decoder->SyncCounter = 2;
-	    goto out;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { //if double advance video not possible, delay audio
 #ifdef USE_ALSA
 	    if (PlayRingbuffer == 1) {
@@ -15233,6 +15225,14 @@ static void CuvidSyncDecoder(CuvidDecoder * decoder)
 	    err = CuvidMessage(3, "video: slow down audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 #endif
+	} else if (diff < lower_limit * 90) {
+	    while (atomic_read(&decoder->SurfacesFilled) > 1 + decoder->Interlaced) { // double advance possible?
+		err = CuvidMessage(3, "video: speed up video, droping frame\n");
+		++decoder->FramesDropped;
+		CuvidAdvanceDecoderFrame(decoder);
+	    }
+	    decoder->SyncCounter = 2;
+	    goto out;
 	}
 #if defined(DEBUG) || defined(AV_INFO)
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
@@ -17922,14 +17922,6 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
 	    goto out;
-	} else if (diff < lower_limit * 90) {
-	    while (atomic_read(&decoder->SurfacesFilled) > 1 + decoder->Interlaced) { // double advance possible?
-		err = NVdecMessage(3, "video: speed up video, droping frame\n");
-		++decoder->FramesDropped;
-		NVdecAdvanceDecoderFrame(decoder);
-	    }
-	    decoder->SyncCounter = 2;
-	    goto out;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { // if double advance video not possible, delay audio
 #ifdef USE_ALSA
 	    if (PlayRingbuffer == 1) {
@@ -17940,6 +17932,14 @@ static void NVdecSyncDecoder(NVdecDecoder * decoder)
 	    err = NVdecMessage(3, "video: slow down audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 #endif
+	} else if (diff < lower_limit * 90) {
+	    while (atomic_read(&decoder->SurfacesFilled) > 1 + decoder->Interlaced) { // double advance possible?
+		err = NVdecMessage(3, "video: speed up video, droping frame\n");
+		++decoder->FramesDropped;
+		NVdecAdvanceDecoderFrame(decoder);
+	    }
+	    decoder->SyncCounter = 2;
+	    goto out;
 	}
 #if defined(DEBUG) || defined(AV_INFO)
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
@@ -20316,14 +20316,6 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	    ++decoder->FramesDuped;
 	    decoder->SyncCounter = 1;
 	    goto out;
-	} else if (diff < lower_limit * 90) {
-	    while (atomic_read(&decoder->SurfacesFilled) > 1 + decoder->Interlaced) { // double advance possible?
-		err = CpuMessage(3, "video: speed up video, droping frame\n");
-		++decoder->FramesDropped;
-		CpuAdvanceDecoderFrame(decoder);
-	    }
-	    decoder->SyncCounter = 2;
-	    goto out;
 	} else if (diff < lower_limit * 90 && atomic_read(&decoder->SurfacesFilled) <= 1 + decoder->Interlaced && !IsReplay()) { // if double advance video not possible, delay audio
 #ifdef USE_ALSA
 	    if (PlayRingbuffer == 1) {
@@ -20334,6 +20326,14 @@ static void CpuSyncDecoder(CpuDecoder * decoder)
 	    err = CpuMessage(3, "video: slow down audio\n");
 	    AudioDelayms(-diff / 90 + 55);
 #endif
+	} else if (diff < lower_limit * 90) {
+	    while (atomic_read(&decoder->SurfacesFilled) > 1 + decoder->Interlaced) { // double advance possible?
+		err = CpuMessage(3, "video: speed up video, droping frame\n");
+		++decoder->FramesDropped;
+		CpuAdvanceDecoderFrame(decoder);
+	    }
+	    decoder->SyncCounter = 2;
+	    goto out;
 	}
 #if defined(DEBUG) || defined(AV_INFO)
 	if (!decoder->SyncCounter && decoder->StartCounter < 1000) {
