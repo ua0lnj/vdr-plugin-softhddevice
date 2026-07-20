@@ -3002,8 +3002,14 @@ int SetPlayMode(int play_mode)
 */
 int64_t GetSTC(void)
 {
-    if (MyVideoStream->HwDecoder) {
-	return VideoGetClock(MyVideoStream->HwDecoder);
+    if (SoftIsPlayingVideo) {
+        if (MyVideoStream->HwDecoder) {
+            return VideoGetClock(MyVideoStream->HwDecoder);
+        }
+    }
+    else {
+        if (MyAudioDecoder)
+            return AudioGetClock();
     }
     // could happen during dettached
     Debug(3,"softhddev: %s called without hw decoder\n", __FUNCTION__);
