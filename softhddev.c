@@ -3062,6 +3062,7 @@ void GetVideoSize(int *width, int *height, double *aspect)
 */
 void TrickSpeed(int speed)
 {
+  if (SoftIsPlayingVideo) {
     MyVideoStream->TrickSpeed = speed;
     if (MyVideoStream->HwDecoder) {
 	VideoSetTrickSpeed(MyVideoStream->HwDecoder, speed);
@@ -3069,6 +3070,7 @@ void TrickSpeed(int speed)
 	// can happen, during startup
 	Debug(3, "softhddev: %s called without hw decoder\n", __FUNCTION__);
     }
+  }
     StreamFreezed = 0;
     MyVideoStream->Freezed = 0;
 }
