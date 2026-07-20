@@ -2112,8 +2112,9 @@ static void *AudioPlayHandlerThread(void *dummy)
 	    Debug(3, "audio: play thread stopped\n");
 	    return PTHREAD_CANCELED;
 	}
-
+    if (!AudioPaused && !SoftIsPlayingVideo) {
 	Debug(3, "audio: wait on start condition\n");
+    }
 	pthread_mutex_lock(&AudioMutex);
 	AudioRunning = 0;
 	do {
@@ -2121,13 +2122,13 @@ static void *AudioPlayHandlerThread(void *dummy)
 	    // cond_wait can return, without signal!
 	} while (!AudioRunning);
 	pthread_mutex_unlock(&AudioMutex);
-
+    if (!AudioPaused && !SoftIsPlayingVideo) {
 	Debug(3, "audio: ----> %dms start\n", (AudioUsedBytes() * 1000)
 	    / (!AudioRing[AudioRingWrite].HwSampleRate +
 		!AudioRing[AudioRingWrite].HwChannels +
 		AudioRing[AudioRingWrite].HwSampleRate *
 		AudioRing[AudioRingWrite].HwChannels * AudioBytesProSample));
-
+    }
 	do {
 	    int filled;
 	    int read;

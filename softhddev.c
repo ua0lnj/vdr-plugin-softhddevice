@@ -115,6 +115,7 @@ static AudioDecoder *MyAudioDecoder;	///< audio decoder
 static enum AVCodecID AudioCodecID;	///< current codec id
 static int AudioChannelID;		///< current audio channel id
 static VideoStream *AudioSyncStream;	///< video stream for audio/video sync
+extern volatile char SoftIsPlayingVideo;	///< activates audio-video sync
 
     /// Minimum free space in audio buffer 8 packets for 8 channels
 #define AUDIO_MIN_BUFFER_FREE (3072 * 8 * 8)
