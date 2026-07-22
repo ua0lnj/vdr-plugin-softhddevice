@@ -2763,13 +2763,11 @@ int64_t AudioGetClock(void)
     pthread_mutex_lock(&ReadAdvance_mutex);
     // (cast) needed for the evil gcc
     if (AudioRing[AudioRingRead].PTS != (int64_t) INT64_C(0x8000000000000000)) {
-      if(SoftIsPlayingVideo){
 	int64_t delay;
 	// delay zero, if no valid time stamp
 	if ((delay = AudioGetDelay())) {
 	    pts = AudioRing[AudioRingRead].PTS + 0 * 90 - delay;
 	}
-      } else pts = AudioRing[AudioRingRead].PTS;
     }
     pthread_mutex_unlock(&ReadAdvance_mutex);
     pthread_mutex_unlock(&PTS_mutex);
