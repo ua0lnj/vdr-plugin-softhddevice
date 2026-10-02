@@ -95,7 +95,9 @@ endif
 ### The version number of VDR's plugin API:
 
 APIVERSION = $(call PKGCFG,apiversion)
+APIVERSNUM = $(if $(VDRDIR),$(shell grep '#define APIVERSNUM' $(VDRDIR)/config.h | awk '{ print $$3 }'),$(shell grep '#define APIVERSNUM' ../../../config.h | awk '{ print $$3 }'))
 
+CONFIG += -DAPIVERSNUM=$(APIVERSNUM)
 ### Allow user defined options to overwrite defaults:
 
 -include $(PLGCFG)

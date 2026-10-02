@@ -3295,6 +3295,7 @@ int Poll(int timeout)
     }
 }
 
+#if APIVERSNUM < 30014
 /**
 **	Flush the device output buffers.
 **
@@ -3310,7 +3311,15 @@ int Flush(int timeout)
     }
     return 1;
 }
-
+#else
+/**
+**	The device buffer has been drained.
+*/
+int DrainDevice(void)
+{
+    return !atomic_read(&MyVideoStream->PacketsFilled);
+}
+#endif
 //////////////////////////////////////////////////////////////////////////////
 //	OSD
 //////////////////////////////////////////////////////////////////////////////

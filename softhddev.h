@@ -73,9 +73,13 @@ extern "C"
     extern void StillPicture(const uint8_t *, int);
     /// C plugin poll if ready
     extern int Poll(int);
+#if APIVERSNUM < 30014
     /// C plugin flush output buffers
     extern int Flush(int);
-
+#else
+    /// C plugin drain output buffers
+    extern int DrainDevice(void);
+#endif
     /// C plugin command line help
     extern const char *CommandLineHelp(void);
     /// C plugin process the command line arguments

@@ -2811,7 +2811,11 @@ class cSoftHdDevice:public cDevice
     virtual void Mute(void);
     virtual void StillPicture(const uchar *, int);
     virtual bool Poll(cPoller &, int = 0);
+#if APIVERSNUM < 30014
     virtual bool Flush(int = 0);
+#else
+    virtual bool DrainDevice(void);
+#endif
     virtual int64_t GetSTC(void);
 #if APIVERSNUM >= 10733
     virtual cRect CanScaleVideo(const cRect &, int = taCenter);
@@ -3107,6 +3111,7 @@ bool cSoftHdDevice::Poll(
     return::Poll(timeout_ms);
 }
 
+#if APIVERSNUM < 30014
 /**
 **	Flush the device output buffers.
 **
@@ -3118,6 +3123,19 @@ bool cSoftHdDevice::Flush(int timeout_ms)
 
     return::Flush(timeout_ms);
 }
+
+#else
+
+/**
+**	Drain the device output buffers.
+*/
+bool cSoftHdDevice::DrainDevice(void)
+{
+    Debug(3, "[softhddev]%s: \n", __FUNCTION__);
+
+    return::DrainDevice();
+}
+#endif
 
 // ----------------------------------------------------------------------------
 
