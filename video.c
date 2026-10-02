@@ -21484,6 +21484,7 @@ void VideoPollEvent(void)
 static void VideoThreadLock(void)
 {
     if (VideoThread) {
+	usleep(1); // avoid strange OSD delays on at least Intel J3455 which kernel 7.2+
 	if (pthread_mutex_lock(&VideoLockMutex)) {
 	    Error(_("video: can't lock thread\n"));
 	}
