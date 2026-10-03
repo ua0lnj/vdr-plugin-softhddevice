@@ -65,6 +65,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <math.h>
+#include <time.h>
 
 #include <libintl.h>
 #define _(str) gettext(str)		///< gettext shortcut
@@ -21483,8 +21484,11 @@ void VideoPollEvent(void)
 ///
 static void VideoThreadLock(void)
 {
+    struct timespec req, rem;
+    req.tv_sec = 0;  // seconds
+    req.tv_nsec = 1; // nanoseconds
     if (VideoThread) {
-	usleep(1); // avoid strange OSD delays on at least Intel J3455 which kernel 7.2+
+	nanosleep(&req, &rem); // avoid strange OSD delays on at least Intel J3455 which kernel 7.2+
 	if (pthread_mutex_lock(&VideoLockMutex)) {
 	    Error(_("video: can't lock thread\n"));
 	}
