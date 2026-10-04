@@ -74,6 +74,7 @@ GIT_REV = $(shell git describe --always 2>/dev/null)
 
 # Use package data if installed...otherwise assume we're under the VDR source directory:
 PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
+INCDIR = $(call PKGCFG,incdir)
 LIBDIR = $(call PKGCFG,libdir)
 LOCDIR = $(call PKGCFG,locdir)
 PLGCFG = $(call PKGCFG,plgcfg)
@@ -94,8 +95,11 @@ endif
 
 ### The version number of VDR's plugin API:
 
+VDR_CONFIG_H_FILE := $(firstword $(wildcard $(if $(VDRDIR),$(VDRDIR)/config.h) ../../../config.h $(INCDIR)/vdr/config.h))
+
 APIVERSION = $(call PKGCFG,apiversion)
-APIVERSNUM = $(if $(VDRDIR),$(shell grep '#define APIVERSNUM' $(VDRDIR)/config.h | awk '{ print $$3 }'),$(shell grep '#define APIVERSNUM' ../../../config.h | awk '{ print $$3 }'))
+APIVERSNUM := $(if $(VDR_CONFIG_H_FILE),$(shell grep '#define APIVERSNUM' $(VDR_CONFIG_H_FILE) | awk '{ print $$3 }'))
+$(if $(APIVERSNUM),,$(error Error: could not find APIVERSNUM! VDR header files are missing or config.h is incomplete.))
 
 CONFIG += -DAPIVERSNUM=$(APIVERSNUM)
 ### Allow user defined options to overwrite defaults:
