@@ -98,7 +98,8 @@ endif
 VDR_CONFIG_H_FILE := $(firstword $(wildcard $(if $(VDRDIR),$(VDRDIR)/config.h) ../../../config.h $(INCDIR)/vdr/config.h))
 
 APIVERSION = $(call PKGCFG,apiversion)
-APIVERSNUM := $(if $(VDR_CONFIG_H_FILE),$(shell grep '#define APIVERSNUM' $(VDR_CONFIG_H_FILE) | awk '{ print $$3 }'))
+GET_APIVERSNUM = $(shell grep '#define APIVERSNUM' $(VDR_CONFIG_H_FILE) | awk '{ print $$3 }')
+APIVERSNUM := $(if $(VDR_CONFIG_H_FILE),$(GET_APIVERSNUM))
 $(if $(APIVERSNUM),,$(error Error: could not find APIVERSNUM! VDR header files are missing or config.h is incomplete.))
 
 CONFIG += -DAPIVERSNUM=$(APIVERSNUM)
