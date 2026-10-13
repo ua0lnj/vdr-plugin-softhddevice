@@ -68,7 +68,7 @@ extern "C"
     /// vdr-plugin version number.
     /// Makefile extracts the version number for generating the file name
     /// for the distribution archive.
-static const char *const VERSION = "2.5.0"
+static const char *const VERSION = "2.6.0"
 #ifdef GIT_REV
     "-GIT" GIT_REV
 #endif
@@ -3087,7 +3087,9 @@ void cSoftHdDevice::StillPicture(const uchar * data, int length)
 	data[0] == 0x47 ? "ts" : "pes", data, length);
 
     if (data[0] == 0x47) {		// ts sync
-	cDevice::StillPicture(data, length);
+	if (SoftIsPlayingVideo)
+	    cDevice::StillPicture(data, length);
+	else AudioPause();
 	return;
     }
 

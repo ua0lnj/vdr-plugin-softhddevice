@@ -115,6 +115,7 @@ static AudioDecoder *MyAudioDecoder;	///< audio decoder
 static enum AVCodecID AudioCodecID;	///< current codec id
 static int AudioChannelID;		///< current audio channel id
 static VideoStream *AudioSyncStream;	///< video stream for audio/video sync
+extern volatile char SoftIsPlayingVideo;	///< activates audio-video sync
 
     /// Minimum free space in audio buffer 8 packets for 8 channels
 #define AUDIO_MIN_BUFFER_FREE (3072 * 8 * 8)
@@ -3002,9 +3003,16 @@ int SetPlayMode(int play_mode)
 */
 int64_t GetSTC(void)
 {
-    if (MyVideoStream->HwDecoder) {
-	return VideoGetClock(MyVideoStream->HwDecoder);
+    if (SoftIsPlayingVideo) {
+        if (MyVideoStream->HwDecoder) {
+            return VideoGetClock(MyVideoStream->HwDecoder);
+        }
     }
+    else {
+        if (MyAudioDecoder)
+            return AudioGetClock();
+    }
+
     // could happen during dettached
     Debug(3,"softhddev: %s called without hw decoder\n", __FUNCTION__);
     return AV_NOPTS_VALUE;
@@ -3057,11 +3065,15 @@ void GetVideoSize(int *width, int *height, double *aspect)
 void TrickSpeed(int speed)
 {
     MyVideoStream->TrickSpeed = speed;
-    if (MyVideoStream->HwDecoder) {
-	VideoSetTrickSpeed(MyVideoStream->HwDecoder, speed);
+    if (SoftIsPlayingVideo) {
+	if (MyVideoStream->HwDecoder) {
+	    VideoSetTrickSpeed(MyVideoStream->HwDecoder, speed);
+	} else {
+	    // can happen, during startup
+	    Debug(3, "softhddev: %s called without hw decoder\n", __FUNCTION__);
+	}
     } else {
-	// can happen, during startup
-	Debug(3, "softhddev: %s called without hw decoder\n", __FUNCTION__);
+	AudioSetTrickSpeed(MyAudioDecoder, speed);
     }
     StreamFreezed = 0;
     MyVideoStream->Freezed = 0;
@@ -3303,11 +3315,15 @@ int Poll(int timeout)
 */
 int Flush(int timeout)
 {
-    if (atomic_read(&MyVideoStream->PacketsFilled)) {
-	if (timeout) {			// let display thread work
-	    usleep(timeout * 1000);
+    if (SoftIsPlayingVideo) {
+	if (atomic_read(&MyVideoStream->PacketsFilled)) {
+	    if (timeout) {			// let display thread work
+		usleep(timeout * 1000);
+	    }
+	    return !atomic_read(&MyVideoStream->PacketsFilled);
 	}
-	return !atomic_read(&MyVideoStream->PacketsFilled);
+    } else {
+	return !AudioUsedBytes();
     }
     return 1;
 }
@@ -3317,7 +3333,12 @@ int Flush(int timeout)
 */
 int DrainDevice(void)
 {
-    return !atomic_read(&MyVideoStream->PacketsFilled);
+    if (SoftIsPlayingVideo && MyVideoStream->HwDecoder) {
+	return !atomic_read(&MyVideoStream->PacketsFilled);
+    } else if (MyAudioDecoder) {
+	return !AudioUsedBytes();
+    }
+    return 1;
 }
 #endif
 //////////////////////////////////////////////////////////////////////////////

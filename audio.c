@@ -2112,8 +2112,9 @@ static void *AudioPlayHandlerThread(void *dummy)
 	    Debug(3, "audio: play thread stopped\n");
 	    return PTHREAD_CANCELED;
 	}
-
-	Debug(3, "audio: wait on start condition\n");
+	if (!AudioPaused) {
+	    Debug(3, "audio: wait on start condition\n");
+	}
 	pthread_mutex_lock(&AudioMutex);
 	AudioRunning = 0;
 	do {
@@ -2190,11 +2191,11 @@ static void *AudioPlayHandlerThread(void *dummy)
 			}
 			continue;
 		    } else {
-			Debug(3, "audio: buffer empty or pcm not running, and no new ring buffer, goto sleep\n");
+			if (!AudioPaused) Debug(3, "audio: buffer empty or pcm not running, and no new ring buffer, goto sleep\n");
 			break;
 		    }
 #else
-		    Debug(3, "audio: buffer empty or pcm not running, and no ring buffer, goto sleep\n");
+		    if (!AudioPaused) Debug(3, "audio: buffer empty or pcm not running, and no ring buffer, goto sleep\n");
 		    break;
 #endif
 		}

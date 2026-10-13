@@ -1101,6 +1101,7 @@ struct _audio_decoder_
     int64_t LastDelay;			///< last delay
     struct timespec LastTime;		///< last time
     int64_t LastPTS;			///< last PTS
+    int TrickSpeed;			///< trick speed
 
     int Drift;				///< accumulated audio drift
     int DriftCorr;			///< audio drift correction value
@@ -1263,6 +1264,7 @@ void CodecAudioOpen(AudioDecoder * audio_decoder, int codec_id)
     audio_decoder->HwSampleRate = 0;
     audio_decoder->HwChannels = 0;
     audio_decoder->LastDelay = 0;
+    audio_decoder->TrickSpeed = 0;
 }
 
 /**
@@ -1349,6 +1351,11 @@ void CodecSetAudioPassthroughHBR(int onoff)
 	return;
     }
     CodecPassthroughHBR = onoff;
+}
+
+void AudioSetTrickSpeed(AudioDecoder * audio_decoder, int speed)
+{
+	audio_decoder->TrickSpeed = speed;
 }
 
 /**
@@ -1725,6 +1732,8 @@ static void CodecAudioSetClock(AudioDecoder * audio_decoder, int64_t pts)
     int corr;
 
     AudioSetClock(pts);
+
+    if (audio_decoder->TrickSpeed) return;
 
     delay = AudioGetDelay();
     if (!delay) {
@@ -2186,6 +2195,8 @@ static void CodecAudioSetClock(AudioDecoder * audio_decoder, int64_t pts)
 
     AudioSetClock(pts);
 
+    if (audio_decoder->TrickSpeed) return;
+
     delay = AudioGetDelay();
     if (!delay) {
 	return;
@@ -2554,7 +2565,8 @@ void CodecAudioDecode(AudioDecoder * audio_decoder, const AVPacket * avpkt)
 */
 void CodecAudioFlushBuffers(AudioDecoder * decoder)
 {
-    avcodec_flush_buffers(decoder->AudioCtx);
+    if (decoder->AudioCtx)
+	avcodec_flush_buffers(decoder->AudioCtx);
 }
 
 //----------------------------------------------------------------------------

@@ -170,6 +170,9 @@ extern void CodecAudioDecode(AudioDecoder *, const AVPacket *);
     /// Flush audio buffers.
 extern void CodecAudioFlushBuffers(AudioDecoder *);
 
+    /// Set audio trick speed.
+extern void AudioSetTrickSpeed(AudioDecoder *, int speed);
+
     /// Setup and initialize codec module.
 extern void CodecInit(void);
 
