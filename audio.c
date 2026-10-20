@@ -2191,11 +2191,15 @@ static void *AudioPlayHandlerThread(void *dummy)
 			}
 			continue;
 		    } else {
-			if (!AudioPaused) Debug(3, "audio: buffer empty or pcm not running, and no new ring buffer, goto sleep\n");
+			if (!AudioPaused) {
+			    Debug(3, "audio: buffer empty or pcm not running, and no new ring buffer, goto sleep\n");
+			}
 			break;
 		    }
 #else
-		    if (!AudioPaused) Debug(3, "audio: buffer empty or pcm not running, and no ring buffer, goto sleep\n");
+		    if (!AudioPaused) {
+			Debug(3, "audio: buffer empty or pcm not running, and no ring buffer, goto sleep\n");
+		    }
 		    break;
 #endif
 		}
