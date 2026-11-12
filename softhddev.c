@@ -3149,6 +3149,7 @@ void StillPicture(const uint8_t * data, int size)
     static uint8_t seq_end_h265[] = { 0x00, 0x00, 0x00, 0x01, 0x48, 0x01 }; //0x48 = end of seq   0x4a = end of stream
     int i;
     unsigned int old_video_hardware_decoder;
+    uint8_t *bla = NULL;
 
     // might be called in Suspended Mode
     if (!MyVideoStream->Decoder || MyVideoStream->SkipStream) {
@@ -3179,6 +3180,22 @@ void StillPicture(const uint8_t * data, int size)
     if (MyVideoStream->CodecID == AV_CODEC_ID_NONE) {
 	// FIXME: should detect codec, see PlayVideo
 	Error(_("[softhddev] no codec known for still picture\n"));
+    }
+
+    // HEVC: ffmpeg drops the repeated CRA picture (duplicate POC) and a CRA
+    // after an end of sequence discards the prior pictures, so the still
+    // picture never leaves the DPB. Sent as BLA (same slice header syntax)
+    // every copy starts a new sequence and the previous copy is output.
+    if (MyVideoStream->CodecID == AV_CODEC_ID_HEVC && (bla = malloc(size))) {
+	memcpy(bla, data, size);
+	for (i = 0; i + 3 < size; ++i) {
+	    if (!bla[i] && !bla[i + 1] && bla[i + 2] == 0x01
+		&& ((bla[i + 3] >> 1) & 0x3F) == 21) {	// CRA_NUT
+		bla[i + 3] = (bla[i + 3] & 0x81) | (16 << 1);	// BLA_W_LP
+		Debug(3, "[softhddev]%s: CRA -> BLA at %d\n", __FUNCTION__, i);
+	    }
+	}
+	data = bla;
     }
 
     // FIXME: can check video backend, if a frame was produced.
@@ -3259,6 +3276,7 @@ void StillPicture(const uint8_t * data, int size)
 	VideoHardwareDecoder = old_video_hardware_decoder;
 	VideoNextPacket(MyVideoStream, AV_CODEC_ID_NONE);	// close last stream
     }
+    free(bla);
     //end stillpicture
     TrickSpeed(101);
 }
