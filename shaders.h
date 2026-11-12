@@ -345,7 +345,7 @@ static GLuint sc_generate(GLuint gl_prog, enum AVColorSpace colorspace)
 	Debug(3,"Try compile fragment %s\n", Versions[n]);
 
 	frag = malloc(charsize(Fragment, Versions[n]));
-	sprintf(frag, fragment, Versions[n]);
+	sprintf(frag, Fragment, Versions[n]);
 	r = compile_attach_shader(gl_prog, GL_FRAGMENT_SHADER, frag);
 	free(frag);
 	if (!r) return 0;
