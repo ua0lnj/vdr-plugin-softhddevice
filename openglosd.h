@@ -503,6 +503,7 @@ private:
     std::shared_ptr<cOglThread> oglThread;
     cVector<cOglPixmap *> oglPixmaps;
     bool isSubtitleOsd;
+    cPoint areaOrigin;      // top left corner of the OSD area, pixmaps are rendered relative to it
     cSize maxPixmapSize;
 protected:
 public:

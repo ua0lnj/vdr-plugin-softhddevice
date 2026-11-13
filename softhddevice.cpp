@@ -377,6 +377,7 @@ class cSoftOsd:public cOsd
 {
   private:
     cSize maxPixmapSize;
+    cPoint areaEnd;			///< bottom right corner (exclusive) of the areas
   public:
     static volatile char Dirty;		///< flag force redraw everything
     int OsdLevel;			///< current osd level FIXME: remove
@@ -495,6 +496,15 @@ eOsdError cSoftOsd::SetAreas(const tArea * areas, int n)
 	for (i = 0; (bitmap = GetBitmap(i)); i++) {
 	    bitmap->Clean();
 	}
+    }
+    // in true colour mode VDR sets Width()/Height() to the size of the area,
+    // which may start anywhere inside the OSD: remember where the areas end
+    areaEnd.Set(0, 0);
+    for (int i = 0; i < n; ++i) {
+	if (areas[i].x2 + 1 > areaEnd.X())
+	    areaEnd.SetX(areas[i].x2 + 1);
+	if (areas[i].y2 + 1 > areaEnd.Y())
+	    areaEnd.SetY(areas[i].y2 + 1);
     }
     if (Active()) {
 	VideoOsdClear();
@@ -676,11 +686,11 @@ void cSoftOsd::Flush(void)
 	    y = 0;
 	}
 
-	if (w > Width() - x) {
-	    w = Width() - x;
+	if (w > areaEnd.X() - x) {
+	    w = areaEnd.X() - x;
 	}
-	if (h > Height() - y) {
-	    h = Height() - y;
+	if (h > areaEnd.Y() - y) {
+	    h = areaEnd.Y() - y;
 	}
 
 	x += Left();
