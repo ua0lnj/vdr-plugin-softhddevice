@@ -2197,6 +2197,14 @@ eOsdError cOglOsd::SetAreas(const tArea *Areas, int NumAreas) {
         oglThread->DoCmd(new cOglCmdDeleteFb(bFb));
         DestroyPixmap(oglPixmaps[0]);
     }
+    // cOsd::SetAreas() deletes all pixmaps of this OSD, so forget them here as
+    // well. Otherwise Flush() would use the deleted pixmaps when an OSD gets
+    // new areas (e.g. text2skin switching the windows of the replay display).
+    {
+        LOCK_PIXMAPS;
+        for (int i = 0; i < oglPixmaps.Size(); i++)
+            oglPixmaps[i] = NULL;
+    }
     bFb = new cOglFb(r.Width(), r.Height(), r.Width(), r.Height());
     cCondWait initiated;
     oglThread->DoCmd(new cOglCmdInitFb(bFb, &initiated));
