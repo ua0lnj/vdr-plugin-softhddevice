@@ -3181,7 +3181,7 @@ void StillPicture(const uint8_t * data, int size)
 	// FIXME: should detect codec, see PlayVideo
 	Error(_("[softhddev] no codec known for still picture\n"));
     }
-
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(61,11,100)
     // HEVC: ffmpeg drops the repeated CRA picture (duplicate POC) and a CRA
     // after an end of sequence discards the prior pictures, so the still
     // picture never leaves the DPB. Sent as BLA (same slice header syntax)
@@ -3197,7 +3197,7 @@ void StillPicture(const uint8_t * data, int size)
 	}
 	data = bla;
     }
-
+#endif
     // FIXME: can check video backend, if a frame was produced.
     // output for max reference frames
 #ifdef STILL_DEBUG
