@@ -2173,8 +2173,8 @@ cOglOsd::cOglOsd(int Left, int Top, uint Level, std::shared_ptr<cOglThread> oglT
 cOglOsd::~cOglOsd() {
     if (!bFb || !Active()) return;
     oglThread->DoCmd(new cOglCmdFill(bFb, clrTransparent));
-    oglThread->DoCmd(new cOglCmdCopyBufferToOutputFb(bFb, oFb, Left() + (isSubtitleOsd ? oglPixmaps[0]->ViewPort().X() : 0),
-        Top() + (isSubtitleOsd ? oglPixmaps[0]->ViewPort().Y() : 0)));
+    oglThread->DoCmd(new cOglCmdCopyBufferToOutputFb(bFb, oFb, Left() + (isSubtitleOsd ? oglPixmaps[0]->ViewPort().X() : areaOrigin.X()),
+        Top() + (isSubtitleOsd ? oglPixmaps[0]->ViewPort().Y() : areaOrigin.Y())));
     OsdClose();
     SetActive(false);
     oglThread->DoCmd(new cOglCmdDeleteFb(bFb));
@@ -2190,12 +2190,24 @@ eOsdError cOglOsd::SetAreas(const tArea *Areas, int NumAreas) {
 
     if(r.Left() && r.Top()) isSubtitleOsd = true; //for DVD plugin
 
+    // An area may start anywhere inside the OSD (e.g. a volume bar at the bottom).
+    // The buffer has the size of the area, so render relative to its corner.
+    areaOrigin = isSubtitleOsd ? cPoint(0, 0) : cPoint(r.Left(), r.Top());
+
     tArea area = { r.Left(), r.Top(), r.Right(), r.Bottom(), 32 };
 
     //now we know the actuaL osd size, create double buffer frame buffer
     if (bFb) {
         oglThread->DoCmd(new cOglCmdDeleteFb(bFb));
         DestroyPixmap(oglPixmaps[0]);
+    }
+    // cOsd::SetAreas() deletes all pixmaps of this OSD, so forget them here as
+    // well. Otherwise Flush() would use the deleted pixmaps when an OSD gets
+    // new areas (e.g. text2skin switching the windows of the replay display).
+    {
+        LOCK_PIXMAPS;
+        for (int i = 0; i < oglPixmaps.Size(); i++)
+            oglPixmaps[i] = NULL;
     }
     bFb = new cOglFb(r.Width(), r.Height(), r.Width(), r.Height());
     cCondWait initiated;
@@ -2285,8 +2297,8 @@ void cOglOsd::Flush(void) {
                 if (oglPixmaps[i]->Layer() == layer) {
                     oglThread->DoCmd(new cOglCmdRenderFbToBufferFb( oglPixmaps[i]->Fb(),
                                                                     bFb,
-                                                                    isSubtitleOsd ? 0 : oglPixmaps[i]->ViewPort().X(),
-                                                                    isSubtitleOsd ? 0 : oglPixmaps[i]->ViewPort().Y(),
+                                                                    isSubtitleOsd ? 0 : oglPixmaps[i]->ViewPort().X() - areaOrigin.X(),
+                                                                    isSubtitleOsd ? 0 : oglPixmaps[i]->ViewPort().Y() - areaOrigin.Y(),
                                                                     oglPixmaps[i]->Alpha(),
                                                                     oglPixmaps[i]->DrawPort().X(),
                                                                     oglPixmaps[i]->DrawPort().Y()));
@@ -2296,8 +2308,8 @@ void cOglOsd::Flush(void) {
         }
     }
     //copy buffer to output framebuffer
-    oglThread->DoCmd(new cOglCmdCopyBufferToOutputFb(bFb, oFb, Left() + (isSubtitleOsd ? oglPixmaps[0]->ViewPort().X() : 0),
-        Top() + (isSubtitleOsd ? oglPixmaps[0]->ViewPort().Y() : 0)));
+    oglThread->DoCmd(new cOglCmdCopyBufferToOutputFb(bFb, oFb, Left() + (isSubtitleOsd ? oglPixmaps[0]->ViewPort().X() : areaOrigin.X()),
+        Top() + (isSubtitleOsd ? oglPixmaps[0]->ViewPort().Y() : areaOrigin.Y())));
     //dsyslog("[softhddev]End Flush at %" PRIu64 ", duration %d", cTimeMs::Now(), (int)(cTimeMs::Now()-start));
 }
 
