@@ -3230,7 +3230,6 @@ static void VaapiDelHwDecoder(VaapiDecoder * decoder)
 	    Error(_("video/vaapi: can't destroy a surface\n"));
 	}
     }
-    if (!VaapiDecoders[0]) {
 #if defined USE_GLX && !defined VAAPI_NO_GLX
     if (decoder->GlxSurfaces[0]) {
 	if (vaDestroySurfaceGLX(VaDisplay, decoder->GlxSurfaces[0])
@@ -3252,7 +3251,6 @@ static void VaapiDelHwDecoder(VaapiDecoder * decoder)
 	glDeleteTextures(2, decoder->GlTextures);
     }
 #endif
-    }
     VaapiPrintFrames(decoder);
 
     free(decoder);
