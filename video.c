@@ -2878,8 +2878,6 @@ static void VaapiInitSurfaceFlags(VaapiDecoder * decoder)
 	    default:
 		break;
 	}
-        if (decoder->SurfaceDeintTable[i] > decoder->MaxSupportedDeinterlacer)
-            Error("Selected deinterlacer for resolution %d is not supported by HW\n", i);
 
     }
     if (decoder->vpp_denoise_buf) {
@@ -4739,6 +4737,12 @@ static void VaapiSetupVideoProcessing(VaapiDecoder * decoder)
 		break;
 	}
 	VaapiInitSurfaceFlags(decoder);
+    }
+    // the supported deinterlacers are known only now
+    for (u = 0; u < (unsigned)VideoResolutionMax; ++u) {
+	if (decoder->SurfaceDeintTable[u] > decoder->MaxSupportedDeinterlacer) {
+	    Error("Selected deinterlacer for resolution %d is not supported by HW\n", (int)u);
+	}
     }
     //
     //	query pipeline caps
