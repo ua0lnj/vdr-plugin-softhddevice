@@ -4411,6 +4411,18 @@ static void VaapiSetup(VaapiDecoder * decoder,
 	    Error(_("video/glx: can't make glx context current\n"));
 	    return;
         }
+	// release the surface and textures of the previous setup, else they leak with each setup
+	if (decoder->GlxSurfaces[0]) {
+	    if (vaDestroySurfaceGLX(decoder->VaDisplay, decoder->GlxSurfaces[0])
+		!= VA_STATUS_SUCCESS) {
+		Error(_("video/vaapi: can't destroy glx surface!\n"));
+	    }
+	    decoder->GlxSurfaces[0] = NULL;
+	}
+	if (decoder->GlTextures[0]) {
+	    glDeleteTextures(2, decoder->GlTextures);
+	    decoder->GlTextures[0] = decoder->GlTextures[1] = 0;
+	}
 	GlxSetupDecoder(decoder->InputWidth, decoder->InputHeight,
 	    decoder->GlTextures);
 	if (vaCreateSurfaceGLX(decoder->VaDisplay, GL_TEXTURE_2D,
