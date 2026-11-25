@@ -3472,6 +3472,8 @@ int ProcessArgs(int argc, char *const argv[])
 
     LogLevel = SysLogLevel; // default is the global log level
 
+    int still_decoder = 0;		// 1: still-hw-decoder, 2: still-h264-hw-decoder
+
     for (;;) {
 	switch (getopt(argc, argv, "-a:c:d:fg:l:p:sv:w:xDNX:")) {
 	    case 'a':			// audio device for pcm
@@ -3523,15 +3525,12 @@ int ProcessArgs(int argc, char *const argv[])
 		    VideoHardwareDecoder = HWOff;
 		} else if (!strcasecmp("no-mpeg-hw-decoder", optarg)) {
 		    VideoHardwareDecoder = HWmpeg2Off;
-		    if (ConfigStillDecoder) {
-			ConfigStillDecoder = HWmpeg2Off;
-		    }
 		} else if (!strcasecmp("no-hevc-decoder", optarg)) {
 		    VideoHardwareDecoder = HWhevcOff;
 		} else if (!strcasecmp("still-hw-decoder", optarg)) {
-		    ConfigStillDecoder = VideoHardwareDecoder ? VideoHardwareDecoder : HWOn;
+		    still_decoder = 1;
 		} else if (!strcasecmp("still-h264-hw-decoder", optarg)) {
-		    ConfigStillDecoder = VideoHardwareDecoder ? VideoHardwareDecoder : HWmpeg2Off;
+		    still_decoder = 2;
 		} else if (!strcasecmp("alsa-driver-broken", optarg)) {
 		    AudioAlsaDriverBroken = 1;
 		} else if (!strcasecmp("alsa-no-close-open", optarg)) {
@@ -3564,6 +3563,13 @@ int ProcessArgs(int argc, char *const argv[])
 		return 0;
 	}
 	break;
+    }
+    // the still picture decoder follows the hw decoder workarounds,
+    // independent of the order of the -w options
+    if (still_decoder == 1) {
+	ConfigStillDecoder = VideoHardwareDecoder ? VideoHardwareDecoder : HWOn;
+    } else if (still_decoder == 2) {
+	ConfigStillDecoder = VideoHardwareDecoder ? VideoHardwareDecoder : HWmpeg2Off;
     }
     while (optind < argc) {
 	fprintf(stderr, _("Unhandled argument '%s'\n"), argv[optind++]);
