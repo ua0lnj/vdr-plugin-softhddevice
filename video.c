@@ -3159,12 +3159,14 @@ static void VaapiCleanup(VaapiDecoder * decoder)
 	}
     }
 #endif
-    if (vaDestroyContext(VaDisplay, decoder->vpp_ctx) != VA_STATUS_SUCCESS) {
+    if (decoder->vpp_ctx != VA_INVALID_ID
+	&& vaDestroyContext(VaDisplay, decoder->vpp_ctx) != VA_STATUS_SUCCESS) {
         Error(_("video/vaapi: can't destroy postproc context!\n"));
     }
     decoder->vpp_ctx = VA_INVALID_ID;
 
-    if (vaDestroyConfig(VaDisplay, decoder->VppConfig) != VA_STATUS_SUCCESS) {
+    if (decoder->VppConfig != VA_INVALID_ID
+	&& vaDestroyConfig(VaDisplay, decoder->VppConfig) != VA_STATUS_SUCCESS) {
         Error(_("video/vaapi: can't destroy config!\n"));
     }
     decoder->VppConfig = VA_INVALID_ID;
