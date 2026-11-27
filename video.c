@@ -3180,6 +3180,28 @@ static void VaapiCleanup(VaapiDecoder * decoder)
 	VaapiDestroyDeinterlaceImages(decoder);
     }
 
+#if defined USE_GLX && !defined VAAPI_NO_GLX
+    if (decoder->GlxSurfaces[0]) {
+	if (vaDestroySurfaceGLX(VaDisplay, decoder->GlxSurfaces[0])
+	    != VA_STATUS_SUCCESS) {
+	    Error(_("video/vaapi: can't destroy glx surface!\n"));
+	}
+	decoder->GlxSurfaces[0] = NULL;
+    }
+    if (decoder->GlxSurfaces[1]) {
+	if (vaDestroySurfaceGLX(VaDisplay, decoder->GlxSurfaces[1])
+	    != VA_STATUS_SUCCESS) {
+	    Error(_("video/vaapi: can't destroy glx surface!\n"));
+	}
+	decoder->GlxSurfaces[1] = NULL;
+    }
+#endif
+#if defined USE_GLX || defined USE_EGL
+    if (decoder->GlTextures[0]) {
+	glDeleteTextures(2, decoder->GlTextures);
+    }
+#endif
+
     decoder->SurfaceRead = 0;
     decoder->SurfaceWrite = 0;
     decoder->SurfaceField = 0;
@@ -3229,29 +3251,6 @@ static void VaapiDelHwDecoder(VaapiDecoder * decoder)
 	    != VA_STATUS_SUCCESS) {
 	    Error(_("video/vaapi: can't destroy a surface\n"));
 	}
-    }
-    if (!VaapiDecoders[0]) {
-#if defined USE_GLX && !defined VAAPI_NO_GLX
-    if (decoder->GlxSurfaces[0]) {
-	if (vaDestroySurfaceGLX(VaDisplay, decoder->GlxSurfaces[0])
-	    != VA_STATUS_SUCCESS) {
-	    Error(_("video/vaapi: can't destroy glx surface!\n"));
-	}
-	decoder->GlxSurfaces[0] = NULL;
-    }
-    if (decoder->GlxSurfaces[1]) {
-	if (vaDestroySurfaceGLX(VaDisplay, decoder->GlxSurfaces[1])
-	    != VA_STATUS_SUCCESS) {
-	    Error(_("video/vaapi: can't destroy glx surface!\n"));
-	}
-	decoder->GlxSurfaces[1] = NULL;
-    }
-#endif
-#if defined USE_GLX || defined USE_EGL
-    if (decoder->GlTextures[0]) {
-	glDeleteTextures(2, decoder->GlTextures);
-    }
-#endif
     }
     VaapiPrintFrames(decoder);
 
