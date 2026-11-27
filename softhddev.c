@@ -3440,6 +3440,7 @@ const char *CommandLineHelp(void)
 	"  -w workaround\tenable/disable workarounds\n"
 	"\tno-hw-decoder\t\tdisable hw decoder, use software decoder only\n"
 	"\tno-mpeg-hw-decoder\tdisable hw decoder for mpeg only\n"
+	"\tno-hevc-decoder\t\tdisable hevc decoding, hevc streams are not shown\n"
 	"\tstill-hw-decoder\tenable hardware decoder for still-pictures\n"
 	"\tstill-h264-hw-decoder\tenable h264 hw decoder for still-pictures\n"
 	"\talsa-driver-broken\tdisable broken alsa driver message\n"

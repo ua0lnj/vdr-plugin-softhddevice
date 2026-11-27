@@ -326,6 +326,8 @@ Commandline:
     -w workaround 	enable/disable workarounds:
 	no-hw-decoder			disable hw decoder, use software decoder only
 	no-mpeg-hw-decoder		disable hw decoder for mpeg2 only
+	no-hevc-decoder			disable hevc (h.265) decoding, hevc streams (UHD)
+					are not shown - for GPUs without hevc support
 	still-hw-decoder		enable hardware decoder for still-pictures
 	still-h264-hw-decoder		enable h264 hw decoder for still-pictures
 	alsa-driver-broken		disable broken alsa driver message
