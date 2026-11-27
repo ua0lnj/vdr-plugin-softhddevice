@@ -5429,8 +5429,14 @@ static void VaapiPutSurfaceEGL(VaapiDecoder * decoder, VASurfaceID surface,
             GlEGLImageTargetTexture2DOES(GL_TEXTURE_2D, decoder->EglImages[i]);
             EglCheck();
         } else {
-            for (int i = 0;  i < (int)prime.num_objects;  ++i) {
-                close(prime.objects[i].fd);
+            // the image of a previous layer holds the surface buffer -> destroy it, else
+            //  the buffer leaks with each failed frame (fe. HEVC on Intel HD 4000)
+            for (int j = 0;  j < i;  ++j) {
+                EglDestroyImageKHR(EglDisplay, decoder->EglImages[j]);
+                decoder->EglImages[j] = NULL;
+            }
+            for (int j = 0;  j < (int)prime.num_objects;  ++j) {
+                close(prime.objects[j].fd);
             }
             Error(_("video/egl: eglCreateImageKHR failed\n"));
             return;
@@ -5450,29 +5456,33 @@ static void VaapiPutSurfaceEGL(VaapiDecoder * decoder, VASurfaceID surface,
 
     if (gl_prog == 0)
         gl_prog = sc_generate(gl_prog, decoder->ColorSpace);    // generate shader programm
-    if (!gl_prog) return;
 
-    glUseProgram(gl_prog);
-    texLoc = glGetUniformLocation(gl_prog, "texture0");
-    glUniform1i(texLoc, 0);
-    texLoc = glGetUniformLocation(gl_prog, "texture1");
-    glUniform1i(texLoc, 1);
+    if (gl_prog) {      // without shader skip rendering only, the images and fds are released below
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D,decoder->GlTextures[0]);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D,decoder->GlTextures[1]);
+        glUseProgram(gl_prog);
+        texLoc = glGetUniformLocation(gl_prog, "texture0");
+        glUniform1i(texLoc, 0);
+        texLoc = glGetUniformLocation(gl_prog, "texture1");
+        glUniform1i(texLoc, 1);
 
-    render_pass_quad(0, xcropf, ycropf);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D,decoder->GlTextures[0]);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D,decoder->GlTextures[1]);
 
-    glUseProgram(0);
+        render_pass_quad(0, xcropf, ycropf);
+
+        glUseProgram(0);
+    }
 
     for (int i = 0;  i < 2;  ++i) {
         EglDestroyImageKHR(EglDisplay, decoder->EglImages[i]);
         EglCheck();
         decoder->EglImages[i] = NULL;
-        if(prime.objects[i].fd)
-            close(prime.objects[i].fd);
+    }
+    // only the first prime.num_objects fds are valid, the others are uninitialized
+    for (int i = 0;  i < (int)prime.num_objects;  ++i) {
+        close(prime.objects[i].fd);
     }
     glBindTexture(GL_TEXTURE_2D, 0);
 #endif
