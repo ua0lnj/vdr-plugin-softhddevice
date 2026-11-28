@@ -2192,7 +2192,8 @@ eOsdError cOglOsd::SetAreas(const tArea *Areas, int NumAreas) {
 
     // An area may start anywhere inside the OSD (e.g. a volume bar at the bottom).
     // The buffer has the size of the area, so render relative to its corner.
-    areaOrigin = isSubtitleOsd ? cPoint(0, 0) : cPoint(r.Left(), r.Top());
+    if (isSubtitleOsd) areaOrigin.Set(0, 0);
+    else areaOrigin.Set(r.Left(), r.Top());
 
     tArea area = { r.Left(), r.Top(), r.Right(), r.Bottom(), 32 };
 

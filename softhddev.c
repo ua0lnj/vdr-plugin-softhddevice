@@ -3471,9 +3471,8 @@ int ProcessArgs(int argc, char *const argv[])
     }
 #endif
 
-    LogLevel = SysLogLevel; // default is the global log level
-
     int still_decoder = 0;		// 1: still-hw-decoder, 2: still-h264-hw-decoder
+    LogLevel = SysLogLevel;		// default is the global log level
 
     for (;;) {
 	switch (getopt(argc, argv, "-a:c:d:fg:l:p:sv:w:xDNX:")) {
